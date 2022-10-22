@@ -1,0 +1,27 @@
+package com.example.voicejournal.Data
+
+import androidx.lifecycle.LiveData
+import androidx.room.*
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface VoiceJournalDao {
+    @Query("SELECT * FROM 'voice.db'  WHERE voice_id =:voiceId")
+    suspend fun getLetter(voiceId: Int): VoiceJournal?
+    @Query("SELECT * FROM 'voice.db' ORDER By voice_id ASC" )
+    fun getRecentLetter(): LiveData<List<VoiceJournal>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insert(voiceJournal: VoiceJournal):Long
+    @Insert
+    fun insertAll(vararg voiceJournal: VoiceJournal)
+
+    @Update
+    fun update(voiceJournal: VoiceJournal)
+
+    @Delete
+    fun delete(voiceJournal: VoiceJournal)
+
+    @Query("SELECT * FROM `voice.db`")
+    fun getAllLetters(): Flow<List<VoiceJournal>>
+}
