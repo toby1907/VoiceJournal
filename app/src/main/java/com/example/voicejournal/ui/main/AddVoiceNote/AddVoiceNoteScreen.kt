@@ -61,7 +61,7 @@ fun AddVoiceNoteScreen(
     val titleState = addVoiceNoteViewModel.noteTitle.value
     val contentState = addVoiceNoteViewModel.noteContent.value
     val fileNameState = addVoiceNoteViewModel.noteFileName.value
-
+ val playNoteState = addVoiceNoteViewModel.playNoteState.value
     var playState by remember { mutableStateOf(false) }
     var playButtonState by remember {
         mutableStateOf(false)
@@ -87,7 +87,9 @@ fun AddVoiceNoteScreen(
                 is AddVoiceNoteViewModel.UiEvent.StopRecord -> {
 
                 }
-                is AddVoiceNoteViewModel.UiEvent.PlayNote -> {}
+                is AddVoiceNoteViewModel.UiEvent.PlayNote -> {
+                    playState= true
+                }
                 is AddVoiceNoteViewModel.UiEvent.StopPlay -> {
                    mediaState = true
                 }
@@ -143,7 +145,7 @@ fun AddVoiceNoteScreen(
                             IconButton(onClick = {
                                 playState =!playState
 
-                                if (playState) {
+                                if (playState&&playNoteState) {
                                     addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Play(fileNameState.text))
                                 }
                                 else{
@@ -151,7 +153,7 @@ fun AddVoiceNoteScreen(
                                 }
                             })
                             {
-                              if(playButtonState)  {
+                              if(playNoteState)  {
 
                                     Icon(
                                         painter = painterResource(if (!playState||mediaState) R.drawable.play_button_24  else R.drawable.pause_button_24  ),
@@ -180,10 +182,12 @@ fun AddVoiceNoteScreen(
 
 
                         }) {
-                            Icon(
-                                painter = painterResource(if (recordState==false) R.drawable.baseline_mic_black_36 else R.drawable.stop_button_36),
-                                contentDescription = "Localized description"
-                            )
+                            if(!playNoteState){
+                                Icon(
+                                    painter = painterResource(if (recordState == false) R.drawable.baseline_mic_black_36 else R.drawable.stop_button_36),
+                                    contentDescription = "Localized description"
+                                )
+                            }
 
                         }
 

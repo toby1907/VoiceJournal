@@ -31,7 +31,6 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val formatter = SimpleDateFormat("yyyy_MM_dd_hh_mm_ss", Locale.getDefault())
     private val now = Date()
 
-    private var mediaFileName:String = ""
 
     private val _noteTitle = mutableStateOf(NoteTextFieldState(
         hint = "Enter title..."
@@ -39,9 +38,12 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val _noteFileName = mutableStateOf(
       NoteFileNameFieldState()
     )
+    private val _playNoteState = mutableStateOf(false
+    )
 
     val noteTitle: State<NoteTextFieldState> = _noteTitle
     val noteFileName: State<NoteFileNameFieldState> = _noteFileName
+    val playNoteState: State<Boolean> =_playNoteState
 
     private val _noteContent = mutableStateOf(NoteContentTextFieldState(
         hint = "Enter some content"
@@ -55,15 +57,16 @@ class AddVoiceNoteViewModel @Inject constructor(
     val eventFlow = _eventFlow.asSharedFlow()
 
     private var currentNoteId: Int? = null
-    private var currentFileName: String? = null
+
 
     init {
         savedStateHandle.get<Int>("noteId")?.let { noteId ->
             if(noteId != -1) {
+               _playNoteState.value= true
                 viewModelScope.launch {
+
                     voiceJournalRepository.getNote(noteId)?.also { note ->
                         currentNoteId = note.id
-                        currentFileName =note.fileName
                         _noteTitle.value = noteTitle.value.copy(
                             text = note.title,
                             isHintVisible = false
@@ -76,7 +79,10 @@ class AddVoiceNoteViewModel @Inject constructor(
                         _noteFileName.value = _noteFileName.value.copy(
                             text = note.fileName
                         )
+                        _playNoteState.value =noteFileName.value.text!=""
+
                     }
+
                 }
             }
         }

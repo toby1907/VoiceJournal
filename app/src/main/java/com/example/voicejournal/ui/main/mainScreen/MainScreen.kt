@@ -107,7 +107,7 @@ fun JournalItem(
                 }
             }
             Spacer(modifier =Modifier.size(24.dp) )
-            Icon(painter = painterResource(id =R.drawable.play_button_24 ) , contentDescription = "")
+          if(voiceJournal.fileName!="")  Icon(painter = painterResource(id =R.drawable.play_button_24 ) , contentDescription = "")
         }
     }
 }
