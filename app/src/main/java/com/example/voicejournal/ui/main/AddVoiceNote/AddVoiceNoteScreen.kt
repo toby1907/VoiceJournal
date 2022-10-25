@@ -47,8 +47,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.util.*
-
-
+import kotlin.math.absoluteValue
 
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -71,6 +70,9 @@ fun AddVoiceNoteScreen(
     }
     var mediaState by remember {
         mutableStateOf(false)
+    }
+    var colorIntState by remember {
+        mutableStateOf(Int.MAX_VALUE)
     }
 
     val scaffoldState = rememberScaffoldState()
@@ -139,7 +141,12 @@ fun AddVoiceNoteScreen(
 
             bottomBar = {
 
-                    BottomAppBar(Modifier.wrapContentWidth()) {
+                    BottomAppBar(
+                        Modifier
+                            .wrapContentWidth()
+                            .background(Color(colorIntState))
+                            )
+                    {
                         // Leading icons should typically have a high content alpha
                         CompositionLocalProvider(LocalContentAlpha provides ContentAlpha.high) {
                             IconButton(onClick = {
@@ -226,6 +233,7 @@ fun AddVoiceNoteScreen(
                                         shape = CircleShape
                                     )
                                     .clickable {
+                                        colorIntState = color.toArgb()
                                         scope.launch {
                                             noteBackgroundAnimatable.animateTo(
                                                 targetValue = Color(colorInt),
