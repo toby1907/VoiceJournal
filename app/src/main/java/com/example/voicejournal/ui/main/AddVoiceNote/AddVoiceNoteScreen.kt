@@ -2,6 +2,7 @@ package com.example.voicejournal.ui.main.AddVoiceNote
 
 import android.app.DatePickerDialog
 import android.content.Context
+import android.graphics.drawable.PaintDrawable
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.util.Log
@@ -18,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.ContentAlpha
 import androidx.compose.material.LocalContentAlpha
+import androidx.compose.material.SnackbarResult
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.rememberScaffoldState
@@ -60,6 +62,7 @@ fun AddVoiceNoteScreen(
     val titleState = addVoiceNoteViewModel.noteTitle.value
     val contentState = addVoiceNoteViewModel.noteContent.value
     val fileNameState = addVoiceNoteViewModel.noteFileName.value
+    val note = addVoiceNoteViewModel.noteState.value
  val playNoteState = addVoiceNoteViewModel.playNoteState.value
     var playState by remember { mutableStateOf(false) }
     var playButtonState by remember {
@@ -114,7 +117,7 @@ fun AddVoiceNoteScreen(
                 SmallTopAppBar(
                     title = {
                         Text(
-                            "Voice Journal",
+                            if(titleState.text!="") "Edit Journal" else "New Journal",
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -128,13 +131,35 @@ fun AddVoiceNoteScreen(
                         }
                     },
                     actions = {
+
                         IconButton(onClick = {
-                         addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote)
-                           navController.navigate(Screen.VoicesScreen.route)
-                         })
-                        {
-                            Text(text = "Save")
+                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.DeleteJournal(note.voiceJournal))
+                            scope.launch {
+                                navController.navigate(Screen.VoicesScreen.route)
+                                val result = scaffoldState.snackbarHostState.showSnackbar(
+                                    message = "Note deleted",
+                                    actionLabel = "Undo"
+                                )/*
+                                if(result == SnackbarResult.ActionPerformed) {
+                                    viewModel.onEvent(NotesEvent.RestoreNote)
+                                }*/
+                            }
+                        }) {
+                          if(titleState.text!="")  {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
+                                    contentDescription = "Delete Journal"
+                                )
+                            }
                         }
+                            IconButton(onClick = {
+                                addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote)
+                                navController.navigate(Screen.VoicesScreen.route)
+                            })
+                            {
+                                Text(text = "Save")
+                            }
+
                     }
                 )
             },

@@ -24,6 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.toUpperCase
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.voicejournal.Data.VoiceJournal
@@ -32,6 +33,7 @@ import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.AddEditNoteEvent
 import com.example.voicejournal.ui.main.mainScreen.VoiceNoteViewModel
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
@@ -61,7 +63,7 @@ val voiceNotes = voiceNoteViewModel.state.value
     val lazyListState = rememberLazyListState()
     Scaffold(
         topBar = {
-            SmallTopAppBar(
+            CenterAlignedTopAppBar(
                 title = { Text("Journals") }
             )
         },
@@ -110,13 +112,36 @@ fun JournalItem(
 
     Column {
         ListItem(
-            headlineText = { Text(text = voiceJournal.title) },
-            supportingText = {   voiceJournal.content?.let {
-                Text(text = it)
-            } },
-            trailingContent = {  if(voiceJournal.fileName!="")  Icon(painter = painterResource(id =R.drawable.play_button_24 ) , contentDescription = "")
+            headlineText = {
+                Text(
+                text = voiceJournal.title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            ) },
+
+            supportingText = {
+                voiceJournal.content?.let {
+                    Text(
+                        text = it,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+             },
+            trailingContent = {
+                val simpleDate = SimpleDateFormat("d/MMM/yy", Locale.getDefault())
+                val journalDate = simpleDate.format(voiceJournal.created)
+                Column(){
+                    Text(text = journalDate)
+                    if (voiceJournal.fileName != "") Icon(
+                        painter = painterResource(id = R.drawable.play_button_24),
+                        contentDescription = ""
+                    )
+                }
+                
             },
             leadingContent = {
+                
                 Row(modifier = Modifier.clip(CircleShape)
                 ){
                     Box(

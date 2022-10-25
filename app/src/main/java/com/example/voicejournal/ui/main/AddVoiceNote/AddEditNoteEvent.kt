@@ -1,6 +1,7 @@
 package com.example.voicejournal.ui.main.AddVoiceNote
 
 import androidx.compose.ui.focus.FocusState
+import com.example.voicejournal.Data.VoiceJournal
 
 sealed class AddEditNoteEvent {
     data class EnteredTitle(val value: String): AddEditNoteEvent()
@@ -10,6 +11,7 @@ sealed class AddEditNoteEvent {
     data class Play(val filename:String): AddEditNoteEvent()
     data class Recording(val filename: String):AddEditNoteEvent()
     data class ChangeColor(val color: Int) : AddEditNoteEvent()
+    data class DeleteJournal(val voiceJournal: VoiceJournal?): AddEditNoteEvent()
 
     //   data class ChangeColor(val color: Int): AddEditNoteEvent()
     object SaveNote: AddEditNoteEvent()

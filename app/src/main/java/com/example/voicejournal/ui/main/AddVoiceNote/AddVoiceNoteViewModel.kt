@@ -3,6 +3,7 @@ package com.example.voicejournal.ui.main.AddVoiceNote
 import android.content.Context
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.provider.ContactsContract
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +15,7 @@ import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.text.SimpleDateFormat
@@ -30,6 +32,8 @@ class AddVoiceNoteViewModel @Inject constructor(
     private var player: MediaPlayer? = null
     private val formatter = SimpleDateFormat("yyyy_MM_dd_hh_mm_ss", Locale.getDefault())
     private val now = Date()
+    private var recentlyDeletedJournal: VoiceJournal? = null
+    // recentlyDeletedJournal to be implemented later TODO()
 
 
     private val _noteTitle = mutableStateOf(NoteTextFieldState(
@@ -51,6 +55,8 @@ class AddVoiceNoteViewModel @Inject constructor(
     val noteContent: State<NoteContentTextFieldState> = _noteContent
 
     private val _noteColor = mutableStateOf(VoiceJournal.noteColors.random().toArgb())
+    private val _noteState = mutableStateOf(NoteState())
+    val noteState: State<NoteState> = _noteState
     val noteColor: State<Int> = _noteColor
 
     private val _eventFlow = MutableSharedFlow<UiEvent>()
@@ -65,20 +71,31 @@ class AddVoiceNoteViewModel @Inject constructor(
                _playNoteState.value= true
                 viewModelScope.launch {
 
-                    voiceJournalRepository.getNote(noteId)?.also { note ->
-                        currentNoteId = note.id
-                        _noteTitle.value = noteTitle.value.copy(
-                            text = note.title,
-                            isHintVisible = false
-                        )
-                        _noteContent.value = _noteContent.value.copy(
-                            text = note.content,
-                            isHintVisible = false
-                        )
-                        _noteColor.value = note.color
-                        _noteFileName.value = _noteFileName.value.copy(
-                            text = note.fileName
-                        )
+                    voiceJournalRepository.getNote(noteId).collect{ note ->
+_noteState.value=noteState.value.copy(voiceJournal = note)
+                        if (note != null) {
+                            currentNoteId = note.id
+                        }
+                        if (note != null) {
+                            _noteTitle.value = noteTitle.value.copy(
+                                text = note.title,
+                                isHintVisible = false
+                            )
+                        }
+                        if (note != null) {
+                            _noteContent.value = _noteContent.value.copy(
+                                text = note.content,
+                                isHintVisible = false
+                            )
+                        }
+                        if (note != null) {
+                            _noteColor.value = note.color
+                        }
+                        if (note != null) {
+                            _noteFileName.value = _noteFileName.value.copy(
+                                text = note.fileName
+                            )
+                        }
                         _playNoteState.value =noteFileName.value.text!=""
 
                     }
@@ -161,13 +178,14 @@ class AddVoiceNoteViewModel @Inject constructor(
             is AddEditNoteEvent.ChangeColor -> {
                 _noteColor.value = event.color
             }
+            is AddEditNoteEvent.DeleteJournal -> {
+                viewModelScope.launch {
+                    event.voiceJournal?.let { voiceJournalRepository.delete(it) }
+                    recentlyDeletedJournal = event.voiceJournal
+                }
+            }
         }
     }
-
-    val created = System.currentTimeMillis()
-    private val _saved = MutableLiveData<Boolean>()
-    val saved: LiveData<Boolean>
-        get() = _saved
 
 
     sealed class UiEvent {
@@ -178,6 +196,7 @@ class AddVoiceNoteViewModel @Inject constructor(
         object Recording: UiEvent()
         object StopRecord: UiEvent()
     }
+    data class NoteState(val voiceJournal: VoiceJournal?=null)
 
     private suspend fun  startPlaying() {
 

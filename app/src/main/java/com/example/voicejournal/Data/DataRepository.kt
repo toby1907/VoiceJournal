@@ -23,7 +23,7 @@ class VoiceJournalRepositoryImpl (private val voiceJournalDao: VoiceJournalDao):
 
 
     }*/
-    override suspend fun getNote(id: Int): VoiceJournal?{
+    override  fun getNote(id: Int): Flow<VoiceJournal?> {
         return voiceJournalDao.getLetter(id)
     }
     private val SINGLE_EXECUTOR = Executors.newSingleThreadExecutor()
