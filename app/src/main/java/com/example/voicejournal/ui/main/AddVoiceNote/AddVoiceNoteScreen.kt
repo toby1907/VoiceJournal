@@ -45,6 +45,7 @@ import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.R
 import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.components.TransparentHintTextField
+import com.example.voicejournal.ui.main.ContentMain
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -112,18 +113,21 @@ fun AddVoiceNoteScreen(
         }
     }
 
+  Surface(
+     color = MaterialTheme.colorScheme.primary
+  ) {
         Scaffold(
             topBar = {
                 SmallTopAppBar(
                     title = {
                         Text(
-                            if(titleState.text!="") "Edit Journal" else "New Journal",
+                            if (titleState.text != "") "Edit Journal" else "New Journal",
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = { navController.navigate(Screen.VoicesScreen.route)}) {
+                        IconButton(onClick = { navController.navigate(Screen.VoicesScreen.route) }) {
                             Icon(
                                 imageVector = Icons.Filled.Close,
                                 contentDescription = "Cancel"
@@ -145,20 +149,20 @@ fun AddVoiceNoteScreen(
                                 }*/
                             }
                         }) {
-                          if(titleState.text!="")  {
+                            if (titleState.text != "") {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
                                     contentDescription = "Delete Journal"
                                 )
                             }
                         }
-                            IconButton(onClick = {
-                                addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote)
-                                navController.navigate(Screen.VoicesScreen.route)
-                            })
-                            {
-                                Text(text = "Save")
-                            }
+                        IconButton(onClick = {
+                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote)
+                            navController.navigate(Screen.VoicesScreen.route)
+                        })
+                        {
+                            Text(text = "Save")
+                        }
 
                     }
                 )
@@ -166,66 +170,65 @@ fun AddVoiceNoteScreen(
 
             bottomBar = {
 
-                    BottomAppBar(
-                        Modifier
-                            .wrapContentWidth()
-                            .background(Color(colorIntState))
-                            )
-                    {
-                        // Leading icons should typically have a high content alpha
-                        CompositionLocalProvider(LocalContentAlpha provides ContentAlpha.high) {
-                            IconButton(onClick = {
-                                playState =!playState
-
-                                if (playState&&playNoteState) {
-                                    addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Play(fileNameState.text))
-                                }
-                                else{
-                                    addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
-                                }
-                            })
-                            {
-                              if(playNoteState)  {
-
-                                    Icon(
-                                        painter = painterResource(if (!playState||mediaState) R.drawable.play_button_24  else R.drawable.pause_button_24  ),
-                                        contentDescription = "Localized description"
-                                    )
-                                }
-                            }
-                        }
-                        // The actions should be at the end of the BottomAppBar. They use the default medium
-                        // content alpha provided by BottomAppBar
-                        Spacer(Modifier.weight(1f, true))
+                BottomAppBar(
+                    Modifier
+                        .wrapContentWidth()
+                        .background(Color(colorIntState)),
+                    containerColor = Color(colorIntState)
+                )
+                {
+                    // Leading icons should typically have a high content alpha
+                    CompositionLocalProvider(LocalContentAlpha provides ContentAlpha.high) {
                         IconButton(onClick = {
+                            playState = !playState
 
-                            recordState=!recordState
-                            mediaState = false
-                            playState = false
-                            if (recordState){
-                                playButtonState=false
-
-                                addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Recording(fileNameState.text)) }
-                            else {
-
-                                addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopRecording)
-                                playButtonState = true
+                            if (playState && playNoteState) {
+                                addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Play(fileNameState.text))
+                            } else {
+                                addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
                             }
+                        })
+                        {
+                            if (playNoteState) {
 
-
-                        }) {
-                            if(!playNoteState){
                                 Icon(
-                                    painter = painterResource(if (recordState == false) R.drawable.baseline_mic_black_36 else R.drawable.stop_button_36),
+                                    painter = painterResource(if (!playState || mediaState) R.drawable.play_button_24 else R.drawable.pause_button_24),
                                     contentDescription = "Localized description"
                                 )
                             }
+                        }
+                    }
+                    // The actions should be at the end of the BottomAppBar. They use the default medium
+                    // content alpha provided by BottomAppBar
+                    Spacer(Modifier.weight(1f, true))
+                    IconButton(onClick = {
 
+                        recordState = !recordState
+                        mediaState = false
+                        playState = false
+                        if (recordState) {
+                            playButtonState = false
+
+                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Recording(fileNameState.text))
+                        } else {
+
+                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopRecording)
+                            playButtonState = true
+                        }
+
+
+                    }) {
+                        if (!playNoteState) {
+                            Icon(
+                                painter = painterResource(if (recordState == false) R.drawable.baseline_mic_black_36 else R.drawable.stop_button_36),
+                                contentDescription = "Localized description"
+                            )
                         }
 
                     }
+
                 }
-            ,
+            },
             content = { innerPadding ->
                 Column(
                     // consume insets as scaffold doesn't do it by default (yet)
@@ -238,10 +241,12 @@ fun AddVoiceNoteScreen(
 
                     ) {
                     Spacer(Modifier.height(16.dp))
-                    Row(modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween){
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         VoiceJournal.noteColors.forEach { color ->
                             val colorInt = color.toArgb()
                             Box(
@@ -277,19 +282,19 @@ fun AddVoiceNoteScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                   TransparentHintTextField(
-                       text = titleState.text,
-                       hint = titleState.hint,
-                       onValueChange ={
-                                      addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredTitle(it))
-                       } ,
-                       onFocusChange = {
-                           addVoiceNoteViewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(it))
-                       },
-                       isHintVisible = titleState.isHintVisible,
-                       singleLine = true,
-                       textStyle = MaterialTheme.typography.headlineSmall
-                   )
+                    TransparentHintTextField(
+                        text = titleState.text,
+                        hint = titleState.hint,
+                        onValueChange = {
+                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredTitle(it))
+                        },
+                        onFocusChange = {
+                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(it))
+                        },
+                        isHintVisible = titleState.isHintVisible,
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.headlineSmall
+                    )
                     Spacer(modifier = Modifier.height(16.dp))
                     TransparentHintTextField(
                         text = contentState.text ?: "",
@@ -298,7 +303,7 @@ fun AddVoiceNoteScreen(
                             addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredContent(it))
                         },
                         onFocusChange = {
-                           addVoiceNoteViewModel.onEvent(AddEditNoteEvent.ChangeContentFocus(it))
+                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.ChangeContentFocus(it))
                         },
                         isHintVisible = contentState.isHintVisible,
                         textStyle = androidx.compose.material.MaterialTheme.typography.body1,
@@ -308,6 +313,7 @@ fun AddVoiceNoteScreen(
 
             }
         )
+    }
 
 }
 /*

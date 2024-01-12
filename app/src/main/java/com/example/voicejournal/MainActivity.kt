@@ -22,15 +22,6 @@ private const val LOG_TAG = "AudioRecordTest"
 private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-/*
-
-    private val voiceNoteViewModel: VoiceNoteViewModel by viewModels { DataViewModelFactory(applicationContext)}
-private val addVoiceNoteViewModel:AddVoiceNoteViewModel by viewModels { AddVoiceNoteViewModelFactory(applicationContext)  }
-*/
-    val viewModel by viewModels<AddVoiceNoteViewModel>()
-    private var fileName: String = ""
-    private var recorder: MediaRecorder? = null
-    private var player: MediaPlayer? = null
 
 
     // Requesting permission to RECORD_AUDIO
@@ -60,43 +51,7 @@ private val addVoiceNoteViewModel:AddVoiceNoteViewModel by viewModels { AddVoice
 
         setContent {
             VoiceJournalTheme {
-                // A surface container using the 'background' color from the theme
 
-                val LOG_TAG = "AudioRecordTest"
-             /*   val scope = rememberCoroutineScope()
-                LaunchedEffect(key1 = true){
-                   viewModel.eventFlow.collectLatest {event ->
-                        when(event){
-                            is AddVoiceNoteViewModel.UiEvent.Recording -> {
-                                startRecording()
-                            }
-                            is AddVoiceNoteViewModel.UiEvent.StopRecord -> {
-                              stopRecording()
-                            }
-                            is AddVoiceNoteViewModel.UiEvent.PlayNote -> {
-                                startPlaying()
-                            }
-                            is AddVoiceNoteViewModel.UiEvent.StopPlay -> {
-                                stopPlaying()
-
-                            }
-                            is AddVoiceNoteViewModel.UiEvent.SaveNote -> {
-                                TODO()
-                            }
-                            is AddVoiceNoteViewModel.UiEvent.ShowSnackbar -> {
-                               TODO()
-                            }
-
-
-                        }
-                    }
-                }
-*/
-
-//  MediaPlayer.OnCompletionListener {  }
-
-                // Record to the external cache directory for visibility
-              //  fileName = "${externalCacheDir?.absolutePath}/audiorecordtest.3gp"
                 ActivityCompat.requestPermissions(
                     this,
                     permissions,
@@ -113,68 +68,4 @@ private val addVoiceNoteViewModel:AddVoiceNoteViewModel by viewModels { AddVoice
 
     }
 
-    private fun startPlaying() {
-        player = MediaPlayer().apply {
-            try {
-                setDataSource(fileName)
-                prepare()
-                start()
-            } catch (e: IOException) {
-                Log.e(LOG_TAG, "prepare() failed")
-            }
-        }
-    }
-
-    private fun stopPlaying() {
-        player?.release()
-        player = null
-    }
-
-    private fun startRecording() {
-        recorder = MediaRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-            setOutputFile(fileName)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-
-            try {
-                prepare()
-            } catch (e: IOException) {
-                Log.e(LOG_TAG, "prepare() failed")
-            }
-
-            start()
-        }
-    }
-
-    private fun stopRecording() {
-        recorder?.apply {
-            stop()
-            release()
-        }
-        recorder = null
-    }
-
-
-    override fun onStop() {
-        super.onStop()
-      /*  recorder?.release()
-        recorder = null
-        player?.release()
-        player = null*/
-    }
-}
-
-
-@Composable
-fun Greeting(name: String) {
-    Text(text = "Hello $name!")
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    VoiceJournalTheme {
-        Greeting("Android")
-    }
 }

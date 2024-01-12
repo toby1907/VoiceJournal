@@ -31,6 +31,7 @@ import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.R
 import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.AddEditNoteEvent
+import com.example.voicejournal.ui.main.mainScreen.NoteList
 import com.example.voicejournal.ui.main.mainScreen.VoiceNoteViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -79,7 +80,7 @@ val voiceNotes = voiceNoteViewModel.state.value
                                }
         },
         content = { innerPadding->
-            LazyColumn(
+          /*  LazyColumn(
                 modifier = Modifier.consumedWindowInsets(innerPadding),
                 contentPadding = innerPadding
             ){
@@ -97,8 +98,8 @@ val voiceNotes = voiceNoteViewModel.state.value
                   )
                     
                 }
-            }
-
+            }*/
+NoteList(journals = voiceNotes.notes, navController =navController,modifier =Modifier.consumedWindowInsets(innerPadding) )
         }
             )
 }
@@ -106,8 +107,7 @@ val voiceNotes = voiceNoteViewModel.state.value
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JournalItem(
-    modifier: Modifier,
-
+    modifier: Modifier=Modifier,
     voiceJournal: VoiceJournal){
 
     Column {
@@ -134,7 +134,7 @@ fun JournalItem(
                 Column(){
                     Text(text = journalDate)
                     if (voiceJournal.fileName != "") Icon(
-                        painter = painterResource(id = R.drawable.play_button_24),
+                        painter = painterResource(id = R.drawable.audio_file),
                         contentDescription = ""
                     )
                 }

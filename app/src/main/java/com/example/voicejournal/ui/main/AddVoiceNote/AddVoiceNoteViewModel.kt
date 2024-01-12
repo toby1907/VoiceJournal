@@ -190,7 +190,8 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
 
     sealed class UiEvent {
         data class ShowSnackbar(val message: String): UiEvent()
-        object SaveNote: UiEvent()
+        object
+        SaveNote: UiEvent()
         object PlayNote: UiEvent()
         object StopPlay: UiEvent()
         object Recording: UiEvent()
@@ -214,12 +215,12 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
             }
         }
     }
-  suspend  fun stopPlaying() {
+  private fun stopPlaying() {
 
         player?.release()
         player = null
     }
-   suspend fun startRecording() {
+   private fun startRecording() {
         recorder = MediaRecorder().apply {
             _noteFileName.value =_noteFileName.value.copy(
                 text = "${context.getDir("AudioJournal",0)?.absolutePath}/Recording+ ${formatter.format(now)}+.3gp"
@@ -239,7 +240,7 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
             start()
         }
     }
-    suspend fun stopRecording() {
+    private fun stopRecording() {
         recorder?.apply {
             stop()
             release()
