@@ -22,4 +22,12 @@ val LightGreen = Color(0xffe7ed9b)
 
 object Variables {
     val SchemesSurface: Color = Color(0xFFFFF8F7)
+    val SchemesOnPrimaryContainer: Color = Color(0xFF3B080D)
+    val SchemesOnPrimary: Color = Color(0xFFFFFFFF)
+    val SchemesPrimary: Color = Color(0xFF904A4B)
+    val SchemesPrimaryContainer: Color = Color(0xFFFFDAD9)
+    val SchemesOnSurface: Color = Color(0xFF221919)
+    val SchemesError: Color = Color(0xFFBA1A1A)
+    val SchemesOnSecondaryContainer: Color = Color(0xFF001F27)
+    val SchemesSurfaceTint: Color = Color(color = 0xFF9E2B2C)
 }

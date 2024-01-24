@@ -13,8 +13,13 @@ import com.example.voicejournal.Data.InvalidNoteException
 import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -45,9 +50,18 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val _playNoteState = mutableStateOf(false
     )
 
+    private val _recordState = MutableStateFlow<Boolean>(false)
+// Timer for the Recorder Panel
+private val _timer = MutableStateFlow(0L)
+    val timer = _timer.asStateFlow()
+
+    private var timerJob: Job? = null
+
+
     val noteTitle: State<NoteTextFieldState> = _noteTitle
     val noteFileName: State<NoteFileNameFieldState> = _noteFileName
     val playNoteState: State<Boolean> =_playNoteState
+    val recordState: StateFlow<Boolean> = _recordState
 
     private val _noteContent = mutableStateOf(NoteContentTextFieldState(
         hint = "Enter some content"
@@ -58,6 +72,7 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val _noteState = mutableStateOf(NoteState())
     val noteState: State<NoteState> = _noteState
     val noteColor: State<Int> = _noteColor
+
 
     private val _eventFlow = MutableSharedFlow<UiEvent>()
     val eventFlow = _eventFlow.asSharedFlow()
@@ -160,18 +175,22 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
             is AddEditNoteEvent.Recording ->{
                viewModelScope.launch {
                    startRecording()
+                   changeRecordState(true)
                    _eventFlow.emit(UiEvent.Recording)
                }
             }
             is AddEditNoteEvent.StopRecording ->{
               viewModelScope.launch  {
                   stopRecording()
+                  changeRecordState(false)
                   _eventFlow.emit(UiEvent.StopRecord)
+
               }
             }
             is AddEditNoteEvent.StopPlay ->{
                 viewModelScope.launch {
                     stopPlaying()
+
                     _eventFlow.emit(UiEvent.StopPlay)
                 }
             }
@@ -248,4 +267,34 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
         recorder = null
     }
 
+    fun changeRecordState(newState: Boolean){
+        //is to switch the recorder panel
+        _recordState.value = newState
+    }
+
+
+// Timer for Record panel
+fun startTimer() {
+    timerJob?.cancel()
+    timerJob = viewModelScope.launch {
+        while (true) {
+            delay(1000)
+            _timer.value++
+        }
+    }
+}
+
+    fun pauseTimer() {
+        timerJob?.cancel()
+    }
+
+    fun stopTimer() {
+        _timer.value = 0
+        timerJob?.cancel()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        timerJob?.cancel()
+    }
 }
