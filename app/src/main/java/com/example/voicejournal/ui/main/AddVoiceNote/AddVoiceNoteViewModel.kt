@@ -5,6 +5,7 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.provider.ContactsContract
 import android.util.Log
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.toArgb
@@ -49,6 +50,7 @@ class AddVoiceNoteViewModel @Inject constructor(
     )
     private val _playNoteState = mutableStateOf(false
     )
+    private  val _doneButtonState =  MutableStateFlow<Boolean>(false)
 
     private val _recordState = MutableStateFlow<Boolean>(false)
 // Timer for the Recorder Panel
@@ -62,6 +64,7 @@ private val _timer = MutableStateFlow(0L)
     val noteFileName: State<NoteFileNameFieldState> = _noteFileName
     val playNoteState: State<Boolean> =_playNoteState
     val recordState: StateFlow<Boolean> = _recordState
+    val doneButtonState: StateFlow<Boolean> = _doneButtonState
 
     private val _noteContent = mutableStateOf(NoteContentTextFieldState(
         hint = "Enter some content"
@@ -272,6 +275,9 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
         _recordState.value = newState
     }
 
+    fun doneButtonState(newState: Boolean){
+        _doneButtonState.value = newState
+    }
 
 // Timer for Record panel
 fun startTimer() {

@@ -27,6 +27,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.voicejournal.R
+import com.example.voicejournal.formatTime
 import com.example.voicejournal.ui.main.AddVoiceNote.AddEditNoteEvent
 import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteViewModel
 import com.example.voicejournal.ui.theme.Variables
@@ -36,59 +37,14 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun RecordPanelComponent(
-    addVoiceNoteViewModel: AddVoiceNoteViewModel
+    onTimerStart: () -> Unit,
+    timerValue: Long,
+    onCancelRecord: () -> Unit,
+    onDoneClick: () -> Unit
 ) {
 
-    // Get the coroutine scope of the composable
-    val scope = rememberCoroutineScope()
-    var playTimerText by remember {
-        mutableStateOf("0:00")
-    }
-    // Initialize a variable to store the elapsed time
-    var elapsedTime by remember { mutableStateOf(0L) }
-
-    // Define a function to update the play timer
-    fun updatePlayTimer() {
-        // Convert the elapsed time to minutes and seconds
-        val minutes = (elapsedTime / 1000) / 60
-        val seconds = (elapsedTime / 1000) % 60
-
-        // Format the play timer text
-        val playTimerTxt = String.format("%02d:%02d", minutes, seconds)
-
-        // Set the text to the play timer view
-        playTimerText = playTimerTxt
-    }
-
-    // Define a function to start the play timer
-    fun startPlayTimer() {
-        // Launch a coroutine in the scope
-        scope.launch {
-            // Schedule a task to run every second
-            while (true) {
-                // Increment the elapsed time by one second
-                elapsedTime += 1000
-
-                // Update the play timer
-                updatePlayTimer()
-
-                // Delay for one second
-                delay(1000)
-            }
-        }
-    }
-
-    // Define a function to stop the play timer
-    fun stopPlayTimer() {
-        // Cancel the coroutine in the scope
-        scope.cancel()
-    }
-
-    // Call your startPlaying function
-    addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Recording(addVoiceNoteViewModel.noteFileName.value.text))
-
     // Start the play timer
-    startPlayTimer()
+    onTimerStart()
 
     // Create a row layout for the control panel button
     Row(
@@ -101,7 +57,7 @@ fun RecordPanelComponent(
     ) {
         // Add a Text composable for the play timer
         Text(
-            text = playTimerText, // Initial text
+            text = timerValue.formatTime(), // Initial text
             fontSize = 18.sp, // Text size
             modifier = Modifier.padding(8.dp) // Padding around the text
         )
@@ -138,10 +94,8 @@ fun RecordPanelComponent(
                 onClick = {
                     // Stop the media player
                     //    player?.stop()
-                    addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopRecording)
-                    // Stop the play timer
-                    stopPlayTimer()
-                    addVoiceNoteViewModel.changeRecordState(false)
+                   onCancelRecord()
+
                 },
                 modifier = Modifier.padding(8.dp) // Padding around the button
             )
@@ -159,7 +113,7 @@ fun RecordPanelComponent(
                 modifier = Modifier
                     .padding(8.dp) // Padding around the text
                     .clickable { // Make the text clickable
-                        // Perform any action you want
+                      onDoneClick()
                     }
             )
         }

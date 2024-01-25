@@ -1,34 +1,38 @@
 package com.example.voicejournal.ui.main.AddVoiceNote
 
-import android.app.DatePickerDialog
-import android.content.Context
-import android.graphics.drawable.PaintDrawable
-import android.media.MediaPlayer
-import android.media.MediaRecorder
-import android.util.Log
-import android.widget.DatePicker
-import android.widget.Space
 import androidx.compose.animation.Animatable
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.ContentAlpha
-import androidx.compose.material.LocalContentAlpha
-import androidx.compose.material.SnackbarResult
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.rememberScaffoldState
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -36,28 +40,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.voicejournal.Data.VoiceJournal
-
 import com.example.voicejournal.R
-import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.components.EditScreenTopAppBar
+import com.example.voicejournal.ui.main.AddVoiceNote.components.PlayRecordPanel
 import com.example.voicejournal.ui.main.AddVoiceNote.components.RecordPanelComponent
 import com.example.voicejournal.ui.main.AddVoiceNote.components.TransparentHintTextField
-import com.example.voicejournal.ui.main.ContentMain
 import com.example.voicejournal.ui.theme.Variables
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.io.IOException
-import java.util.*
-import kotlin.math.absoluteValue
 
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddVoiceNoteScreen(
     navController: NavController,
@@ -70,9 +66,10 @@ fun AddVoiceNoteScreen(
     val note = addVoiceNoteViewModel.noteState.value
     val playNoteState = addVoiceNoteViewModel.playNoteState.value
     var playState by remember { mutableStateOf(false) }
-    var playButtonState by remember {
+    val doneButton = remember {
         mutableStateOf(false)
     }
+
     var startcount by remember {
         mutableStateOf(false)
     }
@@ -83,6 +80,7 @@ fun AddVoiceNoteScreen(
     var colorIntState by remember {
         mutableStateOf(Int.MAX_VALUE)
     }
+
 
     val scaffoldState = rememberScaffoldState()
     val noteBackgroundAnimatable = remember {
@@ -218,13 +216,54 @@ fun AddVoiceNoteScreen(
 
                    }*/
                 val myState by addVoiceNoteViewModel.recordState.collectAsState()
+                val timerValue by addVoiceNoteViewModel.timer.collectAsState()
                 if (myState) {
-                    RecordPanelComponent(addVoiceNoteViewModel)
+                    RecordPanelComponent(
+                        onTimerStart = {
+                            addVoiceNoteViewModel.startTimer()
+                        },
+                        timerValue = timerValue,
+                        onCancelRecord = {
+                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopRecording)
+                            addVoiceNoteViewModel.stopTimer()
+                            addVoiceNoteViewModel.changeRecordState(false)
+                        },
+                        onDoneClick = {
+                            addVoiceNoteViewModel.doneButtonState(true)
+                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopRecording)
+                            addVoiceNoteViewModel.stopTimer()
+                            addVoiceNoteViewModel.changeRecordState(false)
+                            doneButton.value = true
+                        },
+
+
+                    )
                 } else {
-                    FloatingActionButton(onClick = {
-                       addVoiceNoteViewModel.changeRecordState(true)
-                    }) {
-Icon(painter = painterResource(id = R.drawable.baseline_mic_24), contentDescription ="Record icon" )
+                    if (fileNameState.text.isEmpty()) {
+                        FloatingActionButton(
+                            onClick = {
+                                addVoiceNoteViewModel.onEvent(
+                                    AddEditNoteEvent.Recording(
+                                        fileNameState.text
+                                    )
+                                )
+                                addVoiceNoteViewModel.changeRecordState(true)
+                            },
+                            modifier = Modifier.shadow(
+                                0.dp,
+                                spotColor = Color(0xFF000000),
+                                ambientColor = Color(0xFF000000)
+                            ),
+                            shape = RoundedCornerShape(size = 100.dp),
+                            containerColor = Variables.SchemesOnPrimaryContainer,
+                            contentColor = Color(0xFFffffff),
+
+                            ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_mic_24),
+                                contentDescription = "Record icon"
+                            )
+                        }
                     }
                 }
 
@@ -275,6 +314,7 @@ Icon(painter = painterResource(id = R.drawable.baseline_mic_24), contentDescript
                  }*/
             },
             content = { innerPadding ->
+                val doneButtonState by addVoiceNoteViewModel.doneButtonState.collectAsState()
                 Column(
                     // consume insets as scaffold doesn't do it by default (yet)
                     modifier = Modifier
@@ -351,8 +391,28 @@ Icon(painter = painterResource(id = R.drawable.baseline_mic_24), contentDescript
                         },
                         isHintVisible = contentState.isHintVisible,
                         textStyle = androidx.compose.material.MaterialTheme.typography.body1,
-                        modifier = Modifier.fillMaxHeight()
+                        modifier = Modifier.height(if (doneButtonState) IntrinsicSize.Min else IntrinsicSize.Max)
+
+                        //
                     )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    val timerValue by addVoiceNoteViewModel.timer.collectAsState()
+                    if (
+                        doneButtonState
+                    ) {
+                        PlayRecordPanel(
+                            timerValue = timerValue,
+                            onPlay = { addVoiceNoteViewModel.startTimer() },
+                            onCancelRecord = {
+                                addVoiceNoteViewModel.stopTimer()
+                            },
+                            onRemove = {
+
+                            }
+                        )
+                    }
+
+
                 }
 
             }
