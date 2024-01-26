@@ -89,6 +89,7 @@ fun AddVoiceNoteScreen(
         )
     }
     val scope = rememberCoroutineScope()
+    val doneButtonState = addVoiceNoteViewModel.doneButtonState.collectAsState()
     LaunchedEffect(key1 = true) {
         addVoiceNoteViewModel.eventFlow.collectLatest { event ->
             when (event) {
@@ -239,7 +240,7 @@ fun AddVoiceNoteScreen(
 
                     )
                 } else {
-                    if (fileNameState.text.isEmpty()) {
+                    if (fileNameState.text.isEmpty()||!doneButtonState.value) {
                         FloatingActionButton(
                             onClick = {
                                 addVoiceNoteViewModel.onEvent(
@@ -314,7 +315,7 @@ fun AddVoiceNoteScreen(
                  }*/
             },
             content = { innerPadding ->
-                val doneButtonState by addVoiceNoteViewModel.doneButtonState.collectAsState()
+
                 Column(
                     // consume insets as scaffold doesn't do it by default (yet)
                     modifier = Modifier
@@ -391,24 +392,29 @@ fun AddVoiceNoteScreen(
                         },
                         isHintVisible = contentState.isHintVisible,
                         textStyle = androidx.compose.material.MaterialTheme.typography.body1,
-                        modifier = Modifier.height(if (doneButtonState) IntrinsicSize.Min else IntrinsicSize.Max)
+                        modifier = Modifier.height(if (doneButtonState.value) IntrinsicSize.Min else IntrinsicSize.Max)
 
                         //
                     )
                     Spacer(modifier = Modifier.size(8.dp))
-                    val timerValue by addVoiceNoteViewModel.timer.collectAsState()
+                    val timerValue by addVoiceNoteViewModel.timer2.collectAsState()
+                    val playingState by addVoiceNoteViewModel.playingState.collectAsState()
+                   val  timerValue2 = addVoiceNoteViewModel.getDuration()
                     if (
-                        doneButtonState
+                        doneButtonState.value
                     ) {
                         PlayRecordPanel(
                             timerValue = timerValue,
-                            onPlay = { addVoiceNoteViewModel.startTimer() },
+                            timerValue2= timerValue2,
+                            onPlay = { addVoiceNoteViewModel.startTimer2() },
                             onCancelRecord = {
-                                addVoiceNoteViewModel.stopTimer()
+                                addVoiceNoteViewModel.stopTimer2()
                             },
                             onRemove = {
+                                addVoiceNoteViewModel.doneButtonState(false)
 
-                            }
+                            },
+                            playingState =playingState
                         )
                     }
 

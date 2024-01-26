@@ -7,15 +7,17 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import com.example.voicejournal.ui.theme.Variables
 
 @Composable
 fun VoiceRecordAlertDialog(
     openDialog: MutableState<Boolean>,
     onDismissRequest: () -> Unit,
     confirmRequest: () -> Unit,
-    dismissRequest: ()  -> Unit
+    dismissRequest: () -> Unit,
 
-){
+
+    ) {
 
     if (openDialog.value) {
         AlertDialog(
@@ -26,6 +28,9 @@ fun VoiceRecordAlertDialog(
                 onDismissRequest()
 
             },
+            title = {
+                Text(text = "Warning!!!")
+            },
             text = {
                 Text(text = "You are About to remove this audio file permanently")
             },
@@ -33,10 +38,13 @@ fun VoiceRecordAlertDialog(
                 TextButton(
                     onClick = {
                         confirmRequest()
-
+                        openDialog.value = false
                     }
                 ) {
-                    Text("Confirm")
+                    Text(
+                        text = "Delete",
+                        color = Variables.SchemesError
+                    )
                 }
             },
             dismissButton = {
@@ -46,7 +54,7 @@ fun VoiceRecordAlertDialog(
 
                     }
                 ) {
-                    Text("Dismiss")
+                    Text("Cancel")
                 }
             }
         )

@@ -3,30 +3,37 @@ package com.example.voicejournal.ui.main.AddVoiceNote
 import android.content.Context
 import android.media.MediaPlayer
 import android.media.MediaRecorder
-import android.provider.ContactsContract
+import android.os.Build
 import android.util.Log
-import androidx.compose.runtime.MutableState
+import android.widget.Toast
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.toArgb
-import androidx.lifecycle.*
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.voicejournal.Data.InvalidNoteException
 import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
+
 private const val LOG_TAG = "AudioRecordTest"
 @HiltViewModel
 class AddVoiceNoteViewModel @Inject constructor(
@@ -53,17 +60,25 @@ class AddVoiceNoteViewModel @Inject constructor(
     private  val _doneButtonState =  MutableStateFlow<Boolean>(false)
 
     private val _recordState = MutableStateFlow<Boolean>(false)
+    private val _playingState = MutableStateFlow<Boolean>(false)
 // Timer for the Recorder Panel
 private val _timer = MutableStateFlow(0L)
     val timer = _timer.asStateFlow()
 
     private var timerJob: Job? = null
 
+    //Timer for the Play panel
+    private val _timer2 = MutableStateFlow(0L)
+    val timer2 = _timer2.asStateFlow()
+
+    private var timerJob2: Job? = null
+
 
     val noteTitle: State<NoteTextFieldState> = _noteTitle
     val noteFileName: State<NoteFileNameFieldState> = _noteFileName
     val playNoteState: State<Boolean> =_playNoteState
     val recordState: StateFlow<Boolean> = _recordState
+    val playingState: StateFlow<Boolean> = _playingState
     val doneButtonState: StateFlow<Boolean> = _doneButtonState
 
     private val _noteContent = mutableStateOf(NoteContentTextFieldState(
@@ -236,6 +251,24 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
                 Log.e(LOG_TAG, "prepare() failed")
             }
         }
+
+    }
+
+    private suspend fun audioDuration(): Int {
+        return withContext(Dispatchers.IO) {
+            var player: MediaPlayer? = null
+            try {
+                player = MediaPlayer()
+                player.setDataSource(noteFileName.value.text)
+                player.prepare()
+                return@withContext player.duration ?: 0 // return 0 if duration is null
+            } catch (e: IOException) {
+                Log.e(LOG_TAG, "prepare() failed", e)
+                return@withContext 0 // return 0 if an error occurs
+            } finally {
+                player?.release() // close the player in the finally block
+            }
+        }
     }
   private fun stopPlaying() {
 
@@ -269,6 +302,26 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
         }
         recorder = null
     }
+    private fun pauseRecording() {
+        // Check the device's version
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            // Pause the recording
+            recorder?.pause()
+        } else {
+            // Pause is not supported on lower versions
+            Toast.makeText(context, "Pause is not supported on this device", Toast.LENGTH_SHORT).show()
+        }
+    }
+    private fun resumeRecording() {
+        // Check the device's version
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            // Pause the recording
+            recorder?.resume()
+        } else {
+            // Pause is not supported on lower versions
+            Toast.makeText(context, "Resume is not supported on this device", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     fun changeRecordState(newState: Boolean){
         //is to switch the recorder panel
@@ -277,8 +330,23 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
 
     fun doneButtonState(newState: Boolean){
         _doneButtonState.value = newState
-    }
 
+    }
+    fun getDuration(): Int {
+        // use runBlocking to wait for the result
+        return runBlocking {
+            // use async to get a Deferred object
+            val deferred = async {
+                // use withContext to switch to IO dispatcher
+                withContext(Dispatchers.IO) {
+                    // call your audioDuration function
+                    audioDuration()
+                }
+            }
+            // use await to get the result from the Deferred object
+            deferred.await()
+        }
+    }
 // Timer for Record panel
 fun startTimer() {
     timerJob?.cancel()
@@ -302,5 +370,44 @@ fun startTimer() {
     override fun onCleared() {
         super.onCleared()
         timerJob?.cancel()
+        timerJob2?.cancel()
     }
+
+    // Play panel Timer
+    fun startTimer2() {
+        // get the duration value from the audio file
+        val duration = getDuration()
+        // convert the duration value from milliseconds to seconds
+        val durationInSeconds = duration / 1000
+        timerJob2?.cancel()
+        timerJob2 = viewModelScope.launch {
+            while (true) {
+                _playingState.value = true
+                delay(1000)
+                _timer2.value++
+                // check if the timer value is equal to or greater than the duration value
+                if (_timer2.value >= durationInSeconds) {
+                    // stop the timer
+                    _timer2.value = 0
+                    timerJob2?.cancel()
+                    _playingState.value = false
+                    // break the loop
+                    break
+                }
+            }
+        }
+    }
+
+    fun pauseTimer2() {
+        _playingState.value = false
+        timerJob2?.cancel()
+    }
+
+    fun stopTimer2() {
+        _timer2.value = 0
+        _playingState.value = false
+        timerJob2?.cancel()
+    }
+
+
 }

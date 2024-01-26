@@ -23,19 +23,24 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.voicejournal.R
+import com.example.voicejournal.convertIntToTimeFormat
 import com.example.voicejournal.formatTime
 import com.example.voicejournal.ui.theme.Variables
 
 @Composable
 fun PlayRecordPanel(
     timerValue: Long,
+    timerValue2: Int,
     onPlay: () -> Unit,
     onCancelRecord: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    playingState: Boolean
 ) {
     //alertDialog
     val openDialog = remember { mutableStateOf(false) }
-
+    val onPlayState = remember {
+        mutableStateOf(false)
+    }
     Row(
         modifier = Modifier
             .width(236.dp)
@@ -51,31 +56,56 @@ fun PlayRecordPanel(
             verticalAlignment = Alignment.CenterVertically
         ) {// Add an IconButton composable for the cancel icon
             // Add an IconButton composable for the record icon
-            IconButton(
-                onClick = {
-                    onPlay()
-                },
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = Variables.SchemesSurfaceTint,
-                    contentColor = Variables.SchemesSurface
-                )
-            ) {
+            if (!onPlayState.value||!playingState){
+                IconButton(
+                    onClick = {
+                        onPlay()
+                        onPlayState.value = true
+                    },
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = Variables.SchemesSurfaceTint,
+                        contentColor = Variables.SchemesSurface
+                    )
+                ) {
 
-                Icon(
-                    tint = Variables.SchemesSurface,
-                    painter = painterResource(id = R.drawable.play_button_24), // Use the built-in mic icon
-                    contentDescription = "Record" // Accessibility label
-                )
+                    Icon(
+                        tint = Variables.SchemesSurface,
+                        painter = painterResource(id = R.drawable.play_button_24), // Use the built-in mic icon
+                        contentDescription = "Record" // Accessibility label
+                    )
 
+                }
+            }
+                else{
+                IconButton(
+                    onClick = {
+                        onPlay()
+                        onPlayState.value = true
+                    },
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = Variables.SchemesSurfaceTint,
+                        contentColor = Variables.SchemesSurface
+                    )
+                ) {
+
+                    Icon(
+                        tint = Variables.SchemesSurface,
+                        painter = painterResource(id = R.drawable.pause_button_24), // Use the built-in mic icon
+                        contentDescription = "Record" // Accessibility label
+                    )
+
+                }
             }
             IconButton(
                 onClick = {
                     onCancelRecord()
+                    onPlayState.value = false
                 },
                 colors = IconButtonDefaults.iconButtonColors(
                     containerColor = Variables.SchemesSurfaceTint,
                     contentColor = Variables.SchemesSurface
-                )
+                ),
+                enabled = playingState
             ) {
 
                 Icon(
@@ -85,11 +115,20 @@ fun PlayRecordPanel(
                 )
 
             }
-            Text(
-                text = timerValue.formatTime(), // Initial text
-                fontSize = 18.sp, // Text size
-                modifier = Modifier.padding(8.dp) // Padding around the text
-            )
+            if (playingState) {
+                Text(
+                    text = timerValue.formatTime(), // Initial text
+                    fontSize = 18.sp, // Text size
+                    modifier = Modifier.padding(8.dp) // Padding around the text
+                )
+            }
+            if (!playingState) {
+                Text(
+                    text = convertIntToTimeFormat(timerValue2), // Initial text
+                    fontSize = 18.sp, // Text size
+                    modifier = Modifier.padding(8.dp) // Padding around the text
+                )
+            }
         }
         Spacer(modifier = Modifier.size(8.dp))
         // Add a Text composable for the play timer
@@ -99,7 +138,7 @@ fun PlayRecordPanel(
                 // Stop the media player
                 //    player?.stop()
                 openDialog.value = true
-
+                onPlayState.value = false
             },
             modifier = Modifier.padding(8.dp) // Padding around the button
         )
@@ -114,11 +153,8 @@ fun PlayRecordPanel(
 
     VoiceRecordAlertDialog(
         openDialog = openDialog,
-        onDismissRequest = {  openDialog.value = false },
-        confirmRequest = {
-            onRemove()
-            openDialog.value = false
-                         },
+        onDismissRequest = { openDialog.value = false },
+        confirmRequest = onRemove,
         dismissRequest = {
             openDialog.value = false
         }
