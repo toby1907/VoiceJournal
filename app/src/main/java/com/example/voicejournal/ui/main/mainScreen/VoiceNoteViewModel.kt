@@ -28,6 +28,7 @@ class VoiceNoteViewModel @Inject constructor(private val voiceJournalRepository:
 
 
 
+
     /*val voiceNotesListUiItems = voiceJournalRepository.getAllVoiceJournals().map { voice ->
         VoiceNotesItemUiState(
             title = voice.title,
@@ -47,6 +48,7 @@ class VoiceNoteViewModel @Inject constructor(private val voiceJournalRepository:
     init {
         // Set default state value.
       getNotes()
+
     }
 
     /**

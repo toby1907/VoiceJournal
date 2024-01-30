@@ -3,22 +3,19 @@ package com.example.voicejournal.ui.main.AddVoiceNote.components
 import androidx.compose.material.ScaffoldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SmallTopAppBar
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ComposeCompilerApi
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.R
 import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.AddEditNoteEvent
@@ -40,11 +37,15 @@ fun EditScreenTopAppBar(
     scope: CoroutineScope,
     scaffoldState: ScaffoldState,
 
-) {
+    ) {
     val simpleDate = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
     val journalDate = simpleDate.format(note.voiceJournal?.created ?: System.currentTimeMillis())
 
-    SmallTopAppBar(
+    /*
+                                if(result == SnackbarResult.ActionPerformed) {
+                                    viewModel.onEvent(NotesEvent.RestoreNote)
+                                }*/
+    CenterAlignedTopAppBar(
         title = {
 
             Text(
@@ -73,8 +74,7 @@ fun EditScreenTopAppBar(
                     )
                 }
 
-            }
-            else{
+            } else{
                 IconButton(onClick = { navController.navigate(Screen.VoicesScreen.route) }) {
                     Icon(
                         imageVector = Icons.Filled.Close,
@@ -85,7 +85,6 @@ fun EditScreenTopAppBar(
             }
         },
         actions = {
-
             IconButton(onClick = {
                 addVoiceNoteViewModel.onEvent(AddEditNoteEvent.DeleteJournal(note.voiceJournal))
                 scope.launch {
@@ -94,22 +93,21 @@ fun EditScreenTopAppBar(
                         message = "Note deleted",
                         actionLabel = "Undo"
                     )/*
-                                if(result == SnackbarResult.ActionPerformed) {
-                                    viewModel.onEvent(NotesEvent.RestoreNote)
-                                }*/
+                                        if(result == SnackbarResult.ActionPerformed) {
+                                            viewModel.onEvent(NotesEvent.RestoreNote)
+                                        }*/
                 }
             }) {
                 if (titleState.text != "") {
                     Icon(
                         painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
-                        contentDescription = "Delete Journal"
+                        contentDescription = "Delete Journal",
+                        tint = Variables.SchemesError
                     )
                 }
             }
-
-
-
-
-        }
+        }, colors = TopAppBarDefaults.topAppBarColors(
+            containerColor =   Variables.SchemesPrimaryContainer
+        )
     )
 }

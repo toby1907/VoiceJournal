@@ -256,12 +256,12 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
 
     private suspend fun audioDuration(): Int {
         return withContext(Dispatchers.IO) {
-            var player: MediaPlayer? = null
+         //   var player: MediaPlayer? = null
             try {
-                player = MediaPlayer()
-                player.setDataSource(noteFileName.value.text)
-                player.prepare()
-                return@withContext player.duration ?: 0 // return 0 if duration is null
+               player = MediaPlayer()
+                player?.setDataSource(noteFileName.value.text)
+                player?.prepare()
+                return@withContext player?.duration ?: 0 // return 0 if duration is null
             } catch (e: IOException) {
                 Log.e(LOG_TAG, "prepare() failed", e)
                 return@withContext 0 // return 0 if an error occurs
