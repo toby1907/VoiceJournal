@@ -1,13 +1,22 @@
 package com.example.voicejournal.Data
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
 
 
-@Database(entities = [VoiceJournal::class], version = 1, exportSchema = false)
+@Database(entities = [VoiceJournal::class],
+    version = 3, // Increment the version number
+    exportSchema = true,
+    autoMigrations = [
+        AutoMigration (from = 1, to = 2), // Keep the existing auto-migration
+        AutoMigration (from = 2, to = 3) // Add a new auto-migration
+    ]
+)
+
 abstract class VoiceJournalDatabase : RoomDatabase() {
 
     abstract fun voiceJournalDao(): VoiceJournalDao

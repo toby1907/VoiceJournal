@@ -1,6 +1,7 @@
 package com.example.voicejournal
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.media.MediaRecorder
@@ -21,6 +22,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import com.example.voicejournal.ui.MyAppNavHost
 import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteViewModel
 import com.example.voicejournal.ui.theme.VoiceJournalTheme
@@ -31,6 +36,11 @@ import dagger.hilt.android.AndroidEntryPoint
 import java.io.IOException
 private const val LOG_TAG = "AudioRecordTest"
 private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
+
+private const val USER_PREFERENCES_NAME = "user_preferences"
+val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = USER_PREFERENCES_NAME)
+
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 

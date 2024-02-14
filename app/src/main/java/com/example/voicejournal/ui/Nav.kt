@@ -1,5 +1,7 @@
 package com.example.voicejournal.ui
 
+import android.net.Uri
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -13,6 +15,7 @@ import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteScreen
 import com.example.voicejournal.ui.main.MainScreen
 import com.example.voicejournal.ui.main.SplashScreen
+import com.example.voicejournal.ui.main.camera.CameraScreen
 import com.example.voicejournal.ui.main.gallery.GalleryScreen
 import com.example.voicejournal.ui.main.mainScreen.VoiceNoteViewModel
 
@@ -61,13 +64,17 @@ fun MyAppNavHost(
                     defaultValue = "" // default value for imageUri
                 }
             )
-        ) {
-            val color = it.arguments?.getInt("noteColor") ?: -1
-            val imageUri = it.arguments?.getString("imageUri") ?: ""
+        ) { entry ->
+            val color = entry.arguments?.getInt("noteColor") ?: -1
+
+            // Get the uriList from the navArgument as a string
+            val imageUris = entry.arguments?.getString("imageUris")
+            // Convert the string to a list of URIs
+            val uriList = imageUris?.split(",")?.map { Uri.parse(it) } ?: emptyList()
+Log.d("fromNav","$uriList")
             AddVoiceNoteScreen(
                navController =  navController,
                 noteColor = color,
-               imageUri = imageUri
             )
         }
         composable("splash") {
@@ -76,8 +83,15 @@ fun MyAppNavHost(
             }
         }
         composable("gallery") {
-            GalleryScreen(onClick = {
+            GalleryScreen(navController = navController,
+                onClick = {
                 navController.navigate(Screen.AddEditNoteScreen.route) })
+        }
+        composable("camera") {
+            CameraScreen(navController = navController
+            ) {
+                navController.navigate(Screen.AddEditNoteScreen.route)
+            }
         }
 
     }

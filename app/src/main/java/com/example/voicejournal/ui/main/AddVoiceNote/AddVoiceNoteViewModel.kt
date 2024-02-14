@@ -13,8 +13,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.voicejournal.Data.InvalidNoteException
+import com.example.voicejournal.Data.SettingsRepository
 import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
+import com.example.voicejournal.ui.main.AddVoiceNote.components.Tag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,11 +37,14 @@ import java.util.Locale
 import javax.inject.Inject
 
 private const val LOG_TAG = "AudioRecordTest"
+
 @HiltViewModel
 class AddVoiceNoteViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val voiceJournalRepository: VoiceJournalRepositoryImpl,
-    private val context: Context
+    private val settingsRepository: SettingsRepository,
+    private val context: Context,
+
     ) : ViewModel() {
     private var recorder: MediaRecorder? = null
     private var player: MediaPlayer? = null
@@ -49,20 +54,30 @@ class AddVoiceNoteViewModel @Inject constructor(
     // recentlyDeletedJournal to be implemented later TODO()
 
 
-    private val _noteTitle = mutableStateOf(NoteTextFieldState(
-        hint = "Enter title..."
-    ))
+    private val _noteTitle = mutableStateOf(
+        NoteTextFieldState(
+            hint = "Enter title..."
+        )
+    )
     private val _noteFileName = mutableStateOf(
-      NoteFileNameFieldState()
+        NoteFileNameFieldState()
     )
-    private val _playNoteState = mutableStateOf(false
+    private val _tempImageUris = mutableStateOf(
+        UriState()
     )
-    private  val _doneButtonState =  MutableStateFlow<Boolean>(false)
+    private val _playNoteState = mutableStateOf(
+        false
+    )
+    private val _doneButtonState = MutableStateFlow<Boolean>(false)
+
+    val _tags = mutableStateOf(emptyList<Tag>())
+
 
     private val _recordState = MutableStateFlow<Boolean>(false)
     private val _playingState = MutableStateFlow<Boolean>(false)
-// Timer for the Recorder Panel
-private val _timer = MutableStateFlow(0L)
+
+    // Timer for the Recorder Panel
+    private val _timer = MutableStateFlow(0L)
     val timer = _timer.asStateFlow()
 
     private var timerJob: Job? = null
@@ -76,14 +91,20 @@ private val _timer = MutableStateFlow(0L)
 
     val noteTitle: State<NoteTextFieldState> = _noteTitle
     val noteFileName: State<NoteFileNameFieldState> = _noteFileName
-    val playNoteState: State<Boolean> =_playNoteState
+    val tempImageUris: State<UriState> = _tempImageUris
+    val playNoteState: State<Boolean> = _playNoteState
     val recordState: StateFlow<Boolean> = _recordState
     val playingState: StateFlow<Boolean> = _playingState
     val doneButtonState: StateFlow<Boolean> = _doneButtonState
 
-    private val _noteContent = mutableStateOf(NoteContentTextFieldState(
-        hint = "Enter some content"
-    ))
+    // A state variable to store the list of tags
+    val tags: State<List<Tag>> = _tags
+
+    private val _noteContent = mutableStateOf(
+        NoteContentTextFieldState(
+            hint = "Enter some content"
+        )
+    )
     val noteContent: State<NoteContentTextFieldState> = _noteContent
 
     private val _noteColor = mutableStateOf(VoiceJournal.noteColors.random().toArgb())
@@ -100,12 +121,12 @@ private val _timer = MutableStateFlow(0L)
 
     init {
         savedStateHandle.get<Int>("noteId")?.let { noteId ->
-            if(noteId != -1) {
-               _playNoteState.value= true
+            if (noteId != -1) {
+                _playNoteState.value = true
                 viewModelScope.launch {
 
-                    voiceJournalRepository.getNote(noteId).collect{ note ->
-_noteState.value=noteState.value.copy(voiceJournal = note)
+                    voiceJournalRepository.getNote(noteId).collect { note ->
+                        _noteState.value = noteState.value.copy(voiceJournal = note)
                         if (note != null) {
                             currentNoteId = note.id
                         }
@@ -129,53 +150,89 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
                                 text = note.fileName
                             )
                         }
-                        _playNoteState.value =noteFileName.value.text!=""
+                        if (note != null) {
+                            _noteFileName.value = _noteFileName.value.copy(
+                                imageFileUris = note.imageUris
+                            )
+                        }
+                        if (note != null) {
+                           if(note.tags!=null) {
+                               _tags.value = note.tags!!
+                           }
+                        }
+
+                        _playNoteState.value = noteFileName.value.text != ""
 
                     }
 
                 }
             }
         }
+        getSelectedImageUris()
+    }
+
+
+    // A function to update the checked state of a tag
+    fun onTagChecked(tagName: String, isChecked: Boolean) {
+        // Find the index of the tag with the given name
+        val index = _tags.value.indexOfFirst { it.name == tagName }
+        // If the tag is found, update its checked state
+        if (index != -1) {
+            _tags.value[index].isChecked = isChecked
+        } else {
+            // If the tag is not found, add it to the list and check it
+            _tags.value = _tags.value + Tag(tagName, isChecked)
+            // Sort the list by isChecked in descending order only when a new tag is added
+            _tags.value = _tags.value.sortedByDescending { it.isChecked }
+        }
     }
 
     fun onEvent(event: AddEditNoteEvent) {
-        when(event) {
+        when (event) {
             is AddEditNoteEvent.EnteredTitle -> {
                 _noteTitle.value = noteTitle.value.copy(
                     text = event.value
                 )
             }
+
             is AddEditNoteEvent.ChangeTitleFocus -> {
                 _noteTitle.value = noteTitle.value.copy(
                     isHintVisible = !event.focusState.isFocused &&
                             noteTitle.value.text.isBlank()
                 )
             }
+
             is AddEditNoteEvent.EnteredContent -> {
                 _noteContent.value = _noteContent.value.copy(
                     text = event.value
                 )
             }
+
             is AddEditNoteEvent.ChangeContentFocus -> {
                 _noteContent.value = _noteContent.value.copy(
                     isHintVisible = !event.focusState.isFocused &&
                             _noteContent.value.text!!.isBlank()
                 )
             }
+
             is AddEditNoteEvent.SaveNote -> {
+
                 viewModelScope.launch {
                     try {
                         voiceJournalRepository.save(
                             VoiceJournal(
-                            title = noteTitle.value.text,
-                            content = noteContent.value.text,
-                            created = System.currentTimeMillis(),
-                                fileName =noteFileName.value.text,
+                                title = noteTitle.value.text,
+                                content = noteContent.value.text,
+                                created = System.currentTimeMillis(),
+                                fileName = noteFileName.value.text,
                                 id = currentNoteId,
-                                color = noteColor.value
-                        ) )
+                                color = noteColor.value,
+                                imageUris = tempImageUris.value.imageFileUris,
+                                tags = tags.value
+                            )
+                        )
                         _eventFlow.emit(UiEvent.SaveNote)
-                    } catch(e: InvalidNoteException) {
+                    } catch (e: InvalidNoteException) {
                         _eventFlow.emit(
                             UiEvent.ShowSnackbar(
                                 message = e.message ?: "Couldn't save note"
@@ -184,37 +241,43 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
                     }
                 }
             }
-            is AddEditNoteEvent.Play -> {
-             viewModelScope.launch {
-                 startPlaying()
-                 _eventFlow.emit(UiEvent.PlayNote)
-             }
-            }
-            is AddEditNoteEvent.Recording ->{
-               viewModelScope.launch {
-                   startRecording()
-                   changeRecordState(true)
-                   _eventFlow.emit(UiEvent.Recording)
-               }
-            }
-            is AddEditNoteEvent.StopRecording ->{
-              viewModelScope.launch  {
-                  stopRecording()
-                  changeRecordState(false)
-                  _eventFlow.emit(UiEvent.StopRecord)
 
-              }
+            is AddEditNoteEvent.Play -> {
+                viewModelScope.launch {
+                    startPlaying()
+                    _eventFlow.emit(UiEvent.PlayNote)
+                }
             }
-            is AddEditNoteEvent.StopPlay ->{
+
+            is AddEditNoteEvent.Recording -> {
+                viewModelScope.launch {
+                    startRecording()
+                    changeRecordState(true)
+                    _eventFlow.emit(UiEvent.Recording)
+                }
+            }
+
+            is AddEditNoteEvent.StopRecording -> {
+                viewModelScope.launch {
+                    stopRecording()
+                    changeRecordState(false)
+                    _eventFlow.emit(UiEvent.StopRecord)
+
+                }
+            }
+
+            is AddEditNoteEvent.StopPlay -> {
                 viewModelScope.launch {
                     stopPlaying()
 
                     _eventFlow.emit(UiEvent.StopPlay)
                 }
             }
+
             is AddEditNoteEvent.ChangeColor -> {
                 _noteColor.value = event.color
             }
+
             is AddEditNoteEvent.DeleteJournal -> {
                 viewModelScope.launch {
                     event.voiceJournal?.let { voiceJournalRepository.delete(it) }
@@ -226,21 +289,25 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
 
 
     sealed class UiEvent {
-        data class ShowSnackbar(val message: String): UiEvent()
+        data class ShowSnackbar(val message: String) : UiEvent()
         object
-        SaveNote: UiEvent()
-        object PlayNote: UiEvent()
-        object StopPlay: UiEvent()
-        object Recording: UiEvent()
-        object StopRecord: UiEvent()
-    }
-    data class NoteState(val voiceJournal: VoiceJournal?=null)
+        SaveNote : UiEvent()
 
-    private suspend fun  startPlaying() {
+        object PlayNote : UiEvent()
+        object StopPlay : UiEvent()
+        object Recording : UiEvent()
+        object StopRecord : UiEvent()
+    }
+
+    data class NoteState(
+        val voiceJournal: VoiceJournal? = null,
+    )
+
+    private suspend fun startPlaying() {
 
         player = MediaPlayer().apply {
             setOnCompletionListener {
-               viewModelScope.launch { _eventFlow.emit(UiEvent.StopPlay) }
+                viewModelScope.launch { _eventFlow.emit(UiEvent.StopPlay) }
             }
 
             try {
@@ -256,9 +323,9 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
 
     private suspend fun audioDuration(): Int {
         return withContext(Dispatchers.IO) {
-         //   var player: MediaPlayer? = null
+            //   var player: MediaPlayer? = null
             try {
-               player = MediaPlayer()
+                player = MediaPlayer()
                 player?.setDataSource(noteFileName.value.text)
                 player?.prepare()
                 return@withContext player?.duration ?: 0 // return 0 if duration is null
@@ -270,15 +337,22 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
             }
         }
     }
-  private fun stopPlaying() {
+
+    private fun stopPlaying() {
 
         player?.release()
         player = null
     }
-   private fun startRecording() {
+
+    private fun startRecording() {
         recorder = MediaRecorder().apply {
-            _noteFileName.value =_noteFileName.value.copy(
-                text = "${context.getDir("AudioJournal",0)?.absolutePath}/Recording+ ${formatter.format(now)}+.3gp"
+            _noteFileName.value = _noteFileName.value.copy(
+                text = "${
+                    context.getDir(
+                        "AudioJournal",
+                        0
+                    )?.absolutePath
+                }/Recording+ ${formatter.format(now)}+.3gp"
             )
             setAudioSource(MediaRecorder.AudioSource.MIC)
             setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
@@ -295,6 +369,7 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
             start()
         }
     }
+
     private fun stopRecording() {
         recorder?.apply {
             stop()
@@ -302,6 +377,7 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
         }
         recorder = null
     }
+
     private fun pauseRecording() {
         // Check the device's version
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -309,9 +385,11 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
             recorder?.pause()
         } else {
             // Pause is not supported on lower versions
-            Toast.makeText(context, "Pause is not supported on this device", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Pause is not supported on this device", Toast.LENGTH_SHORT)
+                .show()
         }
     }
+
     private fun resumeRecording() {
         // Check the device's version
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -319,19 +397,28 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
             recorder?.resume()
         } else {
             // Pause is not supported on lower versions
-            Toast.makeText(context, "Resume is not supported on this device", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Resume is not supported on this device", Toast.LENGTH_SHORT)
+                .show()
         }
     }
 
-    fun changeRecordState(newState: Boolean){
+    fun changeRecordState(newState: Boolean) {
         //is to switch the recorder panel
         _recordState.value = newState
     }
 
-    fun doneButtonState(newState: Boolean){
+    fun doneButtonState(newState: Boolean) {
         _doneButtonState.value = newState
 
     }
+
+    fun noteFileName(imageFileUris: List<String>?) {
+        _noteFileName.value = _noteFileName.value.copy(
+            imageFileUris = imageFileUris
+        )
+
+    }
+
     fun getDuration(): Int {
         // use runBlocking to wait for the result
         return runBlocking {
@@ -347,16 +434,17 @@ _noteState.value=noteState.value.copy(voiceJournal = note)
             deferred.await()
         }
     }
-// Timer for Record panel
-fun startTimer() {
-    timerJob?.cancel()
-    timerJob = viewModelScope.launch {
-        while (true) {
-            delay(1000)
-            _timer.value++
+
+    // Timer for Record panel
+    fun startTimer() {
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            while (true) {
+                delay(1000)
+                _timer.value++
+            }
         }
     }
-}
 
     fun pauseTimer() {
         timerJob?.cancel()
@@ -409,5 +497,26 @@ fun startTimer() {
         timerJob2?.cancel()
     }
 
+    private fun getSelectedImageUris() {
+        viewModelScope.launch {
+            settingsRepository.getSelectedUris()
+                .collect {
+                    _tempImageUris.value = _tempImageUris.value.copy(
+                        imageFileUris = it.toList()
+                    )
+                }
+        }
+    }
+
+    fun removeSelectedImageUris() {
+        viewModelScope.launch {
+            settingsRepository.removeSelectedUris()
+        }
+    }
+    fun saveSelectedUris(selectedUris: List<String>) {
+        viewModelScope.launch {
+            settingsRepository.saveSelectedUris(selectedUris)
+        }
+    }
 
 }

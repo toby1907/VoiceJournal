@@ -72,35 +72,45 @@ val voiceJournals = listOf(
         content = "What is something you’ve always wanted to do but haven’t yet? What’s holding you back?",
         created = System.currentTimeMillis() - 86400000, // Yesterday
         fileName = "journal1.mp3",
-        color = VoiceJournal.noteColors.random().toArgb()
+        color = VoiceJournal.noteColors.random().toArgb(),
+        imageUris = emptyList(),
+        tags = emptyList()
     ),
     VoiceJournal(
         title = "Journal 2",
         content = "What is something you’ve always wanted to do but haven’t yet? What’s holding you back?",
         created = System.currentTimeMillis() - 172800000, // Two days ago
         fileName = "journal2.mp3",
-        color = VoiceJournal.noteColors.random().toArgb()
+        color = VoiceJournal.noteColors.random().toArgb(),
+        imageUris = emptyList(),
+        tags = emptyList()
     ),
     VoiceJournal(
         title = "Journal 3",
         content = "What is something you’ve always wanted to do but haven’t yet? What’s holding you back?",
         created = System.currentTimeMillis() - 259200000, // Three days ago
         fileName = "journal3.mp3",
-        color = VoiceJournal.noteColors.random().toArgb()
+        color = VoiceJournal.noteColors.random().toArgb(),
+        imageUris = emptyList(),
+        tags = emptyList()
     ),
     VoiceJournal(
         title = "Journal 4",
         content = "What is something you’ve always wanted to do but haven’t yet? What’s holding you back?",
         created = System.currentTimeMillis() - 259200000, // Three days ago
         fileName = "journal3.mp3",
-        color = VoiceJournal.noteColors.random().toArgb()
+        color = VoiceJournal.noteColors.random().toArgb(),
+        imageUris = emptyList(),
+        tags = emptyList()
     ),
     VoiceJournal(
         title = "Journal 5",
         content = "What is something you’ve always wanted to do but haven’t yet? What’s holding you back?",
         created = System.currentTimeMillis() - 259200000, // Three days ago
         fileName = "journal3.mp3",
-        color = VoiceJournal.noteColors.random().toArgb()
+        color = VoiceJournal.noteColors.random().toArgb(),
+        imageUris = emptyList(),
+        tags = emptyList()
     )
 )
 

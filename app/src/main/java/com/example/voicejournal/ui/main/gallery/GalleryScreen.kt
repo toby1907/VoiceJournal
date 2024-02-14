@@ -1,5 +1,6 @@
 package com.example.voicejournal.ui.main.gallery
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -31,14 +32,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.voicejournal.R
+import com.example.voicejournal.Screen
+import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteViewModel
 
 
 // Gallery screen composable
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GalleryScreen(
+    navController:NavController,
     modifier: Modifier=Modifier,
     onClick: () -> Unit,
     galleryScreenViewModel: GalleryScreenViewModel = hiltViewModel(),
@@ -46,7 +51,12 @@ fun GalleryScreen(
     val imageFiles by galleryScreenViewModel.imageFiles.collectAsState()
     var imageFileIsSelected by remember { mutableStateOf(false) }
     val selectedFiles = imageFiles.filter { it.isSelected }
+    Log.d("ImageSelected","$selectedFiles")
     val numberOfSelectedFiles = selectedFiles.size
+    val selectedUriss = selectedFiles.map { it.uri }
+    val selectedStrings = selectedUriss.map { it.toString() }
+    Log.d("UriofImageSelected","$selectedUriss")
+    //val selectedUris by galleryScreenViewModel.selectedUris.collectAsState(initial = emptySet())
     Scaffold(
         topBar = {
             TopAppBar(
@@ -66,7 +76,16 @@ fun GalleryScreen(
                   {
                       Icon(
                           painter = painterResource(id = R.drawable.check_24),
-                          contentDescription = ""
+                          contentDescription = "",
+                          modifier = Modifier.clickable {
+                              val uriListString = selectedUriss.joinToString(",") { it.toString() }
+
+                           galleryScreenViewModel.saveSelectedUris(selectedStrings)
+                           Log.d("uriListString", "$selectedStrings")
+                              navController.navigate(Screen.AddEditNoteScreen.route)
+
+                          }
+
                       )
                       Spacer(modifier = Modifier.size(8.dp))
 
@@ -74,7 +93,10 @@ fun GalleryScreen(
                     else{
                       Icon(
                           painter = painterResource(id = com.google.android.material.R.drawable.ic_m3_chip_close),
-                          contentDescription = ""
+                          contentDescription = "",
+                          modifier = Modifier.clickable {
+                              navController.popBackStack()
+                          }
                       )
                       Spacer(modifier = Modifier.size(8.dp))
                   }

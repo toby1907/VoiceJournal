@@ -1,5 +1,8 @@
 package com.example.voicejournal.ui.main.AddVoiceNote
 
+import android.net.Uri
+import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -55,9 +58,12 @@ import com.example.voicejournal.R
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomAppPanel
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomSheet
 import com.example.voicejournal.ui.main.AddVoiceNote.components.EditScreenTopAppBar
+import com.example.voicejournal.ui.main.AddVoiceNote.components.FileChooser
+import com.example.voicejournal.ui.main.AddVoiceNote.components.ImageBottomSheet
 import com.example.voicejournal.ui.main.AddVoiceNote.components.PlayRecordPanel
 import com.example.voicejournal.ui.main.AddVoiceNote.components.RecordPanelComponent
 import com.example.voicejournal.ui.main.AddVoiceNote.components.SetStatusBarContentColor
+import com.example.voicejournal.ui.main.AddVoiceNote.components.TagDialog
 import com.example.voicejournal.ui.main.AddVoiceNote.components.TransparentHintTextField
 import com.example.voicejournal.ui.theme.Variables
 import kotlinx.coroutines.flow.collectLatest
@@ -68,13 +74,27 @@ import kotlinx.coroutines.launch
 fun AddVoiceNoteScreen(
     navController: NavController,
     noteColor: Int,
-    addVoiceNoteViewModel: AddVoiceNoteViewModel = hiltViewModel(),
-    imageUri: String
+    addVoiceNoteViewModel: AddVoiceNoteViewModel = hiltViewModel()
 ) {
+    //uris
+    val uris = if(addVoiceNoteViewModel.tempImageUris.value.imageFileUris!=null)
+        addVoiceNoteViewModel.tempImageUris.value.imageFileUris?.map { Uri.parse(it) }
+    else addVoiceNoteViewModel.noteFileName.value.imageFileUris?.map { Uri.parse(it) }
+
+    // A composable function to handle the back button press from the edit screen
+    BackHandler(onBack = {
+        // Remove the selected image URIs
+       addVoiceNoteViewModel.removeSelectedImageUris()
+        // Navigate back to the main screen
+        navController.popBackStack()
+    })
+
     SetStatusBarContentColor(true)
     val titleState = addVoiceNoteViewModel.noteTitle.value
     val contentState = addVoiceNoteViewModel.noteContent.value
     val fileNameState = addVoiceNoteViewModel.noteFileName.value
+   // val selectedImageUris = galleryScreenViewModel.selectedUris.collectAsState(initial = emptySet())
+
     val note = addVoiceNoteViewModel.noteState.value
     val playNoteState = addVoiceNoteViewModel.playNoteState.value
     var playState by remember { mutableStateOf(false) }
@@ -82,8 +102,15 @@ fun AddVoiceNoteScreen(
         mutableStateOf(false)
     }
 
-    var startcount by remember {
-        mutableStateOf(false)
+    val showDialog = remember { mutableStateOf(false) }
+    // A function to show the dialog
+    fun showDialog() {
+        showDialog.value = true
+    }
+
+    // A function to hide the dialog
+    fun hideDialog() {
+        showDialog.value = false
     }
 
     var mediaState by remember {
@@ -98,10 +125,26 @@ fun AddVoiceNoteScreen(
 
     val scaffoldState = rememberScaffoldState()
     val bottomState = rememberModalBottomSheetState()
-    var openBottomSheet by rememberSaveable { mutableStateOf(false) }
+    var openBottomSheet by remember { mutableStateOf(false) }
+    var openImageSheet by rememberSaveable {
+        mutableStateOf(false)
+    }
+    var fileChooserState by rememberSaveable {
+        mutableStateOf(false)
+    }
+    fun showFileChooser(){
+        fileChooserState = true
+    }
+    fun hideFileChooser(){
+        fileChooserState = false
+    }
+
     var skipPartiallyExpanded by remember { mutableStateOf(false) }
     var edgeToEdgeEnabled by remember { mutableStateOf(false) }
     val bottomSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = skipPartiallyExpanded
+    )
+    val ImageSheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = skipPartiallyExpanded
     )
 
@@ -115,7 +158,9 @@ fun AddVoiceNoteScreen(
     LaunchedEffect(key1 = true) {
         addVoiceNoteViewModel.eventFlow.collectLatest { event ->
             when (event) {
-                is AddVoiceNoteViewModel.UiEvent.Recording -> {}
+                is AddVoiceNoteViewModel.UiEvent.Recording -> {
+
+                }
                 is AddVoiceNoteViewModel.UiEvent.StopRecord -> {
 
                 }
@@ -137,8 +182,6 @@ fun AddVoiceNoteScreen(
                         message = event.message
                     )
                 }
-
-
             }
         }
     }
@@ -260,9 +303,9 @@ fun AddVoiceNoteScreen(
                         },
 
 
-                    )
+                        )
                 } else {
-                    if (fileNameState.text.isEmpty()||!doneButtonState.value) {
+                    if (fileNameState.text.isEmpty() || !doneButtonState.value) {
                         FloatingActionButton(
                             onClick = {
                                 addVoiceNoteViewModel.onEvent(
@@ -292,10 +335,21 @@ fun AddVoiceNoteScreen(
 
             },
             bottomBar = {
-                BottomAppPanel {
-                   // cardVisibleState = !cardVisibleState
-                    openBottomSheet = !openBottomSheet
-                }
+
+                Log.d("uris","$uris")
+             //   val uriList = fileNameState.imageFileUris?.map { Uri.parse(it) }
+                BottomAppPanel(
+                    cardVisibleState = {
+                        // cardVisibleState = !cardVisibleState
+                        openBottomSheet = !openBottomSheet
+                    },
+
+                    imageUri = uris,
+
+                 imageSheetVisibleState = {
+                    openImageSheet = !openImageSheet
+                },
+                 tagVisiblestate = { showDialog() })
                 /* BottomAppBar(
                      Modifier
                          .wrapContentWidth()
@@ -423,13 +477,13 @@ fun AddVoiceNoteScreen(
                     Spacer(modifier = Modifier.size(8.dp))
                     val timerValue by addVoiceNoteViewModel.timer2.collectAsState()
                     val playingState by addVoiceNoteViewModel.playingState.collectAsState()
-                   val  timerValue2 = addVoiceNoteViewModel.getDuration()
+                    val timerValue2 = addVoiceNoteViewModel.getDuration()
                     if (
                         doneButtonState.value
                     ) {
                         PlayRecordPanel(
                             timerValue = timerValue,
-                            timerValue2= timerValue2,
+                            timerValue2 = timerValue2,
                             onPlay = { addVoiceNoteViewModel.startTimer2() },
                             onCancelRecord = {
                                 addVoiceNoteViewModel.stopTimer2()
@@ -438,13 +492,12 @@ fun AddVoiceNoteScreen(
                                 addVoiceNoteViewModel.doneButtonState(false)
 
                             },
-                            playingState =playingState
+                            playingState = playingState
                         )
                     }
 
 
                 }
-
 
 
             }
@@ -466,14 +519,68 @@ fun AddVoiceNoteScreen(
                 },
                 onImageClick = {
                     navController.navigate("gallery")
-                }
+                },
+                showFileChooser = { showFileChooser() }
+            ) {
+                navController.navigate("camera")
+            }
+        }
+        // Sheet content
+        if (openImageSheet) {
+            val windowInsets = if (edgeToEdgeEnabled)
+                WindowInsets(0) else BottomSheetDefaults.windowInsets
+            if (uris != null) {
+                ImageBottomSheet(
+                    onDismissRequest = { openImageSheet = false },
+                    sheetState = ImageSheetState,
+                    windowInsets = windowInsets,
+                    onClick = {
+                        scope.launch { ImageSheetState.hide() }.invokeOnCompletion {
+                            openBottomSheet = true
+                            if (!ImageSheetState.isVisible) {
+                                openImageSheet = false
+                            }
 
-            )
+                        }
+                    },
+                    onImageClick = {
+
+                    },
+                    imageUris =uris
+
+                )
+            }
         }
         /*
         BottomAppPopUpScreen(
             cardVisible = cardVisibleState,
         )*/
+        // A conditional statement to display the dialog
+        if (showDialog.value) {
+            // Pass the list of tags and the onTagChecked function from the viewmodel to the dialog
+            TagDialog(
+             addVoiceNoteViewModel = addVoiceNoteViewModel,
+                onTagChecked = addVoiceNoteViewModel::onTagChecked,
+                onCancel = {
+
+                    hideDialog()
+
+                           },
+                onOk = {
+                    hideDialog()/* do something with the selected tags */ }
+            )
+        }
+        if (fileChooserState){
+
+            FileChooser(
+                onOk ={
+                    hideFileChooser()
+                    openBottomSheet =false
+                },
+                saveSelectedUris = addVoiceNoteViewModel::saveSelectedUris,
+                fileChooserState = fileChooserState
+            )
+        }
 
     }
 
@@ -612,7 +719,6 @@ fun AddVoiceNoteScreenPreview() {
     val context = LocalContext.current
     AddVoiceNoteScreen(
         navController = NavController(context),
-        noteColor = Color.Blue.toArgb(),
-        imageUri = "imageUri"
+        noteColor = Color.Blue.toArgb()
     )
 }

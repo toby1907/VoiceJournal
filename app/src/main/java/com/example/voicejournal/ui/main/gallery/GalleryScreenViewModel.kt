@@ -7,8 +7,11 @@ import android.provider.MediaStore
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.voicejournal.Data.SettingsRepository
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
+import com.example.voicejournal.Data.model.ImageFile
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -18,12 +21,15 @@ import javax.inject.Inject
 class GalleryScreenViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val voiceJournalRepository: VoiceJournalRepositoryImpl,
-    private val context: Context
+    private val context: Context,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     // State flow to store the image files
     private val _imageFiles = MutableStateFlow(listOf<ImageFile>())
     val imageFiles: StateFlow<List<ImageFile>> = _imageFiles
+    val selectedUris: Flow<Set<String>> = settingsRepository.getSelectedUris()
+
 
     init {
         // Launch a coroutine to get the image files
@@ -101,9 +107,11 @@ class GalleryScreenViewModel @Inject constructor(
 
     }
 
+    fun saveSelectedUris(selectedUris: List<String>) {
+        viewModelScope.launch {
+            settingsRepository.saveSelectedUris(selectedUris)
+        }
+    }
+
 }
-data class ImageFile(
-    val uri: Uri,
-    val name: String,
-    var isSelected: Boolean = false
-)
+
