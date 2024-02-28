@@ -44,7 +44,8 @@ fun TagDialog(
     val tags = addVoiceNoteViewModel.tags.value
     // A state variable to store the text entered in the edit text field
     val tagInput = remember { mutableStateOf("") }
-    val filteredTags = filterTags(tagInput.value, tags)
+
+        val filteredTags = if (tags.isNotEmpty()){ filterTags(tagInput.value, tags) } else null
 
 
     // A function to add a new tag to the list
@@ -130,7 +131,7 @@ fun TagDialog(
 
                                             onStateChange(!checkedState)
                                             onTagChecked(tag.name, !tag.isChecked)
-                                          //onTagChecked(tag.name, it)
+                                            //onTagChecked(tag.name, it)
 
                                         },
                                         role = Role.Checkbox

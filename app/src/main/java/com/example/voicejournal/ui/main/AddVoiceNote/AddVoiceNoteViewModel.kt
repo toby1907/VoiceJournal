@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.TextStyle
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,6 +17,7 @@ import com.example.voicejournal.Data.InvalidNoteException
 import com.example.voicejournal.Data.SettingsRepository
 import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
+
 import com.example.voicejournal.ui.main.AddVoiceNote.components.Tag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -70,7 +72,7 @@ class AddVoiceNoteViewModel @Inject constructor(
     )
     private val _doneButtonState = MutableStateFlow<Boolean>(false)
 
-    val _tags = mutableStateOf(emptyList<Tag>())
+    private val _tags = mutableStateOf(emptyList<Tag>())
 
 
     private val _recordState = MutableStateFlow<Boolean>(false)
@@ -283,6 +285,10 @@ class AddVoiceNoteViewModel @Inject constructor(
                     event.voiceJournal?.let { voiceJournalRepository.delete(it) }
                     recentlyDeletedJournal = event.voiceJournal
                 }
+            }
+            is AddEditNoteEvent.ChangeStyle -> {
+
+
             }
         }
     }

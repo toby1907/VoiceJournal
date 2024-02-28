@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -32,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,12 +52,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.ParagraphStyle
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.R
+import com.example.voicejournal.ui.main.AddVoiceNote.components.AlignStyleBottomSheet
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomAppPanel
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomSheet
 import com.example.voicejournal.ui.main.AddVoiceNote.components.EditScreenTopAppBar
@@ -66,25 +78,38 @@ import com.example.voicejournal.ui.main.AddVoiceNote.components.SetStatusBarCont
 import com.example.voicejournal.ui.main.AddVoiceNote.components.TagDialog
 import com.example.voicejournal.ui.main.AddVoiceNote.components.TransparentHintTextField
 import com.example.voicejournal.ui.theme.Variables
+import com.mohamedrejeb.richeditor.annotation.ExperimentalRichTextApi
+import com.mohamedrejeb.richeditor.model.rememberRichTextState
+import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
+import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
+@OptIn(
+    ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class,
+    ExperimentalRichTextApi::class, ExperimentalLayoutApi::class
+)
 @Composable
 fun AddVoiceNoteScreen(
     navController: NavController,
     noteColor: Int,
     addVoiceNoteViewModel: AddVoiceNoteViewModel = hiltViewModel()
 ) {
+    val state = rememberRichTextState()
+    LaunchedEffect(state.annotatedString) {
+        AddEditNoteEvent.EnteredTitle(state.annotatedString.text)
+    }
+
+
     //uris
-    val uris = if(addVoiceNoteViewModel.tempImageUris.value.imageFileUris!=null)
+    val uris = if (addVoiceNoteViewModel.tempImageUris.value.imageFileUris != null)
         addVoiceNoteViewModel.tempImageUris.value.imageFileUris?.map { Uri.parse(it) }
     else addVoiceNoteViewModel.noteFileName.value.imageFileUris?.map { Uri.parse(it) }
 
     // A composable function to handle the back button press from the edit screen
     BackHandler(onBack = {
         // Remove the selected image URIs
-       addVoiceNoteViewModel.removeSelectedImageUris()
+        addVoiceNoteViewModel.removeSelectedImageUris()
         // Navigate back to the main screen
         navController.popBackStack()
     })
@@ -93,7 +118,26 @@ fun AddVoiceNoteScreen(
     val titleState = addVoiceNoteViewModel.noteTitle.value
     val contentState = addVoiceNoteViewModel.noteContent.value
     val fileNameState = addVoiceNoteViewModel.noteFileName.value
-   // val selectedImageUris = galleryScreenViewModel.selectedUris.collectAsState(initial = emptySet())
+    // val selectedImageUris = galleryScreenViewModel.selectedUris.collectAsState(initial = emptySet())
+    LaunchedEffect(Unit) {
+        state.setText(titleState.text)
+    }
+    val isImportant = remember { mutableStateOf(false) }
+
+    val isImportants = remember { mutableStateOf(false) }
+
+    val textStyle = if (isImportant.value) {
+        TextStyle(
+            fontSize = 16.sp,
+            color = Color.Gray
+        )
+    } else {
+        TextStyle(
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+
 
     val note = addVoiceNoteViewModel.noteState.value
     val playNoteState = addVoiceNoteViewModel.playNoteState.value
@@ -103,6 +147,7 @@ fun AddVoiceNoteScreen(
     }
 
     val showDialog = remember { mutableStateOf(false) }
+
     // A function to show the dialog
     fun showDialog() {
         showDialog.value = true
@@ -124,27 +169,32 @@ fun AddVoiceNoteScreen(
     }
 
     val scaffoldState = rememberScaffoldState()
-    val bottomState = rememberModalBottomSheetState()
     var openBottomSheet by remember { mutableStateOf(false) }
     var openImageSheet by rememberSaveable {
         mutableStateOf(false)
     }
+    var openAlignStyleBottomSheet by remember { mutableStateOf(false) }
     var fileChooserState by rememberSaveable {
         mutableStateOf(false)
     }
-    fun showFileChooser(){
+
+    fun showFileChooser() {
         fileChooserState = true
     }
-    fun hideFileChooser(){
+
+    fun hideFileChooser() {
         fileChooserState = false
     }
 
-    var skipPartiallyExpanded by remember { mutableStateOf(false) }
-    var edgeToEdgeEnabled by remember { mutableStateOf(false) }
+    val skipPartiallyExpanded by remember { mutableStateOf(false) }
+    val edgeToEdgeEnabled by remember { mutableStateOf(false) }
     val bottomSheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = skipPartiallyExpanded
     )
     val ImageSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = skipPartiallyExpanded
+    )
+    val alignStylebottomSheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = skipPartiallyExpanded
     )
 
@@ -156,11 +206,13 @@ fun AddVoiceNoteScreen(
     val scope = rememberCoroutineScope()
     val doneButtonState = addVoiceNoteViewModel.doneButtonState.collectAsState()
     LaunchedEffect(key1 = true) {
+
         addVoiceNoteViewModel.eventFlow.collectLatest { event ->
             when (event) {
                 is AddVoiceNoteViewModel.UiEvent.Recording -> {
 
                 }
+
                 is AddVoiceNoteViewModel.UiEvent.StopRecord -> {
 
                 }
@@ -189,7 +241,7 @@ fun AddVoiceNoteScreen(
     Surface(
         color = MaterialTheme.colorScheme.primary
     ) {
-        Scaffold(
+        Scaffold(modifier = Modifier.imePadding(),
             topBar = {
                 /*  SmallTopAppBar(
                       title = {
@@ -336,8 +388,9 @@ fun AddVoiceNoteScreen(
             },
             bottomBar = {
 
-                Log.d("uris","$uris")
-             //   val uriList = fileNameState.imageFileUris?.map { Uri.parse(it) }
+                Log.d("uris", "$uris")
+                //   val uriList = fileNameState.imageFileUris?.map { Uri.parse(it) }
+
                 BottomAppPanel(
                     cardVisibleState = {
                         // cardVisibleState = !cardVisibleState
@@ -346,10 +399,54 @@ fun AddVoiceNoteScreen(
 
                     imageUri = uris,
 
-                 imageSheetVisibleState = {
-                    openImageSheet = !openImageSheet
-                },
-                 tagVisiblestate = { showDialog() })
+                    imageSheetVisibleState = {
+                        openImageSheet = !openImageSheet
+                    },
+                    tagVisiblestate = { showDialog() },
+                    boldButtonState = {
+                        isImportants.value = !isImportants.value
+                        isImportant.value = !isImportant.value
+                        if (isImportant.value) {
+                            addVoiceNoteViewModel.onEvent(
+                                AddEditNoteEvent.ChangeStyle(
+                                    style = TextStyle(
+                                        fontSize = 16.sp,
+                                        color = Color.Gray
+                                    )
+                                )
+                            )
+                        } else {
+                            addVoiceNoteViewModel.onEvent(
+                                AddEditNoteEvent.ChangeStyle(
+                                    style = TextStyle(
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                            )
+
+                        }
+                    },
+                    onBoldClick = {
+                        state.toggleSpanStyle(SpanStyle(fontWeight = FontWeight.Bold))
+
+                    },
+
+                    onItalicClick = {
+                        state.toggleSpanStyle(SpanStyle(fontStyle = FontStyle.Italic))
+                    },
+                    onStrikethroughClick = {
+                        state.toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.LineThrough))
+                    },
+                    onUnderlineClick = {
+                        state.toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.Underline))
+                    },
+                    state = state
+                ) {
+                    openAlignStyleBottomSheet = !openAlignStyleBottomSheet
+                }
+
+
                 /* BottomAppBar(
                      Modifier
                          .wrapContentWidth()
@@ -391,117 +488,171 @@ fun AddVoiceNoteScreen(
                      }
 
                  }*/
-            },
-            content = { innerPadding ->
+            }
+        ) { innerPadding ->
 
-                Column(
-                    // consume insets as scaffold doesn't do it by default (yet)
+            Column(
+                // consume insets as scaffold doesn't do it by default (yet)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(noteBackgroundAnimatable.value)
+                    .padding(innerPadding),
+
+
+                ) {
+                Spacer(Modifier.height(16.dp))
+                Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(noteBackgroundAnimatable.value)
-                        .padding(innerPadding),
-
-
-                    ) {
-                    Spacer(Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        VoiceJournal.noteColors.forEach { color ->
-                            val colorInt = color.toArgb()
-                            Box(
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .shadow(15.dp, CircleShape)
-                                    .clip(CircleShape)
-                                    .background(color)
-                                    .border(
-                                        width = 3.dp,
-                                        color = if (addVoiceNoteViewModel.noteColor.value == colorInt) {
-                                            Color.Black
-                                        } else Color.Transparent,
-                                        shape = CircleShape
-                                    )
-                                    .clickable {
-                                        colorIntState = color.toArgb()
-                                        scope.launch {
-                                            noteBackgroundAnimatable.animateTo(
-                                                targetValue = Color(colorInt),
-                                                animationSpec = tween(
-                                                    durationMillis = 500
-                                                )
-                                            )
-                                        }
-                                        addVoiceNoteViewModel.onEvent(
-                                            AddEditNoteEvent.ChangeColor(
-                                                colorInt
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    VoiceJournal.noteColors.forEach { color ->
+                        val colorInt = color.toArgb()
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .shadow(15.dp, CircleShape)
+                                .clip(CircleShape)
+                                .background(color)
+                                .border(
+                                    width = 3.dp,
+                                    color = if (addVoiceNoteViewModel.noteColor.value == colorInt) {
+                                        Color.Black
+                                    } else Color.Transparent,
+                                    shape = CircleShape
+                                )
+                                .clickable {
+                                    colorIntState = color.toArgb()
+                                    scope.launch {
+                                        noteBackgroundAnimatable.animateTo(
+                                            targetValue = Color(colorInt),
+                                            animationSpec = tween(
+                                                durationMillis = 500
                                             )
                                         )
                                     }
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    TransparentHintTextField(
-                        text = titleState.text,
-                        hint = titleState.hint,
-                        onValueChange = {
-                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredTitle(it))
-                        },
-                        onFocusChange = {
-                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(it))
-                        },
-                        isHintVisible = titleState.isHintVisible,
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.headlineSmall
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    TransparentHintTextField(
-                        text = contentState.text ?: "",
-                        hint = contentState.hint,
-                        onValueChange = {
-                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredContent(it))
-                        },
-                        onFocusChange = {
-                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.ChangeContentFocus(it))
-                        },
-                        isHintVisible = contentState.isHintVisible,
-                        textStyle = androidx.compose.material.MaterialTheme.typography.body1,
-                        modifier = Modifier.height(if (doneButtonState.value) IntrinsicSize.Min else IntrinsicSize.Max)
-
-                        //
-                    )
-                    Spacer(modifier = Modifier.size(8.dp))
-                    val timerValue by addVoiceNoteViewModel.timer2.collectAsState()
-                    val playingState by addVoiceNoteViewModel.playingState.collectAsState()
-                    val timerValue2 = addVoiceNoteViewModel.getDuration()
-                    if (
-                        doneButtonState.value
-                    ) {
-                        PlayRecordPanel(
-                            timerValue = timerValue,
-                            timerValue2 = timerValue2,
-                            onPlay = { addVoiceNoteViewModel.startTimer2() },
-                            onCancelRecord = {
-                                addVoiceNoteViewModel.stopTimer2()
-                            },
-                            onRemove = {
-                                addVoiceNoteViewModel.doneButtonState(false)
-
-                            },
-                            playingState = playingState
+                                    addVoiceNoteViewModel.onEvent(
+                                        AddEditNoteEvent.ChangeColor(
+                                            colorInt
+                                        )
+                                    )
+                                }
                         )
                     }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                /*TransparentHintTextField(
+                    text = buildAnnotatedString {
+
+                        if(isImportants.value) {
+                            withStyle(
+                                style = SpanStyle(
+                                    color = Color.Green,
+                                    fontSize = 50.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                            ) {
+
+                                append(titleState.text)
+                            }
+                        }
+
+                    }.text
+                    ,
+                    hint = titleState.hint,
+                    onValueChange = {
+
+                        val text= buildAnnotatedString {
+
+                           if(isImportants.value) {
+                                withStyle(
+                                    style = SpanStyle(
+                                        color = Color.Green,
+                                        fontSize = 50.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                ) {
+
+                                    append(it)
+                                }
+                            }
+
+                        }
+                        addVoiceNoteViewModel.onEvent(
+                        )
+                    },
+                    onFocusChange = {
+                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.ChangeTitleFocus(it))
+                    },
+                    isHintVisible = titleState.isHintVisible,
+                    singleLine = true,
+                  //  textStyle = textStyle
+
+                    //MaterialTheme.typography.headlineSmall
+
+                )*/
+                RichTextEditor(
+                    placeholder = { Text("Title") },
+                    modifier = Modifier
+                        .fillMaxWidth(), maxLines = 2,
+                    state = state,
+                    colors = RichTextEditorDefaults.richTextEditorColors(
+                        containerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+
+                    )
+                )
 
 
+                Spacer(modifier = Modifier.height(16.dp))
+                TransparentHintTextField(
+
+                    text = contentState.text ?: "",
+                    hint = contentState.hint,
+                    onValueChange = {
+                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredContent(it))
+                    },
+                    onFocusChange = {
+                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.ChangeContentFocus(it))
+                    },
+                    isHintVisible = contentState.isHintVisible,
+                    textStyle = textStyle //androidx.compose.material.MaterialTheme.typography.body1
+                    ,
+                    modifier = Modifier.height(if (doneButtonState.value) IntrinsicSize.Min else IntrinsicSize.Max)
+                    //
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                val timerValue by addVoiceNoteViewModel.timer2.collectAsState()
+                val playingState by addVoiceNoteViewModel.playingState.collectAsState()
+                val timerValue2 = addVoiceNoteViewModel.getDuration()
+                if (
+                    doneButtonState.value
+                ) {
+                    PlayRecordPanel(
+                        timerValue = timerValue,
+                        timerValue2 = timerValue2,
+                        onPlay = { addVoiceNoteViewModel.startTimer2() },
+                        onCancelRecord = {
+                            addVoiceNoteViewModel.stopTimer2()
+                        },
+                        onRemove = {
+                            addVoiceNoteViewModel.doneButtonState(false)
+
+                        },
+                        playingState = playingState
+                    )
                 }
 
 
             }
-        )
+
+
+        }
         // Sheet content
         if (openBottomSheet) {
             val windowInsets = if (edgeToEdgeEnabled)
@@ -518,12 +669,17 @@ fun AddVoiceNoteScreen(
                     }
                 },
                 onImageClick = {
+
                     navController.navigate("gallery")
                 },
-                showFileChooser = { showFileChooser() }
-            ) {
-                navController.navigate("camera")
-            }
+                showFileChooser = {
+                    showFileChooser()
+                },
+                onCameraClick = {
+                    navController.navigate("camera")
+                }
+            )
+
         }
         // Sheet content
         if (openImageSheet) {
@@ -546,36 +702,62 @@ fun AddVoiceNoteScreen(
                     onImageClick = {
 
                     },
-                    imageUris =uris
+                    imageUris = uris
 
                 )
             }
         }
-        /*
-        BottomAppPopUpScreen(
-            cardVisible = cardVisibleState,
-        )*/
-        // A conditional statement to display the dialog
+        //Align style sheet
+        if (openAlignStyleBottomSheet) {
+            val windowInsets = if (edgeToEdgeEnabled)
+                WindowInsets(0) else BottomSheetDefaults.windowInsets
+
+            AlignStyleBottomSheet(
+                onDismissRequest = { openAlignStyleBottomSheet = false },
+                sheetState = alignStylebottomSheetState,
+                windowInsets = windowInsets,
+                onClick = {
+                    scope.launch { alignStylebottomSheetState.hide() }.invokeOnCompletion {
+
+                    }
+                },
+                state = state,
+                onStartAlignClick = {
+                    state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Start))
+                },
+                onEndAlignClick = {
+                    state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.End))
+                },
+                onCenterAlignClick = {
+                    state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center))
+                },
+                onOrderedListClick = { state.toggleOrderedList() },
+                onUnorderedListClick = { state.toggleUnorderedList() }
+            )
+
+        }
+
         if (showDialog.value) {
-            // Pass the list of tags and the onTagChecked function from the viewmodel to the dialog
+
             TagDialog(
-             addVoiceNoteViewModel = addVoiceNoteViewModel,
+                addVoiceNoteViewModel = addVoiceNoteViewModel,
                 onTagChecked = addVoiceNoteViewModel::onTagChecked,
                 onCancel = {
 
                     hideDialog()
 
-                           },
+                },
                 onOk = {
-                    hideDialog()/* do something with the selected tags */ }
+                    hideDialog()/* do something with the selected tags */
+                }
             )
         }
-        if (fileChooserState){
+        if (fileChooserState) {
 
             FileChooser(
-                onOk ={
+                onOk = {
                     hideFileChooser()
-                    openBottomSheet =false
+                    openBottomSheet = false
                 },
                 saveSelectedUris = addVoiceNoteViewModel::saveSelectedUris,
                 fileChooserState = fileChooserState
@@ -650,7 +832,6 @@ val calendar = Calendar.getInstance()
 }*/
 
 
-
 /*
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -713,6 +894,8 @@ Scaffold(
 )
 
 */
+
+
 @Composable
 @Preview
 fun AddVoiceNoteScreenPreview() {

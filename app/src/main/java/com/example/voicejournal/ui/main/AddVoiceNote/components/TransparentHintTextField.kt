@@ -21,7 +21,8 @@ fun TransparentHintTextField(
     onValueChange: (String) -> Unit,
     textStyle: TextStyle = TextStyle(),
     singleLine: Boolean = false,
-    onFocusChange: (FocusState) -> Unit
+    onFocusChange: (FocusState) -> Unit,
+
 ){
     Box(
         modifier = modifier
