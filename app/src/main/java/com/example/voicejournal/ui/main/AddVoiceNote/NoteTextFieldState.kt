@@ -6,7 +6,7 @@ data class NoteContentTextFieldState(
     val isHintVisible: Boolean = true
 )
 data class NoteTextFieldState(
-    val text: String = "",
+    var text: String = "",
     val hint: String = "",
     val isHintVisible: Boolean = true
 )

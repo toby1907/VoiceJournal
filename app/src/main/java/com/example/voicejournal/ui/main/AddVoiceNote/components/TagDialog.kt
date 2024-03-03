@@ -45,7 +45,7 @@ fun TagDialog(
     // A state variable to store the text entered in the edit text field
     val tagInput = remember { mutableStateOf("") }
 
-        val filteredTags = if (tags.isNotEmpty()){ filterTags(tagInput.value, tags) } else null
+        val filteredTags =  filterTags(tagInput.value, tags)
 
 
     // A function to add a new tag to the list
@@ -108,49 +108,51 @@ fun TagDialog(
                     }
                 }
 
-                // A list to display the tags added
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                ) {
-                  if (filteredTags!=null)  {
-                        items(filteredTags) { tag ->
-                            // A row to hold the checkbox and the tag text
-                            val (checkedState, onStateChange) = remember { mutableStateOf(true) }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(8.dp)
-                                    .toggleable(
-                                        value = tag.isChecked
-                                        //  checkedState
-                                        ,
-                                        onValueChange = {
 
-                                            onStateChange(!checkedState)
-                                            onTagChecked(tag.name, !tag.isChecked)
-                                            //onTagChecked(tag.name, it)
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        ) {
 
-                                        },
-                                        role = Role.Checkbox
-                                    ) // Toggle the checkbox when the row is clicked
-                            ) {
-                                // A checkbox to indicate if the tag is selected or not
-                                Checkbox(
-                                    checked = tag.isChecked,
-                                    onCheckedChange = null
-                                )
+                            items(filteredTags!!) { tag ->
+                                // A row to hold the checkbox and the tag text
+                                val (checkedState, onStateChange) = remember { mutableStateOf(true) }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp)
+                                        .toggleable(
+                                            value = tag.isChecked
+                                            //  checkedState
+                                            ,
+                                            onValueChange = {
 
-                                // A spacer to create some gap between the checkbox and the text
-                                Spacer(modifier = Modifier.width(8.dp))
+                                                onStateChange(!checkedState)
+                                                onTagChecked(tag.name, !tag.isChecked)
+                                                //onTagChecked(tag.name, it)
 
-                                // A text to show the tag name
-                                Text(text = tag.name)
+                                            },
+                                            role = Role.Checkbox
+                                        ) // Toggle the checkbox when the row is clicked
+                                ) {
+                                    // A checkbox to indicate if the tag is selected or not
+                                    Checkbox(
+                                        checked = tag.isChecked,
+                                        onCheckedChange = null
+                                    )
+
+                                    // A spacer to create some gap between the checkbox and the text
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    // A text to show the tag name
+                                    Text(text = tag.name)
+                                }
                             }
-                        }
-                    }
+
+
+
                 }
 
                 // A horizontal divider to separate the content and the footer

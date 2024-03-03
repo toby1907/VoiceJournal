@@ -383,7 +383,7 @@ fun NoteList(
     navController: NavController,
     modifier: Modifier = Modifier
 ) {
-    val groupedVoiceJournals = voiceJournals.groupBy {
+    val groupedVoiceJournals = journals.groupBy {
         /*    val calendar = Calendar.getInstance()
             calendar.timeInMillis = it.created
             calendar.set(Calendar.HOUR_OF_DAY, 0)

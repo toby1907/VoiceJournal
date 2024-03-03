@@ -55,17 +55,24 @@ class TagListConverter {
 
     // A function that converts a string to a list of tags
     @TypeConverter
-    fun toTagList(tagString: String?): List<Tag>? {
-        // Use the same delimiter to split the string
+    fun toTagList(tagString: String?): List<Tag> {
+        if (tagString.isNullOrEmpty()) {
+            // Handle empty input (return an empty list or handle differently)
+            return emptyList()
+        }
+
         val delimiter = ","
-        // Split the string into a list of tag names and checked states
-        val tagPairs = tagString?.split(delimiter)
-        // Map each pair to a Tag object
-        return tagPairs?.map { pair ->
-            // Split the pair into a name and a checked state
+        val tagPairs = tagString.split(delimiter)
+
+        return tagPairs.mapNotNull { pair ->
             val (name, checked) = pair.split(":")
-            // Create a Tag object with the name and the checked state
-            Tag(name, checked.toBoolean())
+            try {
+                Tag(name, checked.toBoolean())
+            } catch (e: Exception) {
+                // Handle invalid pair (e.g., missing checked state)
+                null
+            }
         }
     }
+
 }

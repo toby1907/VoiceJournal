@@ -41,6 +41,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.example.voicejournal.R
+import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.theme.Variables
 import kotlinx.coroutines.DisposableHandle
 
@@ -219,6 +220,9 @@ fun ImageBottomSheet(
                                         .width(184.dp)
                                         .height(205.dp)
                                         .background(color = Variables.SchemesSurface, shape = RoundedCornerShape(28.dp))
+                                        .clickable {
+                                           onImageClick()
+                                        }
                                     ,
 
                                     contentScale = ContentScale.FillBounds,

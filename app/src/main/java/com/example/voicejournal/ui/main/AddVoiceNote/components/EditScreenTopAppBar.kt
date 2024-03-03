@@ -1,5 +1,6 @@
 package com.example.voicejournal.ui.main.AddVoiceNote.components
 
+import android.util.Log
 import androidx.compose.material.ScaffoldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -36,6 +37,7 @@ fun EditScreenTopAppBar(
     note: AddVoiceNoteViewModel.NoteState,
     scope: CoroutineScope,
     scaffoldState: ScaffoldState,
+    nav: ()-> Unit
 
     ) {
     val simpleDate = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
@@ -65,8 +67,9 @@ fun EditScreenTopAppBar(
             if (titleState.text != "") {
                 IconButton(onClick = {
                     addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote)
-                    navController.navigate(Screen.VoicesScreen.route)
+                    Log.d("NoteNav","could not save")
                 })
+
                 {
                     Icon(
                         painter = painterResource(R.drawable.check_24),

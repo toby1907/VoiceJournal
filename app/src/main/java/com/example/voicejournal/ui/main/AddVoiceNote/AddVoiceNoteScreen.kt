@@ -66,6 +66,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.R
+import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.components.AlignStyleBottomSheet
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomAppPanel
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomSheet
@@ -86,8 +87,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @OptIn(
-    ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class,
-    ExperimentalRichTextApi::class, ExperimentalLayoutApi::class
+    ExperimentalMaterial3Api::class
 )
 @Composable
 fun AddVoiceNoteScreen(
@@ -97,7 +97,8 @@ fun AddVoiceNoteScreen(
 ) {
     val state = rememberRichTextState()
     LaunchedEffect(state.annotatedString) {
-        AddEditNoteEvent.EnteredTitle(state.annotatedString.text)
+        addVoiceNoteViewModel.onEvent( AddEditNoteEvent.EnteredTitle(state.annotatedString.text))
+
     }
 
 
@@ -118,9 +119,12 @@ fun AddVoiceNoteScreen(
     val titleState = addVoiceNoteViewModel.noteTitle.value
     val contentState = addVoiceNoteViewModel.noteContent.value
     val fileNameState = addVoiceNoteViewModel.noteFileName.value
+    Log.d("SetText1",titleState.text)
     // val selectedImageUris = galleryScreenViewModel.selectedUris.collectAsState(initial = emptySet())
     LaunchedEffect(Unit) {
+
         state.setText(titleState.text)
+        Log.d("SetText2",titleState.text)
     }
     val isImportant = remember { mutableStateOf(false) }
 
@@ -298,6 +302,9 @@ fun AddVoiceNoteScreen(
                     note = note,
                     scope = scope,
                     scaffoldState = scaffoldState,
+                    nav = {
+                        navController.navigate(Screen.VoicesScreen.route)
+                    }
 
                     )
             },
@@ -345,6 +352,7 @@ fun AddVoiceNoteScreen(
                             addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopRecording)
                             addVoiceNoteViewModel.stopTimer()
                             addVoiceNoteViewModel.changeRecordState(false)
+                            addVoiceNoteViewModel.onCancelRecord()
                         },
                         onDoneClick = {
                             addVoiceNoteViewModel.doneButtonState(true)
@@ -598,7 +606,7 @@ fun AddVoiceNoteScreen(
                 RichTextEditor(
                     placeholder = { Text("Title") },
                     modifier = Modifier
-                        .fillMaxWidth(), maxLines = 2,
+                        .fillMaxWidth(),
                     state = state,
                     colors = RichTextEditorDefaults.richTextEditorColors(
                         containerColor = Color.Transparent,
@@ -631,17 +639,22 @@ fun AddVoiceNoteScreen(
                 val playingState by addVoiceNoteViewModel.playingState.collectAsState()
                 val timerValue2 = addVoiceNoteViewModel.getDuration()
                 if (
-                    doneButtonState.value
+                    doneButtonState.value || playNoteState
                 ) {
                     PlayRecordPanel(
                         timerValue = timerValue,
                         timerValue2 = timerValue2,
-                        onPlay = { addVoiceNoteViewModel.startTimer2() },
+                        onPlay = {
+                            addVoiceNoteViewModel.startTimer2()
+
+                                 },
                         onCancelRecord = {
                             addVoiceNoteViewModel.stopTimer2()
                         },
                         onRemove = {
+
                             addVoiceNoteViewModel.doneButtonState(false)
+                            addVoiceNoteViewModel.onCancelRecord()
 
                         },
                         playingState = playingState
@@ -670,7 +683,17 @@ fun AddVoiceNoteScreen(
                 },
                 onImageClick = {
 
-                    navController.navigate("gallery")
+                   if(note.voiceJournal?.id !=null) {
+                        navController.navigate(
+                            "gallery" +
+                                    "?noteId=${note.voiceJournal.id}&noteColor=${noteColor}"
+                        )
+                    }
+                    else{
+                       navController.navigate(
+                           "gallery"
+                       )
+                   }
                 },
                 showFileChooser = {
                     showFileChooser()
@@ -700,7 +723,7 @@ fun AddVoiceNoteScreen(
                         }
                     },
                     onImageClick = {
-
+                        navController.navigate("preview")
                     },
                     imageUris = uris
 

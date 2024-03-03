@@ -29,9 +29,14 @@ class GalleryScreenViewModel @Inject constructor(
     private val _imageFiles = MutableStateFlow(listOf<ImageFile>())
     val imageFiles: StateFlow<List<ImageFile>> = _imageFiles
     val selectedUris: Flow<Set<String>> = settingsRepository.getSelectedUris()
-
+    var currentNoteId: Int? = null
 
     init {
+        savedStateHandle.get<Int>("noteId")?.let { noteId ->
+            if (noteId != -1) {
+             currentNoteId = noteId
+
+            }            }
         // Launch a coroutine to get the image files
         viewModelScope.launch {
             _imageFiles.value = getImageFiles()

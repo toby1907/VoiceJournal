@@ -36,17 +36,17 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.voicejournal.R
 import com.example.voicejournal.Screen
-import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteViewModel
 
 
 // Gallery screen composable
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GalleryScreen(
-    navController:NavController,
-    modifier: Modifier=Modifier,
+    navController: NavController,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
     galleryScreenViewModel: GalleryScreenViewModel = hiltViewModel(),
+    noteColor: Int,
     ) {
     val imageFiles by galleryScreenViewModel.imageFiles.collectAsState()
     var imageFileIsSelected by remember { mutableStateOf(false) }
@@ -55,6 +55,7 @@ fun GalleryScreen(
     val numberOfSelectedFiles = selectedFiles.size
     val selectedUriss = selectedFiles.map { it.uri }
     val selectedStrings = selectedUriss.map { it.toString() }
+    val noteId = galleryScreenViewModel.currentNoteId
     Log.d("UriofImageSelected","$selectedUriss")
     //val selectedUris by galleryScreenViewModel.selectedUris.collectAsState(initial = emptySet())
     Scaffold(
@@ -82,7 +83,10 @@ fun GalleryScreen(
 
                            galleryScreenViewModel.saveSelectedUris(selectedStrings)
                            Log.d("uriListString", "$selectedStrings")
-                              navController.navigate(Screen.AddEditNoteScreen.route)
+                              navController.navigate(
+                                  Screen.AddEditNoteScreen.route +
+                                          "?noteId=${noteId}&noteColor=${noteColor}"
+                              )
 
                           }
 
