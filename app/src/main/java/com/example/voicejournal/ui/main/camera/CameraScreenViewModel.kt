@@ -28,15 +28,21 @@ class CameraScreenViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
     private val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
-
+    var currentNoteId: Int? = null
 
     private val _bitmaps = MutableStateFlow<List<Bitmap>>(emptyList())
     val bitmaps = _bitmaps.asStateFlow()
+    init {
+        savedStateHandle.get<Int>("noteId")?.let { noteId ->
+            if (noteId != -1) {
+                currentNoteId = noteId
+
+            }            }
+
+    }
 
     fun onTakePhoto(bitmap: Bitmap) {
         _bitmaps.value += bitmap
-
-
 
     }
 

@@ -67,7 +67,7 @@ fun EditScreenTopAppBar(
             if (titleState.text != "") {
                 IconButton(onClick = {
                     addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote)
-                    Log.d("NoteNav","could not save")
+
                 })
 
                 {

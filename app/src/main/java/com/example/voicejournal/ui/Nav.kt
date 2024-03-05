@@ -90,7 +90,14 @@ fun MyAppNavHost(
             val color = entry.arguments?.getInt("noteColor") ?: -1
             GalleryScreen(navController = navController,
                 onClick = {
-                navController.navigate(Screen.AddEditNoteScreen.route) },
+                navController.navigate(Screen.AddEditNoteScreen.route){
+                    popUpTo("gallery") {
+                        inclusive = true
+                    }
+                }
+
+
+                          },
                 noteColor = color
 
             )

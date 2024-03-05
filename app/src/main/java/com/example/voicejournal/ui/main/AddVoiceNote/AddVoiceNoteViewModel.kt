@@ -69,6 +69,7 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val _tempImageUris = mutableStateOf(
         UriState()
     )
+    private var tempUris: List<String> = listOf()
     private val _imageUris = mutableStateOf(
         UriState()
     )
@@ -158,10 +159,13 @@ class AddVoiceNoteViewModel @Inject constructor(
                             )
                         }
                         if (note != null) {
-                            _noteFileName.value = _noteFileName.value.copy(
+                           if (note.imageUris?.isNotEmpty()== true) {
+                               tempUris = note.imageUris!!
+                           }
+                            _tempImageUris.value = _tempImageUris.value.copy(
                                 imageFileUris = note.imageUris
                             )
-                            Log.d("Image from file",imageUris.value.imageFileUris.toString())
+                            Log.d("Image from file","${note.imageUris}")
                         }
                         if (note != null) {
                             if (note.tags != null) {
@@ -178,7 +182,7 @@ Log.d("PlayState",noteFileName.value.text)
         }
         Log.d("_NoteTitle",_noteTitle.value.text)
         getSelectedImageUris()
-        removeSelectedImageUris()
+
     }
 
 
@@ -252,6 +256,7 @@ Log.d("PlayState",noteFileName.value.text)
                         )
                     }
                 }
+                removeSelectedImageUris()
             }
 
             is AddEditNoteEvent.Play -> {
@@ -522,18 +527,42 @@ Log.d("PlayState",noteFileName.value.text)
         viewModelScope.launch {
             settingsRepository.getSelectedUris()
                 .collect {
-                    _tempImageUris.value = _tempImageUris.value.copy(
-                        imageFileUris = it.toList()
-                    )
+                    if (it.isNotEmpty()) {
+                        // Add the new URIs to the existing list
+
+                        _tempImageUris.value = _tempImageUris.value.copy(
+                            imageFileUris = tempUris + it.toList()
+                        )
+                        Log.d("Temp fr get", "$tempUris")
+                    }
                 }
         }
+        viewModelScope.launch {
+            settingsRepository.getSelectedUris()
+                .collect {
+                    if (it.isNotEmpty()) {
+                        tempUris = tempUris + it.toList()
+                        _tempImageUris.value = _tempImageUris.value.copy(
+                            imageFileUris = tempUris
+                        )
+                        Log.d("Temp fr get", "$tempUris")
+                    }
+
+                }
+        }
+
 
     }
 
     fun removeSelectedImageUris() {
         viewModelScope.launch {
             settingsRepository.removeSelectedUris()
+            _tempImageUris.value = _tempImageUris.value.copy(
+                imageFileUris = tempUris
+            )
+            Log.d("Temp fr remove", "$tempUris")
         }
+
     }
 
     fun saveSelectedUris(selectedUris: List<String>) {

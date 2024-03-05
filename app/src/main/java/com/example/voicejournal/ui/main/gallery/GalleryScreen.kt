@@ -83,10 +83,15 @@ fun GalleryScreen(
 
                            galleryScreenViewModel.saveSelectedUris(selectedStrings)
                            Log.d("uriListString", "$selectedStrings")
-                              navController.navigate(
+                            /*  navController.navigate(
                                   Screen.AddEditNoteScreen.route +
                                           "?noteId=${noteId}&noteColor=${noteColor}"
-                              )
+                              ){
+                                  popUpTo("gallery") {
+                                      inclusive = true
+                                  }
+                              }*/
+                              navController.navigateUp()
 
                           }
 
