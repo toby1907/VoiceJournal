@@ -11,7 +11,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,7 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -79,7 +77,6 @@ import com.example.voicejournal.ui.main.AddVoiceNote.components.SetStatusBarCont
 import com.example.voicejournal.ui.main.AddVoiceNote.components.TagDialog
 import com.example.voicejournal.ui.main.AddVoiceNote.components.TransparentHintTextField
 import com.example.voicejournal.ui.theme.Variables
-import com.mohamedrejeb.richeditor.annotation.ExperimentalRichTextApi
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
@@ -365,7 +362,7 @@ fun AddVoiceNoteScreen(
 
                         )
                 } else {
-                    if (fileNameState.text.isEmpty() || !doneButtonState.value) {
+                    if (fileNameState.text.isEmpty() ) {
                         FloatingActionButton(
                             onClick = {
                                 addVoiceNoteViewModel.onEvent(
@@ -646,9 +643,10 @@ fun AddVoiceNoteScreen(
                         timerValue2 = timerValue2,
                         onPlay = {
                             addVoiceNoteViewModel.startTimer2()
-
+                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Play(filename = fileNameState.text) )
                                  },
                         onCancelRecord = {
+                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
                             addVoiceNoteViewModel.stopTimer2()
                         },
                         onRemove = {

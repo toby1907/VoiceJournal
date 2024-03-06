@@ -48,6 +48,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
 import com.example.voicejournal.Data.VoiceJournal
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
@@ -58,7 +59,8 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun VoiceJournalPreviewScreen(
-    voiceJournalPreviewViewModel:  VoiceJournalPreviewViewModel = hiltViewModel()
+    voiceJournalPreviewViewModel: VoiceJournalPreviewViewModel = hiltViewModel(),
+    navController: NavHostController
 ){
     val voiceNotes = voiceJournalPreviewViewModel.state.value
     val voiceNotesList: List<VoiceJournal> = voiceNotes.notes

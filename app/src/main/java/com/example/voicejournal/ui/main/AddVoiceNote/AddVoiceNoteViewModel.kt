@@ -70,6 +70,7 @@ class AddVoiceNoteViewModel @Inject constructor(
         UriState()
     )
     private var tempUris: List<String> = listOf()
+    private var tempFileName: String = ""
     private val _imageUris = mutableStateOf(
         UriState()
     )
@@ -154,8 +155,9 @@ class AddVoiceNoteViewModel @Inject constructor(
                             _noteColor.value = note.color
                         }
                         if (note != null) {
+                            tempFileName = note.fileName
                             _noteFileName.value = _noteFileName.value.copy(
-                                text = note.fileName
+                                text = tempFileName
                             )
                         }
                         if (note != null) {

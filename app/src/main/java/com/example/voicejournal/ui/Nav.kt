@@ -108,8 +108,26 @@ fun MyAppNavHost(
                 navController.navigate(Screen.AddEditNoteScreen.route)
             }
         }
-        composable("preview") {
-            VoiceJournalPreviewScreen()
+        composable(route = "preview"+"?noteId={noteId}&noteColor={noteColor}",
+            arguments = listOf(
+                navArgument(
+                    name = "noteId"
+                ) {
+                    type = NavType.IntType
+                    defaultValue = -1
+                },
+                navArgument(
+                    name = "noteColor"
+                ) {
+                    type = NavType.IntType
+                    defaultValue = -1
+                },
+            )
+        ) {entry ->
+            val color = entry.arguments?.getInt("noteColor") ?: -1
+            VoiceJournalPreviewScreen(
+                navController = navController
+            )
         }
 
     }

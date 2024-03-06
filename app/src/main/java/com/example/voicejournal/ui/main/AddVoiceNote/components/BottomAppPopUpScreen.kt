@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -62,7 +63,7 @@ fun BottomSheet(
         sheetState = sheetState,
         windowInsets = windowInsets,
 
-    ) {
+        ) {
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.Top,
@@ -106,17 +107,17 @@ fun BottomSheet(
                             modifier = Modifier
                                 .padding(8.dp)
                                 .clickable {
-                                if (index == 0) {
-                                    onImageClick()
+                                    if (index == 0) {
+                                        onImageClick()
+                                    }
+                                    if (index == 1) {
+                                        showFileChooser()
+                                    }
+                                    if (index == 2) {
+                                        onCameraClick()
+                                        onClick()
+                                    }
                                 }
-                                if(index ==1){
-                                    showFileChooser()
-                                }
-                                    if(index==2){
-                                   onCameraClick()
-                                    onClick()
-                                }
-                            }
                         ) {
                             IconButton(
                                 modifier = Modifier
@@ -172,43 +173,39 @@ fun ImageBottomSheet(
                 items(count = imageUris.size + 1, itemContent = { index ->
                     when (index) {
                         0 -> {
-                            // Show the IconButton for the first item
-                            IconButton(
-                                onClick = {
-                                    // TODO: add more images to the grid
-                                }
-                            ) {
-                                Box(modifier = Modifier
-                                    .padding(4.dp)
-                                    .aspectRatio(1f)
-                                    .clickable {
+                            Box(modifier = Modifier
+                                .padding(8.dp)
+                                .aspectRatio(1f)
+                                .clickable {
 
-                                    }
-                                )
-                                {
-                                    Image(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = "Add more images",
-                                        alignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .aspectRatio(1f)
-                                            .width(184.dp)
-                                            .height(205.dp)
-                                            .clickable {
-                                                 onClick()
-                                            }
-                                        ,
-                                        contentScale = ContentScale.FillBounds,
-                                    )
                                 }
+                            )
+                            {
+                                Image(
+                                    painter = painterResource(id = R.drawable.add_image),
+                                    contentDescription = "Add more images",
+                                    alignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .width(184.dp)
+                                        .height(205.dp)
+                                        .clickable {
+                                            onClick()
+                                        },
+                                    contentScale = ContentScale.Fit,
+                                )
                             }
+
                         }
 
                         else -> {
                             // Show the Image for the other items
                             Box(
                                 modifier = Modifier
-                                    .padding(4.dp)
+                                    .padding(8.dp)
+                                    .background(
+                                        color = Variables.SchemesSurface,
+                                        shape = RoundedCornerShape(28.dp)
+                                    )
                                     .aspectRatio(1f)
                             )
                             {
@@ -219,13 +216,13 @@ fun ImageBottomSheet(
                                         .aspectRatio(1f)
                                         .width(184.dp)
                                         .height(205.dp)
-                                        .background(color = Variables.SchemesSurface, shape = RoundedCornerShape(28.dp))
+                                        .clip(RoundedCornerShape(28.dp))
+                                        .background(color = Variables.SchemesSurface)
                                         .clickable {
-                                           onImageClick()
-                                        }
-                                    ,
+                                            onImageClick()
+                                        },
 
-                                    contentScale = ContentScale.FillBounds,
+                                    contentScale = ContentScale.Crop,
                                 )
                             }
                         }
