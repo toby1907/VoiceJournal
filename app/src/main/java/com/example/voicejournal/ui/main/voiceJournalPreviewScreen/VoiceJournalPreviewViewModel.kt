@@ -3,6 +3,7 @@ package com.example.voicejournal.ui.main.voiceJournalPreviewScreen
 import android.content.Context
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.toArgb
@@ -20,6 +21,7 @@ import com.example.voicejournal.ui.main.AddVoiceNote.UriState
 import com.example.voicejournal.ui.main.AddVoiceNote.components.Tag
 import com.example.voicejournal.ui.main.mainScreen.NotesState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,9 +50,9 @@ class VoiceJournalPreviewViewModel @Inject constructor(
     private var recentlyDeletedJournal: VoiceJournal? = null
     // recentlyDeletedJournal to be implemented later TODO()
 
-//Lists of Notes
-    private val _state = mutableStateOf(NotesState())
-    val state: State<NotesState> =_state
+    //Lists of Notes
+    private val _state = MutableStateFlow(NotesState())
+    val state: StateFlow<NotesState> = _state.asStateFlow()
 
     private val _noteTitle = mutableStateOf(
         NoteTextFieldState(
@@ -59,6 +62,7 @@ class VoiceJournalPreviewViewModel @Inject constructor(
     private val _noteFileName = mutableStateOf(
         NoteFileNameFieldState()
     )
+    private var notes: List<VoiceJournal> = emptyList()
     private val _tempImageUris = mutableStateOf(
         UriState()
     )
@@ -96,17 +100,17 @@ class VoiceJournalPreviewViewModel @Inject constructor(
 
     // A state variable to store the list of tags
     val tags: State<List<Tag>> = _tags
-
+    private val _noteColor = mutableStateOf(VoiceJournal.noteColors.random().toArgb())
+    private val _noteState = mutableStateOf(AddVoiceNoteViewModel.NoteState())
     private val _noteContent = mutableStateOf(
         NoteContentTextFieldState(
             hint = "Enter some content"
         )
     )
     val noteContent: State<NoteContentTextFieldState> = _noteContent
-
-    private val _noteColor = mutableStateOf(VoiceJournal.noteColors.random().toArgb())
-    private val _noteState = mutableStateOf(AddVoiceNoteViewModel.NoteState())
     val noteState: State<AddVoiceNoteViewModel.NoteState> = _noteState
+
+
     val noteColor: State<Int> = _noteColor
 
 
@@ -114,17 +118,16 @@ class VoiceJournalPreviewViewModel @Inject constructor(
     val eventFlow = _eventFlow.asSharedFlow()
 
     private var currentNoteId: Int? = null
+
     init {
         savedStateHandle.get<Int>("noteId")?.let { noteId ->
+
             if (noteId != -1) {
                 _playNoteState.value = true
                 viewModelScope.launch {
 
                     voiceJournalRepository.getNote(noteId).collect { note ->
                         _noteState.value = noteState.value.copy(voiceJournal = note)
-                        if (note != null) {
-                            currentNoteId = note.id
-                        }
                         if (note != null) {
                             _noteTitle.value = noteTitle.value.copy(
                                 text = note.title,
@@ -151,36 +154,50 @@ class VoiceJournalPreviewViewModel @Inject constructor(
                             )
                         }
                         if (note != null) {
-                            if(note.tags!=null) {
+                            if (note.tags != null) {
                                 _tags.value = note.tags!!
                             }
                         }
 
                         _playNoteState.value = noteFileName.value.text != ""
 
+
                     }
 
-                }
-            }
-        }
 
-        getNotes()
+                }
+
+            }
+            //getCurrentNoteIndex()
+        }
+getNotes()
 
     }
 
-    private fun getNotes(){
+     fun getNotes():Int {
         viewModelScope.launch {
             voiceJournalRepository.getAllVoiceJournals()
-                .collect{
-                    _state.value= NotesState(
-                        notes = it
-                    )
+                .collect {
+                    notes = it
+                    _state.value = NotesState(
+                        notes = it,
+                        noteIndex = notes.indexOf(noteState.value.voiceJournal)
+                        )
+
+                    Log.d("index in getNotes","${_state.value.noteIndex}")
                 }
+
         }
+        Log.d("NotesState from functio","${_state.value.noteIndex}")
+        Log.d("NotesState from functio","$currentNoteId")
+ return _state.value.noteIndex
     }
 
     fun getCurrentNoteIndex(): Int {
-        return _state.value.notes.indexOfFirst { it.id == currentNoteId }
+        Log.d("NotesState from functio","${state.value.noteIndex }")
+        Log.d("NotesState from functio","${state.value.noteIndex }")
+        return _state.value.notes.indexOfFirst { it.id == state.value.noteIndex }
     }
 
-    }
+
+}

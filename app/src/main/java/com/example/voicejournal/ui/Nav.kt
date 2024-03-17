@@ -95,8 +95,6 @@ fun MyAppNavHost(
                         inclusive = true
                     }
                 }
-
-
                           },
                 noteColor = color
 
@@ -108,7 +106,8 @@ fun MyAppNavHost(
                 navController.navigate(Screen.AddEditNoteScreen.route)
             }
         }
-        composable(route = "preview"+"?noteId={noteId}&noteColor={noteColor}",
+
+        composable(route = "preview"+"?noteId={noteId}&noteColor={noteColor}&noteIndex={noteIndex}",
             arguments = listOf(
                 navArgument(
                     name = "noteId"
@@ -122,11 +121,20 @@ fun MyAppNavHost(
                     type = NavType.IntType
                     defaultValue = -1
                 },
+                navArgument(
+                    name = "noteIndex"
+                ) {
+                    type = NavType.IntType
+                    defaultValue = -1
+                },
             )
         ) {entry ->
             val color = entry.arguments?.getInt("noteColor") ?: -1
+            val index = entry.arguments?.getInt("noteIndex") ?: -1
             VoiceJournalPreviewScreen(
-                navController = navController
+                navController = navController,
+                noteColor = color,
+                noteIndex = index
             )
         }
 

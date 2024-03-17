@@ -1,38 +1,35 @@
 package com.example.voicejournal.ui.main
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.TopAppBar
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.R
 import com.example.voicejournal.ui.main.AddVoiceNote.components.SetStatusBarContentColor
+import com.example.voicejournal.ui.main.favourite.FavouriteScreenMain
 import com.example.voicejournal.ui.main.mainScreen.NoteList
 import com.example.voicejournal.ui.main.mainScreen.VoiceNoteViewModel
 import com.example.voicejournal.ui.main.mainScreen.components.BottomNavPanel
 import com.example.voicejournal.ui.theme.Variables
-import java.text.SimpleDateFormat
-import java.util.*
 
 @Composable
 fun MainScreen(
@@ -57,7 +54,7 @@ fun ContentMain(
     voiceNoteViewModel: VoiceNoteViewModel,
     navController: NavController
 ) {
-
+    val navController2: NavHostController = rememberNavController()
 
     val voiceNotes = voiceNoteViewModel.state.value
     val voiceNotesList: List<VoiceJournal> = voiceNotes.notes
@@ -161,20 +158,35 @@ fun ContentMain(
 
                       }
                   }*/
-                Spacer(modifier = Modifier.padding(32.dp))
-                NoteList(
-                    journals = voiceNotes.notes,
-                    navController = navController,
-                    modifier = Modifier.padding(it)
-                )
-            },
+
+                NavHost(
+                    modifier = Modifier.padding(it),
+                    navController = navController2,
+                    startDestination = "home"
+                ) {
+                    composable("home") {
+                     NoteListScreen(navController =navController , notes =voiceNotes.notes )
+                    }
+                    composable("favourite") {
+                        FavouriteScreenMain()
+                    }
+                    }
+                    },
             containerColor = Color.Transparent,
             bottomBar = {
-                BottomNavPanel()
+                BottomNavPanel(navController2)
             }
         )
     }
 
+}
+@Composable
+fun NoteListScreen(navController:NavController,notes:List<VoiceJournal>){
+    Spacer(modifier = Modifier.padding(32.dp))
+    NoteList(
+        journals =notes,
+        navController = navController,
+    )
 }
 
 /*@OptIn(ExperimentalMaterial3Api::class)

@@ -19,6 +19,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,7 +35,13 @@ import androidx.compose.ui.unit.sp
 import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.R
 import com.example.voicejournal.ui.theme.Variables
+import com.mohamedrejeb.richeditor.model.rememberRichTextState
+import com.mohamedrejeb.richeditor.ui.material3.RichText
+import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
+import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 
@@ -43,8 +50,15 @@ fun NewJournalItem(
     modifier: Modifier = Modifier,
     voiceJournal: VoiceJournal
 ) {
+    val titleState = rememberRichTextState()
+    val iconState = rememberRichTextState()
 
-
+    LaunchedEffect(Unit ){
+        titleState.setHtml(voiceJournal.title)
+        iconState.setHtml(voiceJournal.title)
+       iconState.setText(iconState.annotatedString.text.getOrNull(0).toString()
+           .toUpperCase(Locale.getDefault()))
+    }
     Column(
 
         ) {
@@ -72,14 +86,14 @@ fun NewJournalItem(
                             shape = CircleShape
                         )
                 ) {
-                    Text(
-                        text = voiceJournal.title.getOrNull(0).toString()
-                            .toUpperCase(Locale.getDefault()),
+
+                    RichText(
+                        state = iconState,
                         style = TextStyle(
                             fontSize = 16.sp,
                             fontWeight = FontWeight(500),
                             color = Variables.SchemesOnSurface,
-                        )
+                    )
                     )
                 }
             }
@@ -108,6 +122,7 @@ fun NewJournalItem(
                             color = Variables.SchemesOnSurface
                         )
                     )
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.End
@@ -131,8 +146,12 @@ fun NewJournalItem(
                     }
                 }
 
-                Text(
-                    text = voiceJournal.title,
+
+
+                RichText(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    state = titleState,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = TextStyle(
@@ -176,4 +195,42 @@ fun NewJournalItem(
     }
 
 
+}
+
+@Composable
+fun DynamicDateRow(created: Long) {
+
+    val formattedDate = formatDate(created)
+    val formattedTime = formatTime(created)
+    val dayOfMonth = getDayOfMonth(created)
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Spacer(modifier = Modifier.padding(8.dp))
+        Text(text = dayOfMonth.toString()) // Day of the month
+        Spacer(modifier = Modifier.padding(8.dp))
+        Column {
+            Text(text = formattedDate) // Date ("March 16, 2024")
+            Text(text = formattedTime) // Time
+        }
+    }
+}
+
+private fun formatDate(timestamp: Long): String {
+    val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
+    return dateFormat.format(Date(timestamp))
+}
+
+private fun formatTime(timestamp: Long): String {
+    val timeFormat = SimpleDateFormat("EEEE h:mm a", Locale.getDefault())
+    return timeFormat.format(Date(timestamp))
+}
+
+private fun getDayOfMonth(timestamp: Long): Int {
+    val calendar = Calendar.getInstance()
+    calendar.timeInMillis = timestamp
+    return calendar.get(Calendar.DAY_OF_MONTH)
 }

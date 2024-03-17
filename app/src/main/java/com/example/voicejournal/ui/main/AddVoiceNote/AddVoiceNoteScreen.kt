@@ -94,7 +94,8 @@ fun AddVoiceNoteScreen(
 ) {
     val state = rememberRichTextState()
     LaunchedEffect(state.annotatedString) {
-        addVoiceNoteViewModel.onEvent( AddEditNoteEvent.EnteredTitle(state.annotatedString.text))
+
+        addVoiceNoteViewModel.onEvent( AddEditNoteEvent.EnteredTitle(state.toHtml()))
 
     }
 
@@ -120,7 +121,7 @@ fun AddVoiceNoteScreen(
     // val selectedImageUris = galleryScreenViewModel.selectedUris.collectAsState(initial = emptySet())
     LaunchedEffect(Unit) {
 
-        state.setText(titleState.text)
+        state.setHtml(titleState.text)
         Log.d("SetText2",titleState.text)
     }
     val isImportant = remember { mutableStateOf(false) }

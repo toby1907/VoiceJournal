@@ -392,6 +392,7 @@ fun NoteList(
             calendar.set(Calendar.MILLISECOND, 0)
             calendar.timeInMillis*/
         SimpleDateFormat("MMMM d, yyyy . EEE", Locale.getDefault()).format(it.created)
+
     }
     /*@Composable
 fun VoiceJournalList(voiceJournals: List<VoiceJournal>) {
@@ -421,7 +422,7 @@ fun VoiceJournalList(voiceJournals: List<VoiceJournal>) {
 
     ) {
 
-        groupedVoiceJournals.forEach { (date, journals) ->
+        groupedVoiceJournals.forEach { (date, groupJournals) ->
 
 
             stickyHeader {
@@ -430,7 +431,7 @@ fun VoiceJournalList(voiceJournals: List<VoiceJournal>) {
             }
 
 
-            items(journals.size) { note ->
+            items(groupJournals.size) { note ->
 
                 Column(
                     modifier =
@@ -448,13 +449,20 @@ fun VoiceJournalList(voiceJournals: List<VoiceJournal>) {
                 ) {
                     
                     NewJournalItem(
-                        voiceJournal = journals[note],
+                        voiceJournal = groupJournals[note],
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                navController.navigate(
+                                /* navController.navigate(
                                     Screen.AddEditNoteScreen.route +
-                                            "?noteId=${journals[note].id}&noteColor=${journals[note].color}"
+                                            "?noteId=${groupJournals[note].id}&noteColor=${groupJournals[note].color}"
+                                )*/
+                                navController.navigate(
+                                    "preview" + "?noteId=${groupJournals[note].id}&noteColor=${groupJournals[note].color}&noteIndex=${
+                                        journals.indexOf(
+                                            groupJournals[note]
+                                        )
+                                    }"
                                 )
                             }
                     )
