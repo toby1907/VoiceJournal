@@ -16,6 +16,7 @@ import com.example.voicejournal.ui.main.SplashScreen
 import com.example.voicejournal.ui.main.camera.CameraScreen
 import com.example.voicejournal.ui.main.gallery.GalleryScreen
 import com.example.voicejournal.ui.main.mainScreen.VoiceNoteViewModel
+import com.example.voicejournal.ui.main.search.SearchScreen
 import com.example.voicejournal.ui.main.voiceJournalPreviewScreen.VoiceJournalPreviewScreen
 
 @Composable
@@ -104,6 +105,12 @@ fun MyAppNavHost(
             CameraScreen(navController = navController
             ) {
                 navController.navigate(Screen.AddEditNoteScreen.route)
+            }
+        }
+        composable("search") {
+            SearchScreen(navController = navController
+            ) {
+                navController.navigate(Screen.VoicesScreen.route)
             }
         }
 

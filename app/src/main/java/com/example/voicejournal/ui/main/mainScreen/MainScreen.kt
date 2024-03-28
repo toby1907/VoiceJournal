@@ -54,6 +54,7 @@ fun ContentMain(
     voiceNoteViewModel: VoiceNoteViewModel,
     navController: NavController
 ) {
+
     val navController2: NavHostController = rememberNavController()
 
     val voiceNotes = voiceNoteViewModel.state.value
@@ -72,50 +73,12 @@ fun ContentMain(
             contentDescription = "",
             modifier = Modifier.matchParentSize()
         )
-        Scaffold(
+        Scaffold(modifier = Modifier.imePadding(),
             topBar = {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                text = "Jorie",
-                                style = TextStyle(
-                                    fontSize = 32.sp,
-                                    fontWeight = FontWeight(900),
-                                    color = Variables.SchemesOnPrimary,
-                                )
-                            )
-                        },
-                        actions = {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                IconButton(onClick = { /*TODO*/ }) {
-                                    Icon(tint = Variables.SchemesOnPrimary,
-                                        painter = painterResource(id = R.drawable.cloud_icon), contentDescription = "Upload Status")
-                                }
-                                IconButton(onClick = { /*TODO*/ }) {
-                                    Icon(
-                                        tint = Variables.SchemesOnPrimary,
-                                        painter = painterResource(id = R.drawable.search_bar), contentDescription = "Search Icon")
 
-                                }
-                                IconButton(onClick = { /*TODO*/ }) {
-                                    Icon(tint = Variables.SchemesOnPrimary,
-                                        painter = painterResource(id = R.drawable.menu_vertical), contentDescription = "Menu Option")
 
-                                }
-                            }
-                        },
-                        backgroundColor = Variables.SchemesPrimary,
-                        contentColor = Variables.SchemesOnPrimary
-                    )
-// Child views.
-                }
+             JournalTopAppBar(voiceNoteViewModel,navController)
+
 
             },
             floatingActionButtonPosition = FabPosition.End,
@@ -187,6 +150,53 @@ fun NoteListScreen(navController:NavController,notes:List<VoiceJournal>){
         journals =notes,
         navController = navController,
     )
+}
+
+@Composable
+fun JournalTopAppBar(noteViewModel: VoiceNoteViewModel,navController: NavController){
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TopAppBar(
+            title = {
+                Text(
+                    text = "Jorie",
+                    style = TextStyle(
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight(900),
+                        color = Variables.SchemesOnPrimary,
+                    )
+                )
+            },
+            actions = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = { /*TODO*/ }) {
+                        Icon(tint = Variables.SchemesOnPrimary,
+                            painter = painterResource(id = R.drawable.cloud_icon), contentDescription = "Upload Status")
+                    }
+                    IconButton(onClick = { navController.navigate("search")}) {
+                        Icon(
+                            tint = Variables.SchemesOnPrimary,
+                            painter = painterResource(id = R.drawable.search_bar), contentDescription = "Search Icon")
+
+                    }
+                    IconButton(onClick = { /*TODO*/ }) {
+                        Icon(tint = Variables.SchemesOnPrimary,
+                            painter = painterResource(id = R.drawable.menu_vertical), contentDescription = "Menu Option")
+
+                    }
+                }
+            },
+            backgroundColor = Variables.SchemesPrimary,
+            contentColor = Variables.SchemesOnPrimary
+        )
+// Child views.
+    }
 }
 
 /*@OptIn(ExperimentalMaterial3Api::class)

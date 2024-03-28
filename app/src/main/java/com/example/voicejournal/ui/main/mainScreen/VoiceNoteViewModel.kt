@@ -12,8 +12,18 @@ import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 import com.example.voicejournal.ui.main.mainScreen.NotesEvent
 import com.example.voicejournal.ui.main.mainScreen.NotesState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
@@ -25,6 +35,8 @@ class VoiceNoteViewModel @Inject constructor(private val voiceJournalRepository:
     val state: State<NotesState> =_state
 
     private val _filter = MutableLiveData<Boolean>()
+
+
 
 
 
@@ -77,6 +89,7 @@ private fun getNotes(){
             }
     }
 }
+
 
 
 

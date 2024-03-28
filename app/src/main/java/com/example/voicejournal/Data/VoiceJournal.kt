@@ -1,8 +1,14 @@
 package com.example.voicejournal.Data
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.core.text.HtmlCompat
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -27,6 +33,30 @@ data class VoiceJournal(
 {
     companion object {
         val noteColors = listOf(RedOrange, LightGreen, Violet, BabyBlue, RedPink)
+    }
+    fun doesMatchSearchQuery(query: String): Boolean {
+        // State to hold the parsed AnnotatedString
+
+
+        fun parseHtml(htmlString: String) :String{
+            var annotatedString by mutableStateOf<AnnotatedString?>(null)
+            val spanned = HtmlCompat.fromHtml(htmlString, HtmlCompat.FROM_HTML_MODE_LEGACY)
+            val annotated = buildAnnotatedString {
+                append(spanned)
+            }
+            annotatedString = annotated
+            return annotatedString!!.text
+        }
+        val matchingCombinations = listOf(
+            parseHtml(title),
+            "${parseHtml(title).first()}",
+            "${content?.first()}",
+            "${ tags?.get(0)?.name }"
+        )
+
+        return matchingCombinations.any {
+            it.contains(query, ignoreCase = true)
+        }
     }
 
 }

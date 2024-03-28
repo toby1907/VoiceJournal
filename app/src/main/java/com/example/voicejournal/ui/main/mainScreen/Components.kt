@@ -68,7 +68,7 @@ fun NewJournalItem(
             modifier = modifier
                 .background(color = Variables.SchemesSurface)
                 .fillMaxWidth()
-                .padding(start = 4.dp),
+                .padding(8.dp),
         )
         {
             Row(
@@ -143,23 +143,35 @@ fun NewJournalItem(
                             painter = painterResource(id = R.drawable.cloud_off),
                             contentDescription = "Cloud Upload state"
                         )
+                        if (voiceJournal.fileName != "") Icon(
+                            modifier= Modifier
+                                .padding(1.dp)
+                                .width(12.dp)
+                                .height(12.dp),
+                            painter = painterResource(id = R.drawable.audio_file),
+                            contentDescription = ""
+                        )
                     }
                 }
 
 
 
-                RichText(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    state = titleState,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = TextStyle(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight(500),
-                        color = Variables.SchemesOnSurface,
+              Row(verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.Start
+                  )  {
+                    RichText(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        state = titleState,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = TextStyle(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight(500),
+                            color = Variables.SchemesOnSurface,
+                        )
                     )
-                )
+                }
 
                 Row( modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -180,14 +192,7 @@ fun NewJournalItem(
                         )
                     }
 
-                    if (voiceJournal.fileName != "") Icon(
-                        modifier= Modifier
-                            .padding(1.dp)
-                            .width(12.dp)
-                            .height(12.dp),
-                        painter = painterResource(id = R.drawable.audio_file),
-                        contentDescription = ""
-                    )
+
                 }
             }
         }

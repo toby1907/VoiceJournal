@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.room.Room
+import com.example.voicejournal.Data.FakeSearchAPI
+import com.example.voicejournal.Data.GetSearchResults
 import com.example.voicejournal.Data.SettingsRepository
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 import com.example.voicejournal.Data.VoiceJournalDatabase
@@ -35,6 +37,16 @@ class AppModule {
     @Singleton
     fun provideNoteRepository(db: VoiceJournalDatabase): VoiceJournalRepositoryImpl {
         return VoiceJournalRepositoryImpl(db.voiceJournalDao())
+    }
+    @Provides
+    @Singleton
+    fun provideFakeSearchAPI(): FakeSearchAPI {
+        return FakeSearchAPI()
+    }
+    @Provides
+    @Singleton
+    fun provideSearchResults(api:FakeSearchAPI): GetSearchResults{
+        return GetSearchResults(api)
     }
 
 

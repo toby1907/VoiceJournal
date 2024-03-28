@@ -6,6 +6,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +32,13 @@ fun BottomNavPanel(navController2: NavHostController) {
         BottomAppItem(name = "Notifications",painterResource(id = R.drawable.notifications_icon)),
 
         )
+   LaunchedEffect(Unit){
+       if (selectedItem == 0) {
+           navController2.navigate("home") {
+               popUpTo(0)
+           }
+       }
+   }
 
     NavigationBar( containerColor = Variables.SchemesPrimaryContainer,
         contentColor = Variables.SchemesOnPrimaryContainer) {
