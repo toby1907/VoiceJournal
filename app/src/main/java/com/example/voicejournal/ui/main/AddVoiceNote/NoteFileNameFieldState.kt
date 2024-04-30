@@ -9,6 +9,9 @@ data class NoteFileNameFieldState(
 data class UriState(
     val imageFileUris: List<String>? = emptyList()
 )
+data class FavouriteState(
+    val favourite: Boolean = false
+)
 data class TagState(
     var tags: List<Tag>? = emptyList()
 )

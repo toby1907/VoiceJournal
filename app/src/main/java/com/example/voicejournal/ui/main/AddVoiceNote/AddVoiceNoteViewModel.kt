@@ -9,16 +9,16 @@ import android.widget.Toast
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.text.TextStyle
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.voicejournal.Data.InvalidNoteException
+import com.example.voicejournal.Data.model.InvalidNoteException
 import com.example.voicejournal.Data.SettingsRepository
-import com.example.voicejournal.Data.VoiceJournal
+import com.example.voicejournal.Data.model.VoiceJournal
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 
 import com.example.voicejournal.ui.main.AddVoiceNote.components.Tag
+import com.example.voicejournal.ui.theme.Variables
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -69,6 +69,9 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val _tempImageUris = mutableStateOf(
         UriState()
     )
+    private val _favourite = mutableStateOf(
+        FavouriteState()
+    )
     private var tempUris: List<String> = listOf()
     private var tempFileName: String = ""
     private val _imageUris = mutableStateOf(
@@ -101,7 +104,8 @@ class AddVoiceNoteViewModel @Inject constructor(
     val noteTitle: State<NoteTextFieldState> = _noteTitle
     val noteFileName: State<NoteFileNameFieldState> = _noteFileName
     val tempImageUris: State<UriState> = _tempImageUris
-    val imageUris: State<UriState> =  _imageUris
+    val favourite: State<FavouriteState> = _favourite
+   // val imageUris: State<UriState> =  _imageUris
     val playNoteState: State<Boolean> = _playNoteState
     val recordState: StateFlow<Boolean> = _recordState
     val playingState: StateFlow<Boolean> = _playingState
@@ -109,15 +113,27 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     // A state variable to store the list of tags
     val tags: State<List<Tag>> = _tags
-
+//The content is used in place of the Title and the Title in place of the content
     private val _noteContent = mutableStateOf(
         NoteContentTextFieldState(
-            hint = "Enter some content"
+            hint = " "
         )
     )
     val noteContent: State<NoteContentTextFieldState> = _noteContent
 
-    private val _noteColor = mutableStateOf(VoiceJournal.noteColors.random().toArgb())
+    private  val _created = mutableStateOf(
+        NoteContentTextFieldState(
+            created = System.currentTimeMillis()
+        )
+    )
+
+    val created: State<NoteContentTextFieldState> = _created
+
+
+    private val _noteColor = mutableStateOf(
+        Variables.SchemesSurface.toArgb()
+    /*VoiceJournal.noteColors.random().toArgb()*/
+    )
     private val _noteState = mutableStateOf(NoteState())
     val noteState: State<NoteState> = _noteState
     val noteColor: State<Int> = _noteColor
@@ -152,6 +168,13 @@ class AddVoiceNoteViewModel @Inject constructor(
 
                         }
                         if (note != null) {
+                            _created.value = _created.value.copy(
+                                created = note.created,
+                                isHintVisible = false
+                            )
+
+                        }
+                        if (note != null) {
                             _noteColor.value = note.color
                         }
                         if (note != null) {
@@ -163,20 +186,26 @@ class AddVoiceNoteViewModel @Inject constructor(
                         if (note != null) {
                            if (note.imageUris?.isNotEmpty()== true) {
                                tempUris = note.imageUris!!
+                               _tempImageUris.value = _tempImageUris.value.copy(
+                                   imageFileUris = note.imageUris
+                               )
+                               Log.d("Image from file", "${note.imageUris}")
                            }
-                            _tempImageUris.value = _tempImageUris.value.copy(
-                                imageFileUris = note.imageUris
-                            )
-                            Log.d("Image from file","${note.imageUris}")
                         }
                         if (note != null) {
                             if (note.tags != null) {
                                 _tags.value = note.tags!!
                             }
                         }
+                        if (note != null) {
+                           if(note.favourite!=null) {
+                                _favourite.value = _favourite.value.copy(
+                                    favourite = note.favourite!!
+                                )
+                            }
 
-                        _playNoteState.value = noteFileName.value.text != ""
-Log.d("PlayState",noteFileName.value.text)
+                        }
+
                     }
 
                 }
@@ -211,7 +240,12 @@ Log.d("PlayState",noteFileName.value.text)
                 )
 
             }
+            is AddEditNoteEvent.EnteredDate -> {
+                _created.value = created.value.copy(
+                    created = event.value
+                )
 
+            }
             is AddEditNoteEvent.ChangeTitleFocus -> {
                 _noteTitle.value = noteTitle.value.copy(
                     isHintVisible = !event.focusState.isFocused &&
@@ -240,12 +274,13 @@ Log.d("PlayState",noteFileName.value.text)
                             VoiceJournal(
                                 title = noteTitle.value.text,
                                 content = noteContent.value.text,
-                                created = System.currentTimeMillis(),
+                                created = created.value.created,
                                 fileName = noteFileName.value.text,
                                 id = currentNoteId,
                                 color = noteColor.value,
                                 imageUris = tempImageUris.value.imageFileUris,
-                                tags = tags.value
+                                tags = tags.value,
+                                favourite = favourite.value.favourite
                             )
                         )
                         _eventFlow.emit(UiEvent.SaveNote)
@@ -288,7 +323,6 @@ Log.d("PlayState",noteFileName.value.text)
             is AddEditNoteEvent.StopPlay -> {
                 viewModelScope.launch {
                     stopPlaying()
-
                     _eventFlow.emit(UiEvent.StopPlay)
                 }
             }
@@ -307,6 +341,11 @@ Log.d("PlayState",noteFileName.value.text)
             is AddEditNoteEvent.ChangeStyle -> {
 
 
+            }
+            is AddEditNoteEvent.Error ->{
+               viewModelScope.launch {
+                    _eventFlow.emit(UiEvent.ShowSnackbar(event.message))
+                }
             }
         }
     }
@@ -347,12 +386,12 @@ Log.d("PlayState",noteFileName.value.text)
 
     private suspend fun audioDuration(): Int {
         return withContext(Dispatchers.IO) {
-            //   var player: MediaPlayer? = null
+              var player: MediaPlayer? = null
             try {
                 player = MediaPlayer()
-                player?.setDataSource(noteFileName.value.text)
-                player?.prepare()
-                return@withContext player?.duration ?: 0 // return 0 if duration is null
+                player.setDataSource(noteFileName.value.text)
+                player.prepare()
+                return@withContext player.duration ?: 0 // return 0 if duration is null
             } catch (e: IOException) {
                 Log.e(LOG_TAG, "prepare() failed", e)
                 return@withContext 0 // return 0 if an error occurs
@@ -363,9 +402,18 @@ Log.d("PlayState",noteFileName.value.text)
     }
 
     private fun stopPlaying() {
+        try {
 
-        player?.release()
-        player = null
+            player?.let {
+                if (it.isPlaying) {
+                    it.pause()
+                    it.release()
+                }
+                player = null
+            }
+        } catch (e: IllegalStateException) {
+            // Handle the exception (e.g., log it or show an error message)
+        }
     }
 
     private fun startRecording() {
@@ -525,7 +573,7 @@ Log.d("PlayState",noteFileName.value.text)
         timerJob2?.cancel()
     }
 
-    private fun getSelectedImageUris() {
+    fun getSelectedImageUris() {
         viewModelScope.launch {
             settingsRepository.getSelectedUris()
                 .collect {
@@ -533,13 +581,13 @@ Log.d("PlayState",noteFileName.value.text)
                         // Add the new URIs to the existing list
 
                         _tempImageUris.value = _tempImageUris.value.copy(
-                            imageFileUris = tempUris + it.toList()
+                            imageFileUris = _tempImageUris.value.imageFileUris?.plus(it.toList())
                         )
                         Log.d("Temp fr get", "$tempUris")
                     }
                 }
         }
-        viewModelScope.launch {
+        /*viewModelScope.launch {
             settingsRepository.getSelectedUris()
                 .collect {
                     if (it.isNotEmpty()) {
@@ -551,7 +599,7 @@ Log.d("PlayState",noteFileName.value.text)
                     }
 
                 }
-        }
+        }*/
 
 
     }

@@ -1,12 +1,26 @@
 package com.example.voicejournal.ui.main
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.TopAppBar
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -22,13 +36,15 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.voicejournal.Data.VoiceJournal
+import com.example.voicejournal.Data.model.VoiceJournal
 import com.example.voicejournal.R
 import com.example.voicejournal.ui.main.AddVoiceNote.components.SetStatusBarContentColor
+import com.example.voicejournal.ui.main.calendar.Example8Page
 import com.example.voicejournal.ui.main.favourite.FavouriteScreenMain
 import com.example.voicejournal.ui.main.mainScreen.NoteList
 import com.example.voicejournal.ui.main.mainScreen.VoiceNoteViewModel
 import com.example.voicejournal.ui.main.mainScreen.components.BottomNavPanel
+import com.example.voicejournal.ui.main.media.MediaScreen
 import com.example.voicejournal.ui.theme.Variables
 
 @Composable
@@ -131,7 +147,17 @@ fun ContentMain(
                      NoteListScreen(navController =navController , notes =voiceNotes.notes )
                     }
                     composable("favourite") {
+                        FavouriteScreenMain(navController = navController)
+                    }
+                    /*composable("favourite") {
                         FavouriteScreenMain()
+                    }*/
+                    composable("calendar") {
+                        //CalendarScreen()
+                        Example8Page(horizontal = true, journals = voiceNotesList, navController = navController )
+                    }
+                    composable("media") {
+                       MediaScreen(navController)
                     }
                     }
                     },

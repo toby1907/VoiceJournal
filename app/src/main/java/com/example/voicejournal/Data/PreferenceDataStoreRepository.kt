@@ -17,7 +17,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             // Read the current value of SELECTED_URIS_KEY
             val currentUris = preferences[SELECTED_URIS_KEY] ?: emptySet()
             // Create a new set that contains the current and new uris
-            val newUris = currentUris + selectedUris
+            val newUris = currentUris.plus(selectedUris)
             // Return a new preferences object with the updated value
             preferences[SELECTED_URIS_KEY] = newUris
         }

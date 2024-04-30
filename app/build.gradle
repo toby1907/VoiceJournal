@@ -26,6 +26,9 @@ android {
         vectorDrawables {
             useSupportLibrary true
         }
+
+        // Required ONLY if your minSdkVersion is below 21
+        multiDexEnabled true
     }
 
     buildTypes {
@@ -35,6 +38,9 @@ android {
         }
     }
     compileOptions {
+        // Enable support for the new language APIs
+        coreLibraryDesugaringEnabled true
+
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -58,6 +64,12 @@ android {
 
 dependencies {
 
+    // Lottie-compose
+    implementation "com.airbnb.android:lottie-compose:$lottieVersion"
+
+    //Calendar library
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+    implementation 'com.kizitonwose.calendar:compose:2.5.0'
 
     implementation "androidx.room:room-runtime:2.6.1"
     kapt "androidx.room:room-compiler:2.6.1"

@@ -163,7 +163,7 @@ fun CameraScreen(navController: NavHostController, onClick: () -> Unit) {
         DisplayCapturedImage(capturedImageBitmap,
             saveImage =viewModel::saveCapturedImage,
             navigate = {
-                navController.navigate(Screen.AddEditNoteScreen.route)
+                navController.navigateUp()
             }
         )
     }
@@ -199,7 +199,7 @@ compositionState: () -> Unit
                     matrix,
                     true
                 )
-                val resizedBitmap = Bitmap.createScaledBitmap(rotatedBitmap, 800, 600, false)
+                val resizedBitmap = Bitmap.createScaledBitmap(rotatedBitmap, 360, 800, false)
 
                 onPhotoTaken(resizedBitmap)
                 capturedImageBitmap(resizedBitmap)
@@ -260,7 +260,7 @@ fun DisplayCapturedImage(capturedBitmap: Bitmap?,
                 Image(
                     painter = rememberAsyncImagePainter(capturedBitmap),
                     contentDescription = "Captured Image",
-                    contentScale = ContentScale.Fit,
+                    contentScale = ContentScale.FillBounds,
                     modifier = Modifier
                         .graphicsLayer(
                             scaleX = scale,

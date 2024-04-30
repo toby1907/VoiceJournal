@@ -2,6 +2,7 @@ package com.example.voicejournal.Data
 
 import androidx.lifecycle.LiveData
 import androidx.room.*
+import com.example.voicejournal.Data.model.VoiceJournal
 import kotlinx.coroutines.flow.Flow
 
 @Dao

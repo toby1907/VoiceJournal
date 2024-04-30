@@ -13,6 +13,7 @@ import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteScreen
 import com.example.voicejournal.ui.main.MainScreen
 import com.example.voicejournal.ui.main.SplashScreen
+import com.example.voicejournal.ui.main.calendar.JournalPreviewScreen
 import com.example.voicejournal.ui.main.camera.CameraScreen
 import com.example.voicejournal.ui.main.gallery.GalleryScreen
 import com.example.voicejournal.ui.main.mainScreen.VoiceNoteViewModel
@@ -143,6 +144,20 @@ fun MyAppNavHost(
                 noteColor = color,
                 noteIndex = index
             )
+        }
+
+        composable(route = "JournalPreviewScreen/{itemIds}",
+            arguments = listOf(
+                navArgument("itemIds"){
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) {backStackEntry ->
+            val itemIds = backStackEntry.arguments?.getString("itemIds")?.split(",")
+                ?.map { it.trim().toInt() }
+
+            JournalPreviewScreen(journalIds = itemIds, navController = navController)
         }
 
     }

@@ -1,15 +1,22 @@
 package com.example.voicejournal.ui.main.AddVoiceNote.components
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldColors
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusState
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.example.voicejournal.ui.theme.Variables
 
 
 @Composable
@@ -27,7 +34,7 @@ fun TransparentHintTextField(
     Box(
         modifier = modifier
     ){
-        BasicTextField(
+        TextField(
             value = text,
             onValueChange = onValueChange,
             singleLine = singleLine,
@@ -36,10 +43,28 @@ fun TransparentHintTextField(
                 .fillMaxWidth()
                 .onFocusChanged {
                     onFocusChange(it)
-                }
+                },
+            maxLines = 2,
+            placeholder = {
+                Text(
+                textAlign = TextAlign.Center,
+               // modifier= Modifier.fillMaxWidth(),
+                text = "What's the title?") },
+            colors = TextFieldDefaults.colors(
+                unfocusedContainerColor = Color.Transparent,
+                focusedContainerColor = Color.Transparent,
+                focusedTextColor = Variables.SchemesOnSurface,
+                unfocusedTextColor = Variables.SchemesOnSurface,
+                unfocusedIndicatorColor = Color.Transparent,
+                focusedIndicatorColor = Color.Transparent
+
+            ),
+
+
         )
         if (isHintVisible){
-            Text(
+            Text(textAlign = TextAlign.Center,
+                modifier= Modifier.fillMaxWidth(),
                 text=hint,
                 style =textStyle,
                 color = Color.DarkGray)

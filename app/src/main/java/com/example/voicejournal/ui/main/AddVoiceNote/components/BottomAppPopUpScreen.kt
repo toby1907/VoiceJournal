@@ -99,7 +99,6 @@ fun BottomSheet(
                             Color(0xFF1EBE71),
                             Color(0xFFF5D941),
                             Color(0xFF1E98BE),
-
                             )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -209,21 +208,23 @@ fun ImageBottomSheet(
                                     .aspectRatio(1f)
                             )
                             {
-                                Image(
-                                    painter = rememberAsyncImagePainter(imageUris[index - 1]),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .aspectRatio(1f)
-                                        .width(184.dp)
-                                        .height(205.dp)
-                                        .clip(RoundedCornerShape(28.dp))
-                                        .background(color = Variables.SchemesSurface)
-                                        .clickable {
-                                            onImageClick()
-                                        },
 
-                                    contentScale = ContentScale.Crop,
-                                )
+                                    Image(
+                                        painter = rememberAsyncImagePainter(imageUris[index - 1]),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .aspectRatio(1f)
+                                            .width(184.dp)
+                                            .height(205.dp)
+                                            .clip(RoundedCornerShape(28.dp))
+                                            .background(color = Variables.SchemesSurface)
+                                            .clickable {
+                                                onImageClick()
+                                            },
+
+                                        contentScale = ContentScale.Crop,
+                                    )
+
                             }
                         }
                     }
