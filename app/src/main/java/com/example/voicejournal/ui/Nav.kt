@@ -44,7 +44,7 @@ fun MyAppNavHost(
         }
         composable(
             route = Screen.AddEditNoteScreen.route +
-                    "?noteId={noteId}&noteColor={noteColor}",
+                    "?noteId={noteId}&noteColor={noteColor}&note={note}",
             arguments = listOf(
                 navArgument(
                     name = "noteId"
@@ -58,14 +58,22 @@ fun MyAppNavHost(
                     type = NavType.IntType
                     defaultValue = -1
                 },
+                navArgument(
+                    name = "note"
+                ) {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
             )
         ) { entry ->
             val color = entry.arguments?.getInt("noteColor") ?: -1
+            val note = entry.arguments?.getString("note") ?: ""
 
 
             AddVoiceNoteScreen(
                navController =  navController,
                 noteColor = color,
+                note = note
             )
         }
         composable("splash") {

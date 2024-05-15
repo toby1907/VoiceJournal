@@ -1,14 +1,11 @@
 package com.example.voicejournal.ui.main.AddVoiceNote
 
-import android.content.Context
 import android.net.Uri
 import android.util.Log
 import android.widget.DatePicker
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Animatable
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
@@ -30,8 +27,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -43,7 +38,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
@@ -98,8 +92,25 @@ fun AddVoiceNoteScreen(
     navController: NavController,
     noteColor: Int,
     addVoiceNoteViewModel: AddVoiceNoteViewModel = hiltViewModel(),
-    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
+    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
+    note: String
 ) {
+
+    val state = rememberRichTextState()
+
+   LaunchedEffect(Unit) {
+      // val titleState = addVoiceNoteViewModel.noteTitle.value.text
+       state.setHtml(note)
+   }
+
+    LaunchedEffect(state.annotatedString) {
+        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredTitle(state.toHtml()))
+
+    }
+
+
+
+
     val context = LocalContext.current
     //Date data
     val year: Int
@@ -108,19 +119,19 @@ fun AddVoiceNoteScreen(
 
     val calendar = Calendar.getInstance()
     year = calendar.get(Calendar.YEAR)
-    month =  calendar.get(Calendar.MONTH)
+    month = calendar.get(Calendar.MONTH)
     day = calendar.get(Calendar.DAY_OF_MONTH)
     calendar.time = Date()
-    val date = remember{
+    val date = remember {
         mutableStateOf("$day/$month/$year")
     }
 
 
     val datePickerDialog = android.app.DatePickerDialog(
         context, { _: DatePicker, yearr: Int, monthh: Int, dayOfMonth: Int ->
-val selectedDateTime = Calendar.getInstance().apply {
-    set(yearr,monthh,dayOfMonth)
-}.timeInMillis
+            val selectedDateTime = Calendar.getInstance().apply {
+                set(yearr, monthh, dayOfMonth)
+            }.timeInMillis
             addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredDate(selectedDateTime))
 
 
@@ -128,12 +139,13 @@ val selectedDateTime = Calendar.getInstance().apply {
     )
 
 
-   val lifecycle = lifecycleOwner.lifecycle
-    DisposableEffect(lifecycle){val observer = LifecycleEventObserver { _, event ->
-        if (event == Lifecycle.Event.ON_PAUSE) {
-           addVoiceNoteViewModel.removeSelectedImageUris()
+    val lifecycle = lifecycleOwner.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                addVoiceNoteViewModel.removeSelectedImageUris()
+            }
         }
-    }
         lifecycle.addObserver(observer)
         onDispose {
             lifecycle.removeObserver(observer)
@@ -142,11 +154,11 @@ val selectedDateTime = Calendar.getInstance().apply {
     }
 
 
-   /* LaunchedEffect(Unit){
-        addVoiceNoteViewModel.getSelectedImageUris()
-    }*/
+    /* LaunchedEffect(Unit){
+         addVoiceNoteViewModel.getSelectedImageUris()
+     }*/
     val onSave = remember { mutableStateOf(false) }
-  //record panel state
+    //record panel state
     val myState by addVoiceNoteViewModel.recordState.collectAsState()
     val timerValue by addVoiceNoteViewModel.timer.collectAsState()
 
@@ -155,7 +167,8 @@ val selectedDateTime = Calendar.getInstance().apply {
         FocusRequester()
     }
     //uris
-    val uris = addVoiceNoteViewModel.tempImageUris.value.imageFileUris?.filter { it.isNotEmpty() }?.map { Uri.parse(it) }
+    val uris = addVoiceNoteViewModel.tempImageUris.value.imageFileUris?.filter { it.isNotEmpty() }
+        ?.map { Uri.parse(it) }
 
     // else addVoiceNoteViewModel.noteFileName.value.imageFileUris?.map { Uri.parse(it) }
 
@@ -170,33 +183,31 @@ val selectedDateTime = Calendar.getInstance().apply {
     })
 
     SetStatusBarContentColor(true)
-    val titleState = addVoiceNoteViewModel.noteTitle.value
+
     val contentState = addVoiceNoteViewModel.noteContent.value
     val fileNameState = addVoiceNoteViewModel.noteFileName.value
-    Log.d("SetText1", titleState.text)
+
+    //  Log.d("SetText1", titleState.text)
 
     val contentSaved = remember { mutableStateOf(false) }
     // val selectedImageUris = galleryScreenViewModel.selectedUris.collectAsState(initial = emptySet())
 
-    val state = rememberRichTextState()
-    LaunchedEffect(state.annotatedString) {
-            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredTitle(state.toHtml()))
+    /* LaunchedEffect( Unit) {
 
-    }
+         state.setHtml(titleState.text)
+         Log.d("SetText2", titleState.text)
+
+     }*/
 
 
-    LaunchedEffect( Unit) {
-        state.setHtml(titleState.text)
-        Log.d("SetText2", titleState.text)
 
-    }
+
     val isImportant = remember { mutableStateOf(false) }
-
 
 
     val isImportants = remember { mutableStateOf(false) }
 
-    val  textStyle = if (addVoiceNoteViewModel.noteContent.value.text?.isEmpty() == true) {
+    val textStyle = if (addVoiceNoteViewModel.noteContent.value.text?.isEmpty() == true) {
         TextStyle(
             fontSize = 16.sp,
             color = Color.Gray,
@@ -366,20 +377,18 @@ val selectedDateTime = Calendar.getInstance().apply {
                     }
                 )*/
                 EditScreenTopAppBar(
-                    titleState = titleState,
                     navController = navController,
                     addVoiceNoteViewModel = addVoiceNoteViewModel,
                     note = note,
                     scope = scope,
                     scaffoldState = scaffoldState,
                     nav = {
-                       if(addVoiceNoteViewModel.noteContent.value.text?.isNotEmpty() == true) {
-                        //    navController.navigate(Screen.VoicesScreen.route)
+                        if (addVoiceNoteViewModel.noteContent.value.text?.isNotEmpty() == true) {
+                            //    navController.navigate(Screen.VoicesScreen.route)
                             addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
-                        }
-                        else{
+                        } else {
                             addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Error("Kindly Enter a title be for you save"))
-                       }
+                        }
                     },
                     datePickerDialog = {
                         datePickerDialog.show()
@@ -461,7 +470,7 @@ val selectedDateTime = Calendar.getInstance().apply {
                                 ambientColor = Color(0xFF000000)
                             ),
                             shape = RoundedCornerShape(size = 100.dp),
-                            containerColor = Variables.SchemesOnPrimaryContainer,
+                            containerColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             contentColor = Color(0xFFffffff),
 
                             ) {
@@ -656,26 +665,27 @@ val selectedDateTime = Calendar.getInstance().apply {
                     //
                 )
 
-                LaunchedEffect(Unit){
+                LaunchedEffect(Unit) {
                     focusRequester.requestFocus()
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
 
-                RichTextEditor(
-                    placeholder = { Text("Enter you content here!") },
-                    modifier = Modifier
-                        .height(if (doneButtonState.value) IntrinsicSize.Min else IntrinsicSize.Max),
-                    state = state,
-                    colors = RichTextEditorDefaults.richTextEditorColors(
-                        containerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        textColor = Variables.SchemesOnSurface
+                    RichTextEditor(
+                        placeholder = { Text("Enter you content here!") },
+                        modifier = Modifier
+                            .height(if (doneButtonState.value) IntrinsicSize.Min else IntrinsicSize.Max),
+                        state = state,
+                        colors = RichTextEditorDefaults.richTextEditorColors(
+                            containerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            textColor = Variables.SchemesOnSurface
 
+                        )
                     )
-                )
+
                 Spacer(modifier = Modifier.size(8.dp))
                 val timerValue by addVoiceNoteViewModel.timer2.collectAsState()
                 val playingState by addVoiceNoteViewModel.playingState.collectAsState()
@@ -693,7 +703,7 @@ val selectedDateTime = Calendar.getInstance().apply {
                         onCancelRecord = {
                             addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
                             addVoiceNoteViewModel.stopTimer2()
-                            Log.d("PlayCancel","Clicked")
+                            Log.d("PlayCancel", "Clicked")
                         },
                         onRemove = {
 
@@ -835,132 +845,6 @@ val selectedDateTime = Calendar.getInstance().apply {
 
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ShowDatePicker(
-    context: Context,
-    getTitleAndContent:()->Unit,
-) {
-val year: Int
-val month: Int
-val day: Int
-
-val calendar = Calendar.getInstance()
-    year = calendar.get(Calendar.YEAR)
-    month =  calendar.get(Calendar.MONTH)
-    day = calendar.get(Calendar.DAY_OF_MONTH)
-    calendar.time = Date()
-    val date = remember{
-        mutableStateOf("$day/$month/$year")
-    }
-    //converting calendar to something we can store in the model
-    var dateInMillis = calendar.timeInMillis
-
-    val datePickerDialog = android.app.DatePickerDialog(
-        context, { _: DatePicker, year: Int, month: Int, dayOfMonth: Int ->
-            date.value = "$dayOfMonth/$month/$year"
-
-        }, year, month, day
-    )
-    var titleText by remember{ mutableStateOf("")}
-    var contentText by remember{ mutableStateOf("")}
- Column(
-     modifier = Modifier.fillMaxSize(),
-     verticalArrangement =  Arrangement.Center,
-     horizontalAlignment = Alignment.CenterHorizontally
- ) {
-     Box(modifier =Modifier){
-         TextField(
-             value = titleText,
-             onValueChange = { titleText = it },
-             label = { Text(text = "Title") },
-             maxLines = 1,
-             modifier = Modifier.fillMaxWidth()
-             )
-     }
-     Spacer(modifier = Modifier.height(16.dp))
-    Box(modifier = Modifier) {
-         TextField(
-             value = contentText,
-             onValueChange = { newText ->
-                 contentText = newText.trimStart { it == '0' }
-             },
-             label = { Text(text = "Content") },
-             modifier = Modifier.fillMaxWidth()
-
-         )
-        }
-     TextButton(onClick = { datePickerDialog.show()}){
-         Text(text =  "Selected Date: ${date.value}")
-     }
-
- }
-}
-
-
-/*
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SmallTopAppBar
-import androidx.compose.material3.Text
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-
-val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-Scaffold(
-    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-    topBar = {
-        SmallTopAppBar(
-            title = {
-                Text(
-                    "Small TopAppBar",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = { /* doSomething() */ }) {
-                    Icon(
-                        imageVector = Icons.Filled.Menu,
-                        contentDescription = "Localized description"
-                    )
-                }
-            },
-            actions = {
-                IconButton(onClick = { /* doSomething() */ }) {
-                    Icon(
-                        imageVector = Icons.Filled.Favorite,
-                        contentDescription = "Localized description"
-                    )
-                }
-            },
-            scrollBehavior = scrollBehavior
-        )
-    },
-    content = { innerPadding ->
-        LazyColumn(
-            contentPadding = innerPadding,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            val list = (0..75).map { it.toString() }
-            items(count = list.size) {
-                Text(
-                    text = list[it],
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                )
-            }
-        }
-    }
-)
-
-*/
-
 
 @Composable
 @Preview
@@ -968,6 +852,7 @@ fun AddVoiceNoteScreenPreview() {
     val context = LocalContext.current
     AddVoiceNoteScreen(
         navController = NavController(context),
-        noteColor = Color.Blue.toArgb()
+        noteColor = Color.Blue.toArgb(),
+        note = "note"
     )
 }

@@ -46,7 +46,6 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val voiceJournalRepository: VoiceJournalRepositoryImpl,
     private val settingsRepository: SettingsRepository,
     private val context: Context,
-
     ) : ViewModel()
 {
     private var recorder: MediaRecorder? = null
@@ -144,7 +143,11 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     private var currentNoteId: Int? = null
 
+    val htmlState = mutableStateOf(HtmlState(
+        htmlState = null
+    ))
 
+data class HtmlState(val htmlState: (() -> Unit)?)
     init {
         savedStateHandle.get<Int>("noteId")?.let { noteId ->
             if (noteId != -1) {
@@ -157,23 +160,22 @@ class AddVoiceNoteViewModel @Inject constructor(
                             currentNoteId = note.id
                         }
                         if (note != null) {
-                            _noteTitle.value.text = note.title
-                            Log.d("NoteTitle", note.title)
+                            _noteTitle.value = _noteTitle.value.copy(text =note.title, isHintVisible = false )
+                            Log.d("NoteTitleNew", note.title)
                         }
                         if (note != null) {
                             _noteContent.value = _noteContent.value.copy(
                                 text = note.content,
-                                isHintVisible = false
-                            )
-
+                                isHintVisible = false)
                         }
+
                         if (note != null) {
                             _created.value = _created.value.copy(
                                 created = note.created,
                                 isHintVisible = false
                             )
-
                         }
+
                         if (note != null) {
                             _noteColor.value = note.color
                         }
@@ -235,7 +237,7 @@ class AddVoiceNoteViewModel @Inject constructor(
     fun onEvent(event: AddEditNoteEvent) {
         when (event) {
             is AddEditNoteEvent.EnteredTitle -> {
-                _noteTitle.value = noteTitle.value.copy(
+                _noteTitle.value = _noteTitle.value.copy(
                     text = event.value
                 )
 
@@ -587,19 +589,7 @@ class AddVoiceNoteViewModel @Inject constructor(
                     }
                 }
         }
-        /*viewModelScope.launch {
-            settingsRepository.getSelectedUris()
-                .collect {
-                    if (it.isNotEmpty()) {
-                        tempUris = tempUris + it.toList()
-                        _tempImageUris.value = _tempImageUris.value.copy(
-                            imageFileUris = tempUris
-                        )
-                        Log.d("Temp fr get", "$tempUris")
-                    }
 
-                }
-        }*/
 
 
     }
@@ -619,6 +609,10 @@ class AddVoiceNoteViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.saveSelectedUris(selectedUris)
         }
+    }
+
+    fun updateHtmlState(htmlUpdate:() -> Unit){
+htmlState.value  = htmlState.value.copy(htmlState= htmlUpdate)
     }
 
 }

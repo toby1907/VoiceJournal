@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
@@ -217,7 +218,7 @@ fun VoiceJournalPreviewScreen(
                                     onClick = {
                                         navController.navigate(
                                             Screen.AddEditNoteScreen.route +
-                                                    "?noteId=${voiceNotesList[currentIndex.intValue].id}&noteColor=${voiceNotesList[currentIndex.intValue].color}"
+                                                    "?noteId=${voiceNotesList[currentIndex.intValue].id}&noteColor=${voiceNotesList[currentIndex.intValue].color}&note=${voiceNotesList[currentIndex.intValue].title}"
                                         )
                                     })
                                 {
@@ -281,6 +282,7 @@ fun VoiceJournalPreviewScreen(
                         .fillMaxWidth(),
                     state = state,
                     colors = RichTextEditorDefaults.richTextEditorColors(
+                        textColor = MaterialTheme.colorScheme.onPrimary,
                         containerColor = Color.Transparent,
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent,
@@ -315,7 +317,8 @@ fun VoiceJournalPreviewScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowLeft,
-                    contentDescription = "Go back"
+                    contentDescription = "Go back",
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
             IconButton(
@@ -328,7 +331,8 @@ fun VoiceJournalPreviewScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowRight,
-                    contentDescription = "Go forward"
+                    contentDescription = "Go forward",
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }

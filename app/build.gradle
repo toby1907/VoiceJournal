@@ -126,7 +126,7 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("androidx.camera:camera-extensions:$cameraxVersion")
     // Rich Text Editor
-    implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-beta03")
+    implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-rc04")
 }
 // Allow references to generated code
 kapt {

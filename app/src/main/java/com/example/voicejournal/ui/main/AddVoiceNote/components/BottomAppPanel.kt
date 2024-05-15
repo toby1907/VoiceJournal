@@ -156,9 +156,9 @@ fun BottomAppPanel(
 
                                      tagVisiblestate()
 
-
                              },
-                             contentDescription = menuItem.label
+                             contentDescription = menuItem.label,
+                            tint =  MaterialTheme.colorScheme.onPrimary
                          )
                      }
 
@@ -168,7 +168,8 @@ fun BottomAppPanel(
                             modifier = Modifier.clickable {
                                     alignStyleSheetVisiblity()
                             },
-                            contentDescription = menuItem.label
+                            contentDescription = menuItem.label,
+                            tint =  MaterialTheme.colorScheme.onPrimary
                         )
                     }
                     if (index ==4){
@@ -183,7 +184,8 @@ fun BottomAppPanel(
                         ) {
                             Icon(
                                 painter = menuItem.icon,
-                                contentDescription = menuItem.label
+                                contentDescription = menuItem.label,
+                                tint =  MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     }
@@ -198,7 +200,8 @@ fun BottomAppPanel(
                         ) {
                         Icon(
                             painter = menuItem.icon,
-                            contentDescription = menuItem.label
+                            contentDescription = menuItem.label,
+                            tint =  MaterialTheme.colorScheme.onPrimary
                         )
                         }
                     }
@@ -213,7 +216,8 @@ fun BottomAppPanel(
                         ) {
                             Icon(
                                 painter = menuItem.icon,
-                                contentDescription = menuItem.label
+                                contentDescription = menuItem.label,
+                                tint =  MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     }
@@ -229,7 +233,8 @@ fun BottomAppPanel(
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.double_arrow),
-                contentDescription = "Double_arrow"
+                contentDescription = "Double_arrow",
+                tint =  MaterialTheme.colorScheme.onPrimary
             )
         }
     }

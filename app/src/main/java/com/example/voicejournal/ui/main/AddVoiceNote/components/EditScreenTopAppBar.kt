@@ -36,7 +36,6 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditScreenTopAppBar(
-    titleState: NoteTextFieldState,
     navController: NavController,
     addVoiceNoteViewModel: AddVoiceNoteViewModel,
     note: AddVoiceNoteViewModel.NoteState,
@@ -47,6 +46,7 @@ fun EditScreenTopAppBar(
     contentSaved: () -> Unit
 
 ) {
+    val titleState = addVoiceNoteViewModel.noteTitle.value
 
     val journalDateLong = addVoiceNoteViewModel.created.value
     val simpleDate = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
