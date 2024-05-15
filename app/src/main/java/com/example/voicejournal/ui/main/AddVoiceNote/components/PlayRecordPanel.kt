@@ -1,5 +1,6 @@
 package com.example.voicejournal.ui.main.AddVoiceNote.components
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -56,7 +58,7 @@ fun PlayRecordPanel(
             verticalAlignment = Alignment.CenterVertically
         ) {// Add an IconButton composable for the cancel icon
             // Add an IconButton composable for the record icon
-            if (!onPlayState.value||!playingState){
+            if (!onPlayState.value || !playingState) {
                 IconButton(
                     onClick = {
                         onPlay()
@@ -75,12 +77,11 @@ fun PlayRecordPanel(
                     )
 
                 }
-            }
-                else{
+            } else {
                 IconButton(
                     onClick = {
-                        onPlay()
-                        onPlayState.value = true
+                        /*onPlay()
+                        onPlayState.value = true*/
                     },
                     colors = IconButtonDefaults.iconButtonColors(
                         containerColor = Variables.SchemesSurfaceTint,
@@ -100,6 +101,7 @@ fun PlayRecordPanel(
                 onClick = {
                     onCancelRecord()
                     onPlayState.value = false
+                    Log.d("PlayCanIconButton", "Clicked")
                 },
                 colors = IconButtonDefaults.iconButtonColors(
                     containerColor = Variables.SchemesSurfaceTint,
@@ -119,14 +121,16 @@ fun PlayRecordPanel(
                 Text(
                     text = timerValue.formatTime(), // Initial text
                     fontSize = 18.sp, // Text size
-                    modifier = Modifier.padding(8.dp) // Padding around the text
-                )
+                    modifier = Modifier.padding(8.dp), // Padding around the text
+                    color = MaterialTheme.colorScheme.primaryContainer
+                    )
             }
             if (!playingState) {
                 Text(
                     text = convertIntToTimeFormat(timerValue2), // Initial text
                     fontSize = 18.sp, // Text size
-                    modifier = Modifier.padding(8.dp) // Padding around the text
+                    modifier = Modifier.padding(8.dp), // Padding around the text
+                    color = MaterialTheme.colorScheme.primaryContainer
                 )
             }
         }

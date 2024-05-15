@@ -1,6 +1,7 @@
 package com.example.voicejournal.Data
 
 import com.example.voicejournal.Data.RepositoryImpl.VoiceJournalRepository
+import com.example.voicejournal.Data.model.VoiceJournal
 import kotlinx.coroutines.flow.Flow
 import java.util.concurrent.Executors
 
@@ -35,6 +36,9 @@ class VoiceJournalRepositoryImpl (private val voiceJournalDao: VoiceJournalDao):
     }
     override suspend fun save(voiceJournal: VoiceJournal)= executeThread {
         voiceJournalDao.insert(voiceJournal)
+    }
+    override suspend fun update(voiceJournal: VoiceJournal) = executeThread {
+        voiceJournalDao.update(voiceJournal)
     }
     override fun  getAllVoiceJournals() :Flow< List<VoiceJournal>> {
         return   voiceJournalDao.getAllLetters()

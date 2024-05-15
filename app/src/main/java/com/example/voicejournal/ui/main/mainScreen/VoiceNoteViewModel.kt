@@ -1,19 +1,12 @@
 package com.example.voicejournal.ui.main.mainScreen
 
-import android.provider.ContactsContract
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
-import com.example.voicejournal.ui.main.mainScreen.NotesEvent
-import com.example.voicejournal.ui.main.mainScreen.NotesState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
@@ -25,6 +18,9 @@ class VoiceNoteViewModel @Inject constructor(private val voiceJournalRepository:
     val state: State<NotesState> =_state
 
     private val _filter = MutableLiveData<Boolean>()
+
+
+
 
 
 
@@ -47,6 +43,7 @@ class VoiceNoteViewModel @Inject constructor(private val voiceJournalRepository:
     init {
         // Set default state value.
       getNotes()
+
     }
 
     /**
@@ -75,6 +72,7 @@ private fun getNotes(){
             }
     }
 }
+
 
 
 

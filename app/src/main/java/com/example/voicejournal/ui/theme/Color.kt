@@ -14,11 +14,11 @@ val Pink40 = Color(0xFF7D5260)
 val DarkGray = Color(0xFF202020)
 val LightBlue = Color(0xFFD7E8DE)
 
-val RedOrange = Color(0xffffab91)
-val RedPink = Color(0xfff48fb1)
+val RedOrange = Color(0xFFFFF8F7)
+val RedPink = Color(0xffFF888A)
 val BabyBlue = Color(0xff81deea)
 val Violet = Color(0xffcf94da)
-val LightGreen = Color(0xffe7ed9b)
+val LightGreen = Color(0xFFFFDAD9)
 
 object Variables {
     val SchemesSurface: Color = Color(0xFFFFF8F7)
@@ -29,5 +29,9 @@ object Variables {
     val SchemesOnSurface: Color = Color(0xFF221919)
     val SchemesError: Color = Color(0xFFBA1A1A)
     val SchemesOnSecondaryContainer: Color = Color(0xFF001F27)
+    val SchemesSecondary: Color = Color(0xFF00687B)
     val SchemesSurfaceTint: Color = Color(color = 0xFF9E2B2C)
+    val SchemesOnSecondary: Color = Color(color = 0xFFFFFFFF)
+    val SchemesOnSurfaceVariant: Color = Color(color =0xFF49454F )
+
 }
