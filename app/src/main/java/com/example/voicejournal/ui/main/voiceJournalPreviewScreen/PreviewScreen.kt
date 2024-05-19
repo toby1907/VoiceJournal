@@ -216,9 +216,11 @@ fun VoiceJournalPreviewScreen(
 
                                 IconButton(
                                     onClick = {
+                                        val encodedString = Uri.encode(voiceNotesList[index].title)
+                                        Log.d("previewhtmlString", voiceNotesList[index].title)
                                         navController.navigate(
                                             Screen.AddEditNoteScreen.route +
-                                                    "?noteId=${voiceNotesList[currentIndex.intValue].id}&noteColor=${voiceNotesList[currentIndex.intValue].color}&note=${voiceNotesList[currentIndex.intValue].title}"
+                                                    "?noteId=${voiceNotesList[currentIndex.intValue].id}&noteColor=${voiceNotesList[currentIndex.intValue].color}&note=${encodedString}"
                                         )
                                     })
                                 {

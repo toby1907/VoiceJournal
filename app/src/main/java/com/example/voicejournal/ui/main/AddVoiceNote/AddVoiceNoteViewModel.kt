@@ -143,11 +143,7 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     private var currentNoteId: Int? = null
 
-    val htmlState = mutableStateOf(HtmlState(
-        htmlState = null
-    ))
 
-data class HtmlState(val htmlState: (() -> Unit)?)
     init {
         savedStateHandle.get<Int>("noteId")?.let { noteId ->
             if (noteId != -1) {
@@ -337,6 +333,13 @@ data class HtmlState(val htmlState: (() -> Unit)?)
                 viewModelScope.launch {
                     event.voiceJournal?.let { voiceJournalRepository.delete(it) }
                     recentlyDeletedJournal = event.voiceJournal
+
+                }
+            }
+            is AddEditNoteEvent.RestoreJournal -> {
+                viewModelScope.launch {
+                    voiceJournalRepository.save(recentlyDeletedJournal ?: return@launch)
+                    recentlyDeletedJournal = null
                 }
             }
 
@@ -611,8 +614,5 @@ data class HtmlState(val htmlState: (() -> Unit)?)
         }
     }
 
-    fun updateHtmlState(htmlUpdate:() -> Unit){
-htmlState.value  = htmlState.value.copy(htmlState= htmlUpdate)
-    }
 
 }

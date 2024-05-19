@@ -21,5 +21,6 @@ sealed class AddEditNoteEvent {
     object SaveNote: AddEditNoteEvent()
     object StopPlay: AddEditNoteEvent()
     object StopRecording: AddEditNoteEvent()
+    object RestoreJournal: AddEditNoteEvent()
 
 }

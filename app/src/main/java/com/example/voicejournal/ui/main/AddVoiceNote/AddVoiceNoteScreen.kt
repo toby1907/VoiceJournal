@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ScaffoldState
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,6 +26,8 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -52,6 +55,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
@@ -93,14 +97,16 @@ fun AddVoiceNoteScreen(
     noteColor: Int,
     addVoiceNoteViewModel: AddVoiceNoteViewModel = hiltViewModel(),
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
-    note: String
+    note: String,
+    snackbarHostState: SnackbarHostState
 ) {
-
     val state = rememberRichTextState()
+    val scope = rememberCoroutineScope()
 
    LaunchedEffect(Unit) {
       // val titleState = addVoiceNoteViewModel.noteTitle.value.text
        state.setHtml(note)
+       Log.d("htmlString", note)
    }
 
     LaunchedEffect(state.annotatedString) {
@@ -252,7 +258,7 @@ fun AddVoiceNoteScreen(
         mutableStateOf(false)
     }
 
-    val scaffoldState = rememberScaffoldState()
+
     var openBottomSheet by remember { mutableStateOf(false) }
     var openImageSheet by rememberSaveable {
         mutableStateOf(false)
@@ -287,7 +293,7 @@ fun AddVoiceNoteScreen(
             Color(if (noteColor != -1) noteColor else addVoiceNoteViewModel.noteColor.value)
         )
     }
-    val scope = rememberCoroutineScope()
+
     val doneButtonState = addVoiceNoteViewModel.doneButtonState.collectAsState()
     LaunchedEffect(key1 = true) {
 
@@ -312,12 +318,19 @@ fun AddVoiceNoteScreen(
                 is AddVoiceNoteViewModel.UiEvent.SaveNote -> {
                     onSave.value = true
                     navController.navigateUp()
+                    scope.launch  {
+                        snackbarHostState.showSnackbar(
+                            message = "Journal Saved"
+                        )
+                    }
                 }
 
                 is AddVoiceNoteViewModel.UiEvent.ShowSnackbar -> {
-                    scaffoldState.snackbarHostState.showSnackbar(
-                        message = event.message
-                    )
+                   scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = event.message
+                        )
+                    }
                 }
             }
         }
@@ -381,7 +394,7 @@ fun AddVoiceNoteScreen(
                     addVoiceNoteViewModel = addVoiceNoteViewModel,
                     note = note,
                     scope = scope,
-                    scaffoldState = scaffoldState,
+                    snackbarHostState = snackbarHostState,
                     nav = {
                         if (addVoiceNoteViewModel.noteContent.value.text?.isNotEmpty() == true) {
                             //    navController.navigate(Screen.VoicesScreen.route)
@@ -585,7 +598,9 @@ fun AddVoiceNoteScreen(
                      }
 
                  }*/
-            }
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+
         ) { innerPadding ->
 
             Column(
@@ -853,6 +868,7 @@ fun AddVoiceNoteScreenPreview() {
     AddVoiceNoteScreen(
         navController = NavController(context),
         noteColor = Color.Blue.toArgb(),
-        note = "note"
+        note = "note",
+        snackbarHostState = SnackbarHostState()
     )
 }

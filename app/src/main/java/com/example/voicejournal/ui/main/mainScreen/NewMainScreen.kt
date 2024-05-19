@@ -126,6 +126,7 @@ fun NoteList(
                                         }"
                                     )
                                 }
+                                ,
                         )
                        if (index < groupJournals.size - 1) {
                            Divider(modifier = Modifier.padding(horizontal = 16.dp))
