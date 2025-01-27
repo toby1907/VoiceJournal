@@ -5,6 +5,7 @@ import androidx.compose.ui.text.TextStyle
 import com.example.voicejournal.Data.model.VoiceJournal
 
 sealed class AddEditNoteEvent {
+
     data class EnteredTitle(val value: String): AddEditNoteEvent()
     data class EnteredDate(val value: Long): AddEditNoteEvent()
     data class ChangeTitleFocus(val focusState: FocusState): AddEditNoteEvent()

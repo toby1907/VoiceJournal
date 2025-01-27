@@ -6,26 +6,37 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.navigation.compose.rememberNavController
 import com.example.voicejournal.ui.MyAppNavHost
-import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteViewModel
+import com.example.voicejournal.ui.main.snackbar.ObserveAsEvents
+import com.example.voicejournal.ui.main.snackbar.SnackbarController
 import com.example.voicejournal.ui.theme.VoiceJournalTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
 private const val LOG_TAG = "AudioRecordTest"
 private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
@@ -38,28 +49,6 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = USE
 class MainActivity : ComponentActivity() {
 
 
-    /*// Requesting permission to RECORD_AUDIO
-    private var permissionToRecordAccepted = false
-    private var permissions: Array<String> = arrayOf(Manifest.permission.RECORD_AUDIO)
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        permissionToRecordAccepted = if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
-            grantResults[0] == PackageManager.PERMISSION_GRANTED
-        } else {
-            false
-        }
-        if (!permissionToRecordAccepted) finish()
-    }*/
-
-
-
-
-
-
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,6 +56,29 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             VoiceJournalTheme {
+                val snackbarHostState = remember {
+                    SnackbarHostState()
+                }
+                val scope = rememberCoroutineScope()
+                ObserveAsEvents(
+                    flow = SnackbarController.events,
+                    snackbarHostState
+                ) { event ->
+                    scope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+
+                        val result = snackbarHostState.showSnackbar(
+                            message = event.message,
+                            actionLabel = event.action?.name,
+                            duration = SnackbarDuration.Short
+                        )
+
+                        if(result == SnackbarResult.ActionPerformed) {
+                            event.action?.action?.invoke()
+                        }
+                    }
+                }
+
                 val permissionsList =
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     listOf(
@@ -87,9 +99,22 @@ class MainActivity : ComponentActivity() {
                 }
                 val multiplePermissionsState = rememberMultiplePermissionsState(permissionsList)
                 if (multiplePermissionsState.allPermissionsGranted) {
-                    MyAppNavHost(
-                        Modifier.safeDrawingPadding()
-                    )
+                    Scaffold(
+                        snackbarHost = {
+                            SnackbarHost(
+                                hostState = snackbarHostState
+                            )
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    ) { innerPadding ->
+                        val navController = rememberNavController()
+                        MyAppNavHost(
+                            Modifier.safeDrawingPadding()
+                                .padding(innerPadding),
+                            navController = navController
+                        )
+                    }
+
                 }
                 else {
                     Column {

@@ -123,7 +123,6 @@ fun GalleryScreen(
 
         // Use a lazy vertical grid to display the images in a grid layout
         LazyVerticalGrid(
-
             columns = GridCells.Fixed(3),
             contentPadding = it
         ) {

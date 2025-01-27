@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,13 +40,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.example.voicejournal.Data.model.VoiceJournal
 import com.example.voicejournal.R
 import com.example.voicejournal.ui.theme.Variables
 import com.example.voicejournal.ui.theme.Variables.SchemesSecondary
+import com.mohamedrejeb.richeditor.model.rememberRichTextState
+import com.mohamedrejeb.richeditor.ui.material3.RichText
 import kotlinx.coroutines.FlowPreview
 
 @OptIn(FlowPreview::class)
@@ -55,20 +60,35 @@ val viewModel: SearchScreenViewModel = hiltViewModel()
     val viewState = viewModel.viewState.collectAsState().value
     val searchFieldState = viewModel.searchFieldState.collectAsState().value
     val inputText = viewModel.inputText.collectAsState().value
-
-    LaunchedEffect(null) {
+val allVoiceJournal = viewModel.allVoiceJournal.collectAsState().value
+   /* LaunchedEffect(inputText) {
         viewModel.initialize()
-    }
+    }*/
 
     SearchScreenLayout(
         viewState = viewState,
         searchFieldState = searchFieldState,
         inputText = inputText,
-        onSearchInputChanged = { input -> viewModel.updateInput(input) },
-        onSearchInputClicked = { viewModel.searchFieldActivated() },
+        onSearchInputChanged = {
+            input ->
+           viewModel.updateInput(input)
+          viewModel.searchFor(input)
+                               },
+        onSearchInputClicked = {
+            viewModel.searchFieldActivated()
+          //  viewModel.initialize()
+                               },
         onClearInputClicked = { viewModel.clearInput() },
         onChevronClicked = { viewModel.revertToInitialState() },
-        onItemClicked = {  }
+        onItemClicked = {journal->
+            navController.navigate(
+                "preview" + "?noteId=${journal.id}&noteColor=${journal.color}&noteIndex=${
+                    allVoiceJournal.indexOf(
+                        journal
+                    )
+                }"
+            )
+        }
 
     )
 }
@@ -214,7 +234,7 @@ private fun SearchScreenLayout(
     onSearchInputClicked: () -> Unit,
     onClearInputClicked: () -> Unit,
     onChevronClicked: () -> Unit,
-    onItemClicked: (SearchResult) -> Unit,
+    onItemClicked: (VoiceJournal) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -273,21 +293,32 @@ private fun SearchScreenLayout(
     }
 }
 @Composable
-fun SearchResultsList(items: List<SearchResult>, onItemClicked: (SearchResult) -> Unit) {
+fun SearchResultsList(items: List<VoiceJournal>, onItemClicked: (VoiceJournal) -> Unit) {
     LazyColumn {
-        itemsIndexed(items = items) { index, searchResult ->
-            Column(modifier = Modifier.fillMaxWidth().clickable { onItemClicked.invoke(searchResult) }) {
+        itemsIndexed(items = items) { index, voiceJournal ->
+            Column(modifier = Modifier.fillMaxWidth().clickable { onItemClicked.invoke(voiceJournal) }) {
+                val titleState = rememberRichTextState()
+
+                titleState.setHtml(voiceJournal.title)
                 Spacer(
                     modifier = Modifier.height(height = if (index == 0) 16.dp else 4.dp)
                 )
-                Text(
-                    text = searchResult.title,
-                    color = Variables.SchemesOnPrimary,
+
+                RichText(
+
+                    state = titleState,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight(500),
+                        color = Variables.SchemesOnPrimary,
+                    ),
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = searchResult.subtitle,
+                    text = voiceJournal.content?:"",
                     color = Variables.SchemesOnSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp),
                     fontSize = 12.sp

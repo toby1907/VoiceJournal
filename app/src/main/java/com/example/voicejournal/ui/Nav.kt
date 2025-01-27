@@ -27,14 +27,15 @@ import com.example.voicejournal.ui.main.voiceJournalPreviewScreen.VoiceJournalPr
 fun MyAppNavHost(
     modifier: Modifier = Modifier,
     startDestination: String = Screen.VoicesScreen.route,
-    voiceNoteViewModel: VoiceNoteViewModel = hiltViewModel()
+    voiceNoteViewModel: VoiceNoteViewModel = hiltViewModel(),
+    navController: NavHostController
 
 ) {
 
     val snackbarHostState = remember { SnackbarHostState() }
 
 
-    val navController: NavHostController = rememberNavController()
+//    val navController: NavHostController = rememberNavController()
 
 
     NavHost(
