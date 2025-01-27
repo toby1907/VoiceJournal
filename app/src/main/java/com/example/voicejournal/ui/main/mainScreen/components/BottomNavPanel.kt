@@ -29,7 +29,7 @@ fun BottomNavPanel(navController2: NavHostController) {
         BottomAppItem(name = "Notes",painterResource(id = R.drawable.notes_stack) ),
         BottomAppItem(name = "Favorites",painterResource(id = R.drawable.favorite_icon) ),
         BottomAppItem(name = "Calendar",painterResource(id = R.drawable.calendar_icon)),
-        BottomAppItem(name = "Notifications",painterResource(id = R.drawable.notifications_icon)),
+        BottomAppItem(name = "Media",painterResource(id = R.drawable.media_file)),
 
         )
    LaunchedEffect(Unit){
@@ -41,12 +41,13 @@ fun BottomNavPanel(navController2: NavHostController) {
    }
 
     NavigationBar( containerColor = Variables.SchemesPrimaryContainer,
-        contentColor = Variables.SchemesOnPrimaryContainer) {
+        contentColor = Variables.SchemesOnPrimaryContainer
+    ) {
         bottomAppItems.forEachIndexed { index, item ->
             NavigationBarItem(
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor =Variables.SchemesOnSecondary ,
-                    selectedTextColor = Variables.SchemesOnSurface,
+                    selectedTextColor = Variables.SchemesSecondary,
                     indicatorColor = Variables.SchemesSecondary ,
                     unselectedIconColor =Variables.SchemesOnPrimaryContainer ,
                     unselectedTextColor =Variables.SchemesOnSurfaceVariant
@@ -59,8 +60,6 @@ fun BottomNavPanel(navController2: NavHostController) {
                             fontSize = 12.sp,
                             lineHeight = 16.sp,
                             fontWeight = FontWeight(500),
-                            color = Color(0xFF49454F),
-
                             textAlign = TextAlign.Center,
                             letterSpacing = 0.5.sp,
                         )
@@ -78,149 +77,23 @@ fun BottomNavPanel(navController2: NavHostController) {
                     navController2.navigate("favourite") {
                         popUpTo(0)
                     }
+
                 }
+                    if (index == 2) {
+                        navController2.navigate("calendar") {
+                            popUpTo(0)
+                        }
+                    }
+                    if (index == 3) {
+                        navController2.navigate("media") {
+                            popUpTo(0)
+                        }
+                    }
                 }
             )
         }
     }
 
-
-
-  /*  BottomAppBar(
-        actions = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween // evenly space the iconbuttons
-            ) {
-                IconButton(
-                    modifier = Modifier
-                        .width(80.dp)
-                        .height(80.dp)
-                        .padding(top = 12.dp, bottom = 16.dp),
-                    onClick = { *//* doSomething() *//* }) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(
-                            4.dp,
-                            Alignment.CenterVertically
-                        ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.notes_stack),
-                            contentDescription = "Notes Stack"
-                        )
-                        Text(
-                            text = "Notes",
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
-                                fontWeight = FontWeight(500),
-                                color = Color(0xFF49454F),
-
-                                textAlign = TextAlign.Center,
-                                letterSpacing = 0.5.sp,
-                            )
-                        )
-                    }
-                }
-                IconButton(modifier = Modifier
-                    .width(80.dp)
-                    .height(80.dp)
-                    .padding(top = 12.dp, bottom = 16.dp),
-                    onClick = { *//* doSomething() *//* }) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(
-                            4.dp,
-                            Alignment.CenterVertically
-                        ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.favorite_icon),
-                            contentDescription = "Favorite Icon"
-                        )
-                        Text(
-                            text = "Favorite", style = TextStyle(
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
-                                fontWeight = FontWeight(500),
-                                color = Color(0xFF49454F),
-
-                                textAlign = TextAlign.Center,
-                                letterSpacing = 0.5.sp,
-                            )
-                        )
-                    }
-                }
-                IconButton(modifier = Modifier
-                    .width(80.dp)
-                    .height(80.dp)
-                    .padding(top = 12.dp, bottom = 16.dp),
-                    onClick = { *//* doSomething() *//* }) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(
-                            4.dp,
-                            Alignment.CenterVertically
-                        ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-// Child views.
-                        Icon(
-                            painter = painterResource(id = R.drawable.calendar_icon),
-                            contentDescription = "Calendar Icon"
-                        )
-                        Text(
-                            text = "Calendar",
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
-                                fontWeight = FontWeight(500),
-                                color = Color(0xFF49454F),
-
-                                textAlign = TextAlign.Center,
-                                letterSpacing = 0.5.sp,
-                            )
-                        )
-                    }
-
-                }
-                IconButton(modifier = Modifier
-                    .width(80.dp)
-                    .height(80.dp)
-                    .padding(top = 12.dp, bottom = 16.dp),
-                    onClick = { *//* doSomething() *//* }) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(
-                            4.dp,
-                            Alignment.CenterVertically
-                        ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.notifications_icon),
-                            contentDescription = "Notifications Icon"
-                        )
-                        Text(
-                            text = "Notifications",
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp,
-                                fontWeight = FontWeight(500),
-                                color = Color(0xFF49454F),
-
-                                textAlign = TextAlign.Center,
-                                letterSpacing = 0.5.sp,
-                            )
-
-                        )
-                    }
-
-                }
-            }
-        },
-        containerColor = Variables.SchemesPrimaryContainer,
-        contentColor = Variables.SchemesOnPrimaryContainer
-    )*/
 }
 
 data class BottomAppItem(val name:String,val painter: Painter)

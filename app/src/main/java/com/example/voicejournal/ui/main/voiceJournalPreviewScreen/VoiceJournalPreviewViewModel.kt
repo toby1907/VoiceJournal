@@ -2,7 +2,6 @@ package com.example.voicejournal.ui.main.voiceJournalPreviewScreen
 
 import android.content.Context
 import android.media.MediaPlayer
-import android.media.MediaRecorder
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -11,9 +10,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.voicejournal.Data.SettingsRepository
-import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
+import com.example.voicejournal.Data.model.VoiceJournal
 import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteViewModel
+import com.example.voicejournal.ui.main.AddVoiceNote.FavouriteState
 import com.example.voicejournal.ui.main.AddVoiceNote.NoteContentTextFieldState
 import com.example.voicejournal.ui.main.AddVoiceNote.NoteFileNameFieldState
 import com.example.voicejournal.ui.main.AddVoiceNote.NoteTextFieldState
@@ -23,6 +23,8 @@ import com.example.voicejournal.ui.main.mainScreen.NotesState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,11 +32,14 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 
+private const val LOG_TAG = "PreviewvmTest"
 @HiltViewModel
 class VoiceJournalPreviewViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
@@ -43,7 +48,9 @@ class VoiceJournalPreviewViewModel @Inject constructor(
     private val context: Context,
 
     ) : ViewModel() {
-    private var recorder: MediaRecorder? = null
+
+
+
     private var player: MediaPlayer? = null
     private val formatter = SimpleDateFormat("yyyy_MM_dd_hh_mm_ss", Locale.getDefault())
     private val now = Date()
@@ -53,6 +60,9 @@ class VoiceJournalPreviewViewModel @Inject constructor(
     //Lists of Notes
     private val _state = MutableStateFlow(NotesState())
     val state: StateFlow<NotesState> = _state.asStateFlow()
+
+    private val _eventFlow2 = MutableSharedFlow<FavouriteScreenEvent>()
+    val eventFlow2 = _eventFlow2.asSharedFlow()
 
     private val _noteTitle = mutableStateOf(
         NoteTextFieldState(
@@ -72,9 +82,12 @@ class VoiceJournalPreviewViewModel @Inject constructor(
     private val _doneButtonState = MutableStateFlow<Boolean>(false)
 
     private val _tags = mutableStateOf(emptyList<Tag>())
+    private val _favourite = mutableStateOf(
+        FavouriteState()
+    )
 
 
-    private val _recordState = MutableStateFlow<Boolean>(false)
+    private val _favouriteButtonState = MutableStateFlow<Boolean>(false)
     private val _playingState = MutableStateFlow<Boolean>(false)
 
     // Timer for the Recorder Panel
@@ -94,9 +107,10 @@ class VoiceJournalPreviewViewModel @Inject constructor(
     val noteFileName: State<NoteFileNameFieldState> = _noteFileName
     val tempImageUris: State<UriState> = _tempImageUris
     val playNoteState: State<Boolean> = _playNoteState
-    val recordState: StateFlow<Boolean> = _recordState
+    val favouriteButtonState: StateFlow<Boolean> = _favouriteButtonState
     val playingState: StateFlow<Boolean> = _playingState
     val doneButtonState: StateFlow<Boolean> = _doneButtonState
+    val favourite: State<FavouriteState> = _favourite
 
     // A state variable to store the list of tags
     val tags: State<List<Tag>> = _tags
@@ -114,7 +128,7 @@ class VoiceJournalPreviewViewModel @Inject constructor(
     val noteColor: State<Int> = _noteColor
 
 
-    private val _eventFlow = MutableSharedFlow<AddVoiceNoteViewModel.UiEvent>()
+    private val _eventFlow = MutableSharedFlow<PreviewUiEvent>()
     val eventFlow = _eventFlow.asSharedFlow()
 
     private var currentNoteId: Int? = null
@@ -158,6 +172,14 @@ class VoiceJournalPreviewViewModel @Inject constructor(
                                 _tags.value = note.tags!!
                             }
                         }
+                        if (note != null) {
+                            if(note.favourite!=null) {
+                                _favourite.value = _favourite.value.copy(
+                                    favourite = note.favourite!!
+                                )
+                            }
+
+                        }
 
                         _playNoteState.value = noteFileName.value.text != ""
 
@@ -170,6 +192,7 @@ class VoiceJournalPreviewViewModel @Inject constructor(
             }
             //getCurrentNoteIndex()
         }
+
 getNotes()
 
     }
@@ -199,5 +222,164 @@ getNotes()
         return _state.value.notes.indexOfFirst { it.id == state.value.noteIndex }
     }
 
+    fun onChangeFavourite(change:Boolean,currentNote:VoiceJournal){
+
+        viewModelScope.launch {
+            voiceJournalRepository.save(
+                currentNote.copy(
+                    favourite =change
+                )
+            )
+
+        }
+
+
+    }
+    fun onEvent(event: FavouriteScreenEvent) {
+        when (event) {
+            is FavouriteScreenEvent.Favourite -> {
+
+
+            }
+            is FavouriteScreenEvent.Play -> {
+                viewModelScope.launch {
+                    startPlaying(event.filename)
+                    _eventFlow.emit(PreviewUiEvent.PlayNote)
+                }
+            }
+
+            is FavouriteScreenEvent.StopPlay ->{
+
+                viewModelScope.launch {
+                    stopPlaying()
+                    _eventFlow.emit(PreviewUiEvent.StopPlay)
+                }
+            }
+
+
+        }
+
+
+        }
+
+    sealed class FavouriteScreenEvent {
+   //     data class ShowSnackbar(val message: String) : UiEvent()
+        object StopPlay : FavouriteScreenEvent()
+        data class Play(val filename:String): FavouriteScreenEvent()
+        data class Favourite(val value: Boolean):FavouriteScreenEvent()
+
+
+    }
+    sealed class PreviewUiEvent {
+        data class ShowSnackbar(val message: String) : PreviewUiEvent()
+        object
+        SaveNote : PreviewUiEvent()
+
+        object PlayNote : PreviewUiEvent()
+        object StopPlay : PreviewUiEvent()
+        object Recording : PreviewUiEvent()
+        object StopRecord : PreviewUiEvent()
+    }
+
+
+    private suspend fun startPlaying(filename: String) {
+
+        player = MediaPlayer().apply {
+            setOnCompletionListener {
+                viewModelScope.launch {_eventFlow.emit(PreviewUiEvent.StopPlay) }
+            }
+
+            try {
+                setDataSource(filename)
+                prepare()
+                start()
+            } catch (e: IOException) {
+                Log.e(LOG_TAG, "prepare() failed")
+            }
+        }
+
+    }
+    fun getDuration(fileName: String): Int {
+        // use runBlocking to wait for the result
+        return runBlocking {
+            // use async to get a Deferred object
+            val deferred = async {
+                // use withContext to switch to IO dispatcher
+                withContext(Dispatchers.IO) {
+                    // call your audioDuration function
+                    audioDuration(fileName)
+                }
+            }
+            // use await to get the result from the Deferred object
+            deferred.await()
+        }
+    }
+    private suspend fun audioDuration(fileName: String): Int {
+        return withContext(Dispatchers.IO) {
+            var player: MediaPlayer? = null
+            try {
+                player = MediaPlayer()
+                player.setDataSource(fileName)
+                player.prepare()
+                return@withContext player.duration ?: 0 // return 0 if duration is null
+            } catch (e: IOException) {
+                Log.e(LOG_TAG, "prepare() failed", e)
+                return@withContext 0 // return 0 if an error occurs
+            } finally {
+                player?.release() // close the player in the finally block
+            }
+        }
+    }
+
+
+    private fun stopPlaying() {
+        try {
+
+            player?.let {
+                if (it.isPlaying) {
+                    it.pause()
+                    it.release()
+                }
+                player = null
+            }
+        } catch (e: IllegalStateException) {
+            // Handle the exception (e.g., log it or show an error message)
+        }
+    }
+    // Play panel Timer
+    fun startTimer2(fileName: String) {
+        // get the duration value from the audio file
+        val duration = getDuration(fileName)
+        // convert the duration value from milliseconds to seconds
+        val durationInSeconds = duration / 1000
+        timerJob2?.cancel()
+        timerJob2 = viewModelScope.launch {
+            while (true) {
+                _playingState.value = true
+                delay(1000)
+                _timer2.value++
+                // check if the timer value is equal to or greater than the duration value
+                if (_timer2.value >= durationInSeconds) {
+                    // stop the timer
+                    _timer2.value = 0
+                    timerJob2?.cancel()
+                    _playingState.value = false
+                    // break the loop
+                    break
+                }
+            }
+        }
+    }
+
+    fun pauseTimer2() {
+        _playingState.value = false
+        timerJob2?.cancel()
+    }
+
+    fun stopTimer2() {
+        _timer2.value = 0
+        _playingState.value = false
+        timerJob2?.cancel()
+    }
 
 }

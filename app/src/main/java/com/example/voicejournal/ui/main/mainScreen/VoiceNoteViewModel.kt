@@ -1,29 +1,12 @@
 package com.example.voicejournal.ui.main.mainScreen
 
-import android.provider.ContactsContract
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.voicejournal.Data.VoiceJournal
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
-import com.example.voicejournal.ui.main.mainScreen.NotesEvent
-import com.example.voicejournal.ui.main.mainScreen.NotesState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
@@ -89,6 +72,7 @@ private fun getNotes(){
             }
     }
 }
+
 
 
 

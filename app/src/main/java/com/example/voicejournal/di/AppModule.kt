@@ -4,8 +4,9 @@ import android.app.Application
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+
 import androidx.room.Room
-import com.example.voicejournal.Data.FakeSearchAPI
+import com.example.voicejournal.Data.JournalSearchAPI
 import com.example.voicejournal.Data.GetSearchResults
 import com.example.voicejournal.Data.SettingsRepository
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
@@ -40,12 +41,12 @@ class AppModule {
     }
     @Provides
     @Singleton
-    fun provideFakeSearchAPI(): FakeSearchAPI {
-        return FakeSearchAPI()
+    fun provideFakeSearchAPI( voiceJournalRepository: VoiceJournalRepositoryImpl,settingsRepository: SettingsRepository,context: Context): JournalSearchAPI {
+        return JournalSearchAPI(voiceJournalRepository,settingsRepository,context)
     }
     @Provides
     @Singleton
-    fun provideSearchResults(api:FakeSearchAPI): GetSearchResults{
+    fun provideSearchResults(api:JournalSearchAPI): GetSearchResults{
         return GetSearchResults(api)
     }
 

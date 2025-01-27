@@ -1,13 +1,10 @@
-package com.example.voicejournal.Data
+package com.example.voicejournal.Data.model
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import androidx.core.text.HtmlCompat
 import androidx.room.ColumnInfo
 import androidx.room.Entity
@@ -21,14 +18,15 @@ import com.example.voicejournal.ui.theme.*
 data class VoiceJournal(
     @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = "voice_id" )
-    val id: Int? = null,
+    var id: Int? = null,
     @ColumnInfo(name = "title") val title: String,
     @ColumnInfo(name = "content") val content: String?,
     @ColumnInfo(name = "created") val created: Long,
     @ColumnInfo(name = "fileName") var fileName: String,
     @ColumnInfo(name = "color") var color: Int,
     @ColumnInfo(name = "imageUris") var imageUris: List<String>?,
-    @ColumnInfo(name = "tags") var tags: List<Tag>? // The new property for the list of tags
+    @ColumnInfo(name = "tags") var tags: List<Tag>?,
+    @ColumnInfo(name = "favourite") var favourite:Boolean?,
 )
 {
     companion object {

@@ -2,6 +2,7 @@ package com.example.voicejournal.Data
 
 import androidx.lifecycle.LiveData
 import androidx.room.*
+import com.example.voicejournal.Data.model.VoiceJournal
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -24,4 +25,7 @@ interface VoiceJournalDao {
 
     @Query("SELECT * FROM `voice.db`")
     fun getAllLetters(): Flow<List<VoiceJournal>>
+
+    @Query("SELECT * FROM `voice.db` WHERE `voice.db`.content LIKE :searchQuery OR `voice.db`.title LIKE :searchQuery")
+    fun searchDatabase(searchQuery: String): Flow<List<VoiceJournal>>
 }

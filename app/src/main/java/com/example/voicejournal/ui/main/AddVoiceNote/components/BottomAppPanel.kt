@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.example.voicejournal.R
+import com.example.voicejournal.ui.theme.Variables
 import com.mohamedrejeb.richeditor.model.RichTextState
 
 @Composable
@@ -78,7 +79,7 @@ fun BottomAppPanel(
         modifier = Modifier
             .fillMaxWidth() // fill the entire width of the screen
             .height(48.dp)
-            .background(color = Color(0xFFF3EDF7))
+            .background(color = Variables.SchemesSurface)
     ) {
         Row(
             modifier = Modifier // assign a weight to the child row
@@ -124,7 +125,8 @@ fun BottomAppPanel(
 
 
                                 },
-                                contentDescription = menuItem.label
+                                contentDescription = menuItem.label,
+
                             )
                         }
 
@@ -154,9 +156,9 @@ fun BottomAppPanel(
 
                                      tagVisiblestate()
 
-
                              },
-                             contentDescription = menuItem.label
+                             contentDescription = menuItem.label,
+                            tint =  MaterialTheme.colorScheme.onPrimary
                          )
                      }
 
@@ -166,7 +168,8 @@ fun BottomAppPanel(
                             modifier = Modifier.clickable {
                                     alignStyleSheetVisiblity()
                             },
-                            contentDescription = menuItem.label
+                            contentDescription = menuItem.label,
+                            tint =  MaterialTheme.colorScheme.onPrimary
                         )
                     }
                     if (index ==4){
@@ -181,7 +184,8 @@ fun BottomAppPanel(
                         ) {
                             Icon(
                                 painter = menuItem.icon,
-                                contentDescription = menuItem.label
+                                contentDescription = menuItem.label,
+                                tint =  MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     }
@@ -196,7 +200,8 @@ fun BottomAppPanel(
                         ) {
                         Icon(
                             painter = menuItem.icon,
-                            contentDescription = menuItem.label
+                            contentDescription = menuItem.label,
+                            tint =  MaterialTheme.colorScheme.onPrimary
                         )
                         }
                     }
@@ -211,7 +216,8 @@ fun BottomAppPanel(
                         ) {
                             Icon(
                                 painter = menuItem.icon,
-                                contentDescription = menuItem.label
+                                contentDescription = menuItem.label,
+                                tint =  MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     }
@@ -227,7 +233,8 @@ fun BottomAppPanel(
         ) {
             Icon(
                 painter = painterResource(id = R.drawable.double_arrow),
-                contentDescription = "Double_arrow"
+                contentDescription = "Double_arrow",
+                tint =  MaterialTheme.colorScheme.onPrimary
             )
         }
     }

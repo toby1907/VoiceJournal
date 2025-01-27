@@ -26,6 +26,9 @@ android {
         vectorDrawables {
             useSupportLibrary true
         }
+
+        // Required ONLY if your minSdkVersion is below 21
+        multiDexEnabled true
     }
 
     buildTypes {
@@ -35,17 +38,20 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        // Enable support for the new language APIs
+        coreLibraryDesugaringEnabled true
+
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
     buildFeatures {
         compose true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion '1.5.1'
+        kotlinCompilerExtensionVersion '1.5.13'
     }
     packagingOptions {
         resources {
@@ -58,6 +64,12 @@ android {
 
 dependencies {
 
+    // Lottie-compose
+    implementation "com.airbnb.android:lottie-compose:$lottieVersion"
+
+    //Calendar library
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+    implementation 'com.kizitonwose.calendar:compose:2.5.0'
 
     implementation "androidx.room:room-runtime:2.6.1"
     kapt "androidx.room:room-compiler:2.6.1"
@@ -114,7 +126,7 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("androidx.camera:camera-extensions:$cameraxVersion")
     // Rich Text Editor
-    implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-beta03")
+    implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-rc04")
 }
 // Allow references to generated code
 kapt {

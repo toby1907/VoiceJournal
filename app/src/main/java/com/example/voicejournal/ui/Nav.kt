@@ -1,6 +1,9 @@
 package com.example.voicejournal.ui
 
+import android.net.Uri
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -13,6 +16,7 @@ import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteScreen
 import com.example.voicejournal.ui.main.MainScreen
 import com.example.voicejournal.ui.main.SplashScreen
+import com.example.voicejournal.ui.main.calendar.JournalPreviewScreen
 import com.example.voicejournal.ui.main.camera.CameraScreen
 import com.example.voicejournal.ui.main.gallery.GalleryScreen
 import com.example.voicejournal.ui.main.mainScreen.VoiceNoteViewModel
@@ -23,27 +27,36 @@ import com.example.voicejournal.ui.main.voiceJournalPreviewScreen.VoiceJournalPr
 fun MyAppNavHost(
     modifier: Modifier = Modifier,
     startDestination: String = Screen.VoicesScreen.route,
-    voiceNoteViewModel: VoiceNoteViewModel = hiltViewModel()
+    voiceNoteViewModel: VoiceNoteViewModel = hiltViewModel(),
+    navController: NavHostController
 
 ) {
-    val navController: NavHostController = rememberNavController()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+
+//    val navController: NavHostController = rememberNavController()
+
+
     NavHost(
         modifier = modifier,
         navController = navController,
         startDestination = startDestination
     ) {
+
         composable(Screen.VoicesScreen.route) {
             MainScreen(
                 onNavigateToAddVoice = {
                     navController.navigate(Screen.AddEditNoteScreen.route)
                 },
                 voiceNoteViewModel = voiceNoteViewModel,
-                navController = navController
+                navController = navController,
+                snackbarHostState = snackbarHostState
             )
         }
         composable(
             route = Screen.AddEditNoteScreen.route +
-                    "?noteId={noteId}&noteColor={noteColor}",
+                    "?noteId={noteId}&noteColor={noteColor}&note={note}",
             arguments = listOf(
                 navArgument(
                     name = "noteId"
@@ -57,14 +70,23 @@ fun MyAppNavHost(
                     type = NavType.IntType
                     defaultValue = -1
                 },
+                navArgument(
+                    name = "note"
+                ) {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
             )
         ) { entry ->
             val color = entry.arguments?.getInt("noteColor") ?: -1
+            val note = Uri.decode(entry.arguments?.getString("note")) ?: ""
 
 
             AddVoiceNoteScreen(
                navController =  navController,
                 noteColor = color,
+                note = note,
+                snackbarHostState = snackbarHostState,
             )
         }
         composable("splash") {
@@ -143,6 +165,23 @@ fun MyAppNavHost(
                 noteColor = color,
                 noteIndex = index
             )
+        }
+
+        composable(route = "JournalPreviewScreen/{itemIds}",
+            arguments = listOf(
+                navArgument("itemIds"){
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) {backStackEntry ->
+            val itemIds = backStackEntry.arguments?.getString("itemIds")?.split(",")
+                ?.map { it.trim().toInt() }
+
+            JournalPreviewScreen(
+                journalIds = itemIds,
+                navController = navController,
+                )
         }
 
     }
