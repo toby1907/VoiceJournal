@@ -49,6 +49,7 @@ import com.example.voicejournal.Data.model.VoiceJournal
 import com.example.voicejournal.R
 import com.example.voicejournal.ui.theme.Variables
 import com.example.voicejournal.ui.theme.Variables.SchemesSecondary
+import com.example.voicejournal.ui.theme.Variables.SchemesSurfaceTint
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichText
 import kotlinx.coroutines.FlowPreview
@@ -199,13 +200,13 @@ private fun searchFieldColorsStateIdle() = TextFieldDefaults.textFieldColors(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun searchFieldColorsStateActive() = TextFieldDefaults.textFieldColors(
-    containerColor = Variables.SchemesSecondary,
+    containerColor = Color.Transparent,
     focusedIndicatorColor = Color.Transparent,
     unfocusedIndicatorColor = Color.Transparent,
     disabledIndicatorColor = Color.Transparent,
     /* textColor = color_soft_white,*/
-    disabledTextColor = Variables.SchemesOnPrimary,
-    cursorColor = SchemesSecondary,
+    disabledTextColor = Variables.SchemesOnSurface,
+    cursorColor = SchemesSurfaceTint,
     focusedLabelColor = Color.Transparent,
     unfocusedLabelColor = Color.Transparent,
 )
@@ -220,6 +221,7 @@ private fun SearchHeader(
             style = TextStyle(
                 fontWeight = FontWeight(700),
                 fontSize = 32.sp,
+                color = Variables.SchemesOnSurface
             )
         )
     }
@@ -239,7 +241,7 @@ private fun SearchScreenLayout(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Variables.SchemesSecondary)
+            .background(Variables.SchemesSurface)
     ) {
         SearchHeader(searchFieldState = searchFieldState)
         SearchInputField(
@@ -312,7 +314,7 @@ fun SearchResultsList(items: List<VoiceJournal>, onItemClicked: (VoiceJournal) -
                     style = TextStyle(
                         fontSize = 16.sp,
                         fontWeight = FontWeight(500),
-                        color = Variables.SchemesOnPrimary,
+                        color = Variables.SchemesOnSurface,
                     ),
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
