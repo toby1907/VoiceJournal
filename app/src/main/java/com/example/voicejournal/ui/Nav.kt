@@ -1,6 +1,9 @@
 package com.example.voicejournal.ui
 
+import android.net.Uri
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -24,22 +27,31 @@ import com.example.voicejournal.ui.main.voiceJournalPreviewScreen.VoiceJournalPr
 fun MyAppNavHost(
     modifier: Modifier = Modifier,
     startDestination: String = Screen.VoicesScreen.route,
-    voiceNoteViewModel: VoiceNoteViewModel = hiltViewModel()
+    voiceNoteViewModel: VoiceNoteViewModel = hiltViewModel(),
+    navController: NavHostController
 
 ) {
-    val navController: NavHostController = rememberNavController()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+
+//    val navController: NavHostController = rememberNavController()
+
+
     NavHost(
         modifier = modifier,
         navController = navController,
         startDestination = startDestination
     ) {
+
         composable(Screen.VoicesScreen.route) {
             MainScreen(
                 onNavigateToAddVoice = {
                     navController.navigate(Screen.AddEditNoteScreen.route)
                 },
                 voiceNoteViewModel = voiceNoteViewModel,
-                navController = navController
+                navController = navController,
+                snackbarHostState = snackbarHostState
             )
         }
         composable(
@@ -67,13 +79,14 @@ fun MyAppNavHost(
             )
         ) { entry ->
             val color = entry.arguments?.getInt("noteColor") ?: -1
-            val note = entry.arguments?.getString("note") ?: ""
+            val note = Uri.decode(entry.arguments?.getString("note")) ?: ""
 
 
             AddVoiceNoteScreen(
                navController =  navController,
                 noteColor = color,
-                note = note
+                note = note,
+                snackbarHostState = snackbarHostState,
             )
         }
         composable("splash") {
@@ -165,7 +178,10 @@ fun MyAppNavHost(
             val itemIds = backStackEntry.arguments?.getString("itemIds")?.split(",")
                 ?.map { it.trim().toInt() }
 
-            JournalPreviewScreen(journalIds = itemIds, navController = navController)
+            JournalPreviewScreen(
+                journalIds = itemIds,
+                navController = navController,
+                )
         }
 
     }

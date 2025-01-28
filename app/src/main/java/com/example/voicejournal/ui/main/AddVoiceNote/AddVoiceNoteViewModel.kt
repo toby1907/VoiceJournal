@@ -18,6 +18,9 @@ import com.example.voicejournal.Data.model.VoiceJournal
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 
 import com.example.voicejournal.ui.main.AddVoiceNote.components.Tag
+import com.example.voicejournal.ui.main.snackbar.SnackbarAction
+import com.example.voicejournal.ui.main.snackbar.SnackbarController
+import com.example.voicejournal.ui.main.snackbar.SnackbarEvent
 import com.example.voicejournal.ui.theme.Variables
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -143,11 +146,7 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     private var currentNoteId: Int? = null
 
-    val htmlState = mutableStateOf(HtmlState(
-        htmlState = null
-    ))
 
-data class HtmlState(val htmlState: (() -> Unit)?)
     init {
         savedStateHandle.get<Int>("noteId")?.let { noteId ->
             if (noteId != -1) {
@@ -337,6 +336,13 @@ data class HtmlState(val htmlState: (() -> Unit)?)
                 viewModelScope.launch {
                     event.voiceJournal?.let { voiceJournalRepository.delete(it) }
                     recentlyDeletedJournal = event.voiceJournal
+
+                }
+            }
+            is AddEditNoteEvent.RestoreJournal -> {
+                viewModelScope.launch {
+                    voiceJournalRepository.save(recentlyDeletedJournal ?: return@launch)
+                    recentlyDeletedJournal = null
                 }
             }
 
@@ -611,8 +617,16 @@ data class HtmlState(val htmlState: (() -> Unit)?)
         }
     }
 
-    fun updateHtmlState(htmlUpdate:() -> Unit){
-htmlState.value  = htmlState.value.copy(htmlState= htmlUpdate)
+    fun showSnackbar() {
+        viewModelScope.launch {
+            SnackbarController.sendEvent(
+                event = SnackbarEvent(
+                    message = "Goal added Successfully",
+
+                )
+            )
+        }
     }
+
 
 }

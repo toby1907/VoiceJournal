@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ScaffoldState
 import androidx.compose.material.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
@@ -18,6 +19,8 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,14 +55,15 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     navController: NavController,
     onNavigateToAddVoice: () -> Unit,
-    voiceNoteViewModel: VoiceNoteViewModel
+    voiceNoteViewModel: VoiceNoteViewModel,
+    snackbarHostState: SnackbarHostState
 ) {
     SetStatusBarContentColor(false)
     Surface(
         color = Color.Transparent
     ) {
 
-        ContentMain(onNavigateToAddVoice, voiceNoteViewModel, navController)
+        ContentMain(onNavigateToAddVoice, voiceNoteViewModel, navController,snackbarHostState)
     }
 }
 
@@ -68,7 +72,8 @@ fun MainScreen(
 fun ContentMain(
     onNavigateToAddVoice: () -> Unit,
     voiceNoteViewModel: VoiceNoteViewModel,
-    navController: NavController
+    navController: NavController,
+   snackbarHostState: SnackbarHostState
 ) {
 
     val navController2: NavHostController = rememberNavController()
@@ -91,11 +96,7 @@ fun ContentMain(
         )
         Scaffold(modifier = Modifier.imePadding(),
             topBar = {
-
-
              JournalTopAppBar(voiceNoteViewModel,navController)
-
-
             },
             floatingActionButtonPosition = FabPosition.End,
             floatingActionButton = {
@@ -164,6 +165,10 @@ fun ContentMain(
             containerColor = Color.Transparent,
             bottomBar = {
                 BottomNavPanel(navController2)
+            },
+            snackbarHost = {
+                SnackbarHost(snackbarHostState)
+
             }
         )
     }
@@ -222,6 +227,7 @@ fun JournalTopAppBar(noteViewModel: VoiceNoteViewModel,navController: NavControl
             contentColor = Variables.SchemesOnPrimary
         )
 // Child views.
+
     }
 }
 
