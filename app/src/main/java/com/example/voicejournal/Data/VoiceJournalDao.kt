@@ -25,7 +25,4 @@ interface VoiceJournalDao {
 
     @Query("SELECT * FROM `voice.db`")
     fun getAllLetters(): Flow<List<VoiceJournal>>
-
-    @Query("SELECT * FROM `voice.db` WHERE `voice.db`.content LIKE :searchQuery OR `voice.db`.title LIKE :searchQuery")
-    fun searchDatabase(searchQuery: String): Flow<List<VoiceJournal>>
 }

@@ -44,9 +44,6 @@ class VoiceJournalRepositoryImpl (private val voiceJournalDao: VoiceJournalDao):
         return   voiceJournalDao.getAllLetters()
     }
 
-    override fun  searchDatabase(searchQuery: String): Flow<List<VoiceJournal>> {
-        return voiceJournalDao.searchDatabase(searchQuery)
-    }
 
 
 }
