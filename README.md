@@ -1,17 +1,11 @@
 ## VoiceJournal
-A  productivity and time management app designed to help users build positive habits, stay focused, and achieve their goals through structured focus sessions, streak tracking, and a rewarding achievement system
+VoiceJournal is an all-in-one voice journal app designed to capture and cherish your daily moments effortlessly. it combines the power of voice recording with a suite of multimedia features to create a rich, interactive journaling experience.
 ## Features
-- Goal Setting: Users can define specific goals or challenges they want to achieve.
-- Structured Focus Sessions: Users can initiate timed focus sessions based on their goals.
-- Alarm Reminders: Users can set alarms to remind them to start their focus sessions.
-- Progress Tracking: The app tracks the user's progress towards their goals.
-- Streak Management: The app maintains a streak counter to encourage daily engagement.
-- Achievement System: The app features a built-in achievement system to reward users for their progress.
-- Streak Milestones: Reaching consecutive day milestones (e.g., 3 days, 7 days, 30 days).
-- Total Hours Spent: Accumulating total hours in focus sessions (e.g., 10 hours, 50 hours, 100 hours).
-- Data Persistence: The app uses Room, an Android persistence library, to store user data, goals, and achievements
-- User Data: The app stores user data such as total hours spent, achievements unlocked and longest streak
-
+- Voice Recording: Easily record your thoughts, ideas, and memories with our intuitive voice recording feature. Perfect for capturing moments on the go.
+- Camera Integration: Snap photos directly within the app to complement your voice entries. Capture the essence of your day with both sound and visuals.
+- Gallery Access: Import images from your device's gallery to enhance your journal entries. Relive your favorite moments by adding personal photos.
+- Media Search: Seamlessly search for and add media from the web to enrich your journal. Find relevant images, videos, and articles to support your entries.
+- HTML Support: Customize your journal entries with styled text using HTML. Add headings, lists, links, and more to make your entries uniquely yours.
 
 
 ## Technology Stack
