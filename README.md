@@ -19,6 +19,8 @@ VoiceJournal is an all-in-one voice journal app designed to capture and cherish 
 - **[BroadcastReceiver](https://developer.android.com/reference/android/content/BroadcastReceiver)**:  a component that allows your application to listen for and respond to system-wide or application-specific broadcast announcements
 - **[NotificationCompat](https://developer.android.com/reference/androidx/core/app/NotificationCompat)**: NotificationCompat is a class in the AndroidX Core library that helps you build notifications in a way that's compatible across different versions of Android
 
+## Libraries
+- **[Lottie](https://github.com/MohamedRejeb/compose-rich-editor)**: A Rich text editor library for both Jetpack Compose and Compose Multiplatform, fully customizable, supports HTML and Markdown
 
 ## Screenshots
 | ::::::::::::::::::::::::::::::::::::::::  |    ::::::::::::::::::::::::::::::::::::::::    |  ::::::::::::::::::::::::::::::::::::::::   |     ::::::::::::::::::::::::::::::::::::::::      |        ::::::::::::::::::::::::::::::::::::::::         |             ::::::::::::::::::::::::::::::::::::::::              |
