@@ -11,16 +11,13 @@ VoiceJournal is an all-in-one voice journal app designed to capture and cherish 
 ## Technology Stack
 - **[Kotlin](https://kotlinlang.org/)**: The official programming language for developing Android applications.
 - **[Jetpack Compose](https://developer.android.com/develop/ui/compose)**: A modern UI toolkit for building Android applications in Kotlin.
-- **[Lottie](https://github.com/LottieFiles/dotlottie-android)**: A lightweight image loading library.
 - **[Dagger Hilt](https://dagger.dev/hilt/)**: Dependency Injection Framework.
 - **[ViewModel](https://developer.android.com/topic/libraries/architecture/viewmodel)**: A lifecycle-aware Android Architecture Component for holding state.
 - **[Room Persistence Library](https://developer.android.com/training/data-storage/room)**: Android Jetpack Library for local data caching.
 - **[Datastore](https://developer.android.com/topic/libraries/architecture/datastore)**: Jetpack DataStore is a data storage solution that allows you store key-value pairs asynchronously.
-- **[BroadcastReceiver](https://developer.android.com/reference/android/content/BroadcastReceiver)**:  a component that allows your application to listen for and respond to system-wide or application-specific broadcast announcements
-- **[NotificationCompat](https://developer.android.com/reference/androidx/core/app/NotificationCompat)**: NotificationCompat is a class in the AndroidX Core library that helps you build notifications in a way that's compatible across different versions of Android
-
+- **[MediaRecorder](https://developer.android.com/media/platform/mediarecorder)**: The MediaRecorder class can be used to record audio and video.
 ## Libraries
-- **[Lottie](https://github.com/MohamedRejeb/compose-rich-editor)**: A Rich text editor library for both Jetpack Compose and Compose Multiplatform, fully customizable, supports HTML and Markdown
+- **[compose-rich-editor](https://github.com/MohamedRejeb/compose-rich-editor)**: A Rich text editor library for both Jetpack Compose and Compose Multiplatform, fully customizable, supports HTML and Markdown
 
 ## Screenshots
 | ::::::::::::::::::::::::::::::::::::::::  |    ::::::::::::::::::::::::::::::::::::::::    |  ::::::::::::::::::::::::::::::::::::::::   |     ::::::::::::::::::::::::::::::::::::::::      |        ::::::::::::::::::::::::::::::::::::::::         |             ::::::::::::::::::::::::::::::::::::::::              |
@@ -31,9 +28,9 @@ VoiceJournal is an all-in-one voice journal app designed to capture and cherish 
 
 1. **Clone the repository to your local machine.**
 ```bash
-git clone  https://github.com/toby1907/Str3ky.git
+git clone  https://github.com/toby1907/VoiceJournal.git
 
-cd Str3ky/
+cd VoiceJournal/
 ```
 2. **Open in Android Studio**
 - Open Android Studio
