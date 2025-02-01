@@ -87,7 +87,6 @@ class GetSearchResults(private val searchAPI: JournalSearchAPI) {
       //  val results = searchAPI.getResults2(searchTerm)
       val results = searchAPI.generateResults()
 
-        Log.d("results", "${searchAPI.getResults2(searchTerm)}")
         Result.Success(results = results)
 
     } catch (e: IOException) {

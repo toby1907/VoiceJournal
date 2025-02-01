@@ -4,12 +4,15 @@ import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.voicejournal.Data.SettingsRepository
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 import com.example.voicejournal.Data.model.ImageFile
+import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteViewModel.NoteState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,11 +33,18 @@ class GalleryScreenViewModel @Inject constructor(
     val imageFiles: StateFlow<List<ImageFile>> = _imageFiles
     val selectedUris: Flow<Set<String>> = settingsRepository.getSelectedUris()
     var currentNoteId: Int? = null
-
+    private val _noteState = mutableStateOf(NoteState())
+    val noteState: State<NoteState> = _noteState
     init {
         savedStateHandle.get<Int>("noteId")?.let { noteId ->
             if (noteId != -1) {
-             currentNoteId = noteId
+             viewModelScope.launch   {
+                    currentNoteId = noteId
+                    voiceJournalRepository.getNote(noteId).collect { note ->
+
+                        _noteState.value = noteState.value.copy(voiceJournal = note)
+                    }
+                }
 
             }            }
         // Launch a coroutine to get the image files

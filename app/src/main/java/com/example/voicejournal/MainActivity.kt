@@ -107,11 +107,10 @@ class MainActivity : ComponentActivity() {
                         },
                         modifier = Modifier.fillMaxSize()
                     ) { innerPadding ->
-                        val navController = rememberNavController()
+
                         MyAppNavHost(
-                            Modifier.safeDrawingPadding()
-                                .padding(innerPadding),
-                            navController = navController
+                         //   Modifier.safeDrawingPadding()
+                                Modifier.padding(innerPadding),
                         )
                     }
 
