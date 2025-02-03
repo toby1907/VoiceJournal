@@ -5,8 +5,7 @@ import com.example.voicejournal.Data.model.VoiceJournal
 import kotlinx.coroutines.flow.Flow
 import java.util.concurrent.Executors
 
-class VoiceJournalRepositoryImpl (private val voiceJournalDao: VoiceJournalDao):
-    VoiceJournalRepository {
+class VoiceJournalRepositoryImpl (private val voiceJournalDao: VoiceJournalDao): VoiceJournalRepository {
    /* companion object
 
     @Volatile
@@ -24,9 +23,9 @@ class VoiceJournalRepositoryImpl (private val voiceJournalDao: VoiceJournalDao):
 
 
     }*/
-    override  fun getNote(id: Int): Flow<VoiceJournal?> {
-        return voiceJournalDao.getLetter(id)
-    }
+   override  fun getNote(id: Int): Flow<VoiceJournal?> {
+       return voiceJournalDao.getLetter(id)
+   }
     private val SINGLE_EXECUTOR = Executors.newSingleThreadExecutor()
     fun executeThread(f: () -> Unit) {
         SINGLE_EXECUTOR.execute(f)
@@ -42,6 +41,10 @@ class VoiceJournalRepositoryImpl (private val voiceJournalDao: VoiceJournalDao):
     }
     override fun  getAllVoiceJournals() :Flow< List<VoiceJournal>> {
         return   voiceJournalDao.getAllLetters()
+    }
+
+    override fun  searchDatabase(searchQuery: String): Flow<List<VoiceJournal>> {
+        return voiceJournalDao.searchDatabase(searchQuery)
     }
 
 
