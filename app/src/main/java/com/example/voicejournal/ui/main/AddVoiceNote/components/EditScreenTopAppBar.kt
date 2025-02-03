@@ -31,9 +31,6 @@ import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteViewModel
 import com.example.voicejournal.ui.main.AddVoiceNote.NoteTextFieldState
 import com.example.voicejournal.ui.main.calendar.clickable
 import com.example.voicejournal.ui.main.mainScreen.NotesEvent
-import com.example.voicejournal.ui.main.snackbar.SnackbarAction
-import com.example.voicejournal.ui.main.snackbar.SnackbarController
-import com.example.voicejournal.ui.main.snackbar.SnackbarEvent
 import com.example.voicejournal.ui.theme.Variables
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -47,6 +44,7 @@ fun EditScreenTopAppBar(
     addVoiceNoteViewModel: AddVoiceNoteViewModel,
     note: AddVoiceNoteViewModel.NoteState,
     scope: CoroutineScope,
+    snackbarHostState: SnackbarHostState,
     nav: () -> Unit,
     datePickerDialog: () -> Unit,
     contentSaved: () -> Unit
@@ -136,27 +134,24 @@ fun EditScreenTopAppBar(
             IconButton(onClick = {
 
                 scope.launch {
-                    SnackbarController.sendEvent(
-                        event = SnackbarEvent(
-                            message = "Your Note will be permanently deleted",
-                            action = SnackbarAction(
-                                name = "Yes",
-                                action = {
-                                    addVoiceNoteViewModel.onEvent(AddEditNoteEvent.DeleteJournal(note.voiceJournal))
 
-                                    SnackbarController.sendEvent(
-                                        event = SnackbarEvent(
-                                            message = "Note Deleted",
-                                        )
-                                    )
-                                    navController.navigateUp()
-                                }
-                            )
+                    val result = snackbarHostState
+                        .showSnackbar(
+                            message = "Your Note will be permanently deleted",
+                            actionLabel = "Yes",
+                            duration = SnackbarDuration.Indefinite
                         )
-                    )
+
+                    if (result == SnackbarResult.ActionPerformed) {
+                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.DeleteJournal(note.voiceJournal))
+                        navController.navigateUp()
+                    //    addVoiceNoteViewModel.onEvent(AddEditNoteEvent.RestoreJournal)
+
+                    }
+
                 }
             }) {
-                if (titleState.text.isNotEmpty()) {
+                if (titleState.text != "") {
                     Icon(
                         painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
                         contentDescription = "Delete Journal",
