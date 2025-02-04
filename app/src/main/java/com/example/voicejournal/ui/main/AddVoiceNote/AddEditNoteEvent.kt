@@ -17,6 +17,7 @@ sealed class AddEditNoteEvent {
     data class DeleteJournal(val voiceJournal: VoiceJournal?): AddEditNoteEvent()
     data class ChangeStyle( val style: TextStyle): AddEditNoteEvent()
     data class Error(val message:String):AddEditNoteEvent()
+    data class SaveNoteBeforeNav(val value: (VoiceJournal)->Unit):AddEditNoteEvent()
 
     //   data class ChangeColor(val color: Int): AddEditNoteEvent()
     object SaveNote: AddEditNoteEvent()

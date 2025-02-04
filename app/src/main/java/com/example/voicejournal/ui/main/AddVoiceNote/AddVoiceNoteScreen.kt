@@ -67,6 +67,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import com.example.voicejournal.R
+import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.components.AlignStyleBottomSheet
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomAppPanel
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomSheet
@@ -317,7 +318,7 @@ fun AddVoiceNoteScreen(
 
                 is AddVoiceNoteViewModel.UiEvent.SaveNote -> {
                     onSave.value = true
-                    navController.navigateUp()
+                    navController.navigate(Screen.VoicesScreen.route)
                     scope.launch  {
                         snackbarHostState.showSnackbar(
                             message = "Journal Saved"
@@ -753,14 +754,29 @@ fun AddVoiceNoteScreen(
                 onImageClick = {
 
                     if (note.voiceJournal?.id != null) {
-                        navController.navigate(
-                            "gallery" +
-                                    "?noteId=${note.voiceJournal.id}&noteColor=${noteColor}"
+                        val encodedString = Uri.encode(note.voiceJournal.title)
+                        addVoiceNoteViewModel.onEvent(
+                            AddEditNoteEvent.SaveNoteBeforeNav{
+                                navController.navigate(
+                                    "gallery" +
+                                            "?noteId=${note.voiceJournal.id}&noteColor=${noteColor}&note=${encodedString}"
+                                )
+                            }
                         )
+
+
                     } else {
-                        navController.navigate(
-                            "gallery"
+
+                        addVoiceNoteViewModel.onEvent(
+                            AddEditNoteEvent.SaveNoteBeforeNav{ voiceJournal ->
+                                val encodedString = Uri.encode(voiceJournal.title)
+                                navController.navigate(
+                                    "gallery" +
+                                            "?noteId=${voiceJournal.id}&noteColor=${voiceJournal.color}&note=${encodedString}"
+                                )
+                            }
                         )
+
                     }
                 },
                 showFileChooser = {

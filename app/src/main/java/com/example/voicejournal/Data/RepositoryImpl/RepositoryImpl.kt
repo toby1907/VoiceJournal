@@ -10,4 +10,6 @@ interface VoiceJournalRepository {
     suspend fun update(voiceJournal: VoiceJournal)
     fun getAllVoiceJournals() : Flow<List<VoiceJournal>>
     fun searchDatabase(searchQuery: String): Flow<List<VoiceJournal>>
+   // suspend  fun save(voiceJournal: VoiceJournal,callback: (Int) -> Unit)
+    suspend fun saveAndId(voiceJournal: VoiceJournal): Long
 }

@@ -46,8 +46,7 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val voiceJournalRepository: VoiceJournalRepositoryImpl,
     private val settingsRepository: SettingsRepository,
     private val context: Context,
-    ) : ViewModel()
-{
+) : ViewModel() {
     private var recorder: MediaRecorder? = null
     private var player: MediaPlayer? = null
     private val formatter = SimpleDateFormat("yyyy_MM_dd_hh_mm_ss", Locale.getDefault())
@@ -56,6 +55,7 @@ class AddVoiceNoteViewModel @Inject constructor(
     // recentlyDeletedJournal to be implemented later TODO()
 
 
+    private  val _voiceJournalId = mutableStateOf(-1)
     private val _noteTitle = mutableStateOf(
         NoteTextFieldState(
             hint = "Enter title..."
@@ -99,12 +99,13 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     private var timerJob2: Job? = null
 
-
+    val voiceJournalId: State<Int> = _voiceJournalId
     val noteTitle: State<NoteTextFieldState> = _noteTitle
     val noteFileName: State<NoteFileNameFieldState> = _noteFileName
     val tempImageUris: State<UriState> = _tempImageUris
     val favourite: State<FavouriteState> = _favourite
-   // val imageUris: State<UriState> =  _imageUris
+
+    // val imageUris: State<UriState> =  _imageUris
     val playNoteState: State<Boolean> = _playNoteState
     val recordState: StateFlow<Boolean> = _recordState
     val playingState: StateFlow<Boolean> = _playingState
@@ -112,7 +113,8 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     // A state variable to store the list of tags
     val tags: State<List<Tag>> = _tags
-//The content is used in place of the Title and the Title in place of the content
+
+    //The content is used in place of the Title and the Title in place of the content
     private val _noteContent = mutableStateOf(
         NoteContentTextFieldState(
             hint = " "
@@ -120,7 +122,7 @@ class AddVoiceNoteViewModel @Inject constructor(
     )
     val noteContent: State<NoteContentTextFieldState> = _noteContent
 
-    private  val _created = mutableStateOf(
+    private val _created = mutableStateOf(
         NoteContentTextFieldState(
             created = System.currentTimeMillis()
         )
@@ -131,7 +133,7 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     private val _noteColor = mutableStateOf(
         Variables.SchemesSurface.toArgb()
-    /*VoiceJournal.noteColors.random().toArgb()*/
+        /*VoiceJournal.noteColors.random().toArgb()*/
     )
     private val _noteState = mutableStateOf(NoteState())
     val noteState: State<NoteState> = _noteState
@@ -156,13 +158,15 @@ class AddVoiceNoteViewModel @Inject constructor(
                             currentNoteId = note.id
                         }
                         if (note != null) {
-                            _noteTitle.value = _noteTitle.value.copy(text =note.title, isHintVisible = false )
+                            _noteTitle.value =
+                                _noteTitle.value.copy(text = note.title, isHintVisible = false)
                             Log.d("NoteTitleNew", note.title)
                         }
                         if (note != null) {
                             _noteContent.value = _noteContent.value.copy(
                                 text = note.content,
-                                isHintVisible = false)
+                                isHintVisible = false
+                            )
                         }
 
                         if (note != null) {
@@ -182,13 +186,13 @@ class AddVoiceNoteViewModel @Inject constructor(
                             )
                         }
                         if (note != null) {
-                           if (note.imageUris?.isNotEmpty()== true) {
-                               tempUris = note.imageUris!!
-                               _tempImageUris.value = _tempImageUris.value.copy(
-                                   imageFileUris = note.imageUris
-                               )
-                               Log.d("Image from file", "${note.imageUris}")
-                           }
+                            if (note.imageUris?.isNotEmpty() == true) {
+                                tempUris = note.imageUris!!
+                                _tempImageUris.value = _tempImageUris.value.copy(
+                                    imageFileUris = note.imageUris
+                                )
+                                Log.d("Image from file", "${note.imageUris}")
+                            }
                         }
                         if (note != null) {
                             if (note.tags != null) {
@@ -196,7 +200,7 @@ class AddVoiceNoteViewModel @Inject constructor(
                             }
                         }
                         if (note != null) {
-                           if(note.favourite!=null) {
+                            if (note.favourite != null) {
                                 _favourite.value = _favourite.value.copy(
                                     favourite = note.favourite!!
                                 )
@@ -209,7 +213,7 @@ class AddVoiceNoteViewModel @Inject constructor(
                 }
             }
         }
-        Log.d("_NoteTitle",_noteTitle.value.text)
+        Log.d("_NoteTitle", _noteTitle.value.text)
         getSelectedImageUris()
 
     }
@@ -238,12 +242,14 @@ class AddVoiceNoteViewModel @Inject constructor(
                 )
 
             }
+
             is AddEditNoteEvent.EnteredDate -> {
                 _created.value = created.value.copy(
                     created = event.value
                 )
 
             }
+
             is AddEditNoteEvent.ChangeTitleFocus -> {
                 _noteTitle.value = noteTitle.value.copy(
                     isHintVisible = !event.focusState.isFocused &&
@@ -336,6 +342,7 @@ class AddVoiceNoteViewModel @Inject constructor(
 
                 }
             }
+
             is AddEditNoteEvent.RestoreJournal -> {
                 viewModelScope.launch {
                     voiceJournalRepository.save(recentlyDeletedJournal ?: return@launch)
@@ -347,10 +354,42 @@ class AddVoiceNoteViewModel @Inject constructor(
 
 
             }
-            is AddEditNoteEvent.Error ->{
-               viewModelScope.launch {
+
+            is AddEditNoteEvent.Error -> {
+                viewModelScope.launch {
                     _eventFlow.emit(UiEvent.ShowSnackbar(event.message))
                 }
+            }
+
+            is AddEditNoteEvent.SaveNoteBeforeNav -> {
+                viewModelScope.launch {
+                    try {
+                        val voiceJournal = VoiceJournal(
+                            title = noteTitle.value.text,
+                            content = noteContent.value.text,
+                            created = created.value.created,
+                            fileName = noteFileName.value.text,
+                            id = currentNoteId,
+                            color = noteColor.value,
+                            imageUris = tempImageUris.value.imageFileUris,
+                            tags = tags.value,
+                            favourite = favourite.value.favourite
+                        )
+
+                       val id = voiceJournalRepository.saveAndId(voiceJournal)
+                        val voiceJournalId = voiceJournal.copy(id = id.toInt())
+                        event.value.invoke(voiceJournalId)
+
+                    } catch (e: InvalidNoteException) {
+                        Log.d("Note", "could not save")
+                        _eventFlow.emit(
+                            UiEvent.ShowSnackbar(
+                                message = e.message ?: "Couldn't save note"
+                            )
+                        )
+                    }
+                }
+
             }
         }
     }
@@ -391,7 +430,7 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     private suspend fun audioDuration(): Int {
         return withContext(Dispatchers.IO) {
-              var player: MediaPlayer? = null
+            var player: MediaPlayer? = null
             try {
                 player = MediaPlayer()
                 player.setDataSource(noteFileName.value.text)
@@ -455,10 +494,11 @@ class AddVoiceNoteViewModel @Inject constructor(
         recorder = null
     }
 
-    fun onCancelRecord(){
+    fun onCancelRecord() {
         _noteFileName.value = _noteFileName.value.copy(text = "")
         _playNoteState.value = false
     }
+
     private fun pauseRecording() {
         // Check the device's version
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -592,7 +632,6 @@ class AddVoiceNoteViewModel @Inject constructor(
                     }
                 }
         }
-
 
 
     }
