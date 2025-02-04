@@ -8,6 +8,10 @@ import androidx.room.Room
 import com.example.voicejournal.Data.SettingsRepository
 import com.example.voicejournal.Data.VoiceJournalDatabase
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
+import com.example.voicejournal.core.AudioPlayer
+import com.example.voicejournal.core.AudioPlayerImpl
+import com.example.voicejournal.core.AudioRecorder
+import com.example.voicejournal.core.AudioRecorderImpl
 import com.example.voicejournal.dataStore
 import dagger.Module
 import dagger.Provides
@@ -48,6 +52,19 @@ class AppModule {
         fun provideSettingsRepository(dataStore: DataStore<Preferences>): SettingsRepository {
             return SettingsRepository(dataStore)
         }
+
+    @Provides
+    @Singleton
+    fun provideAudioRecorder(): AudioRecorder {
+        return AudioRecorderImpl()
+    }
+
+
+    @Provides
+    @Singleton
+    fun provideAudioPlayer(): AudioPlayer {
+        return AudioPlayerImpl()
+    }
 
 
 
