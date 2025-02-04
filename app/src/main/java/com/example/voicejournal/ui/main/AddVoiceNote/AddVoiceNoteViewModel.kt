@@ -16,6 +16,8 @@ import com.example.voicejournal.Data.model.InvalidNoteException
 import com.example.voicejournal.Data.SettingsRepository
 import com.example.voicejournal.Data.model.VoiceJournal
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
+import com.example.voicejournal.core.AudioPlayer
+import com.example.voicejournal.core.AudioRecorder
 
 import com.example.voicejournal.ui.main.AddVoiceNote.components.Tag
 import com.example.voicejournal.ui.theme.Variables
@@ -46,9 +48,12 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val voiceJournalRepository: VoiceJournalRepositoryImpl,
     private val settingsRepository: SettingsRepository,
     private val context: Context,
-) : ViewModel() {
-    private var recorder: MediaRecorder? = null
-    private var player: MediaPlayer? = null
+    private val audioRecorder: AudioRecorder,
+    private val audioPlayer: AudioPlayer
+) : ViewModel()
+{
+   /* private var recorder: MediaRecorder? = null
+    private var player: MediaPlayer? = null*/
     private val formatter = SimpleDateFormat("yyyy_MM_dd_hh_mm_ss", Locale.getDefault())
     private val now = Date()
     private var recentlyDeletedJournal: VoiceJournal? = null
@@ -411,21 +416,14 @@ class AddVoiceNoteViewModel @Inject constructor(
     )
 
     private suspend fun startPlaying() {
-
-        player = MediaPlayer().apply {
-            setOnCompletionListener {
+        try {
+            audioPlayer.setOnCompletionListener {
                 viewModelScope.launch { _eventFlow.emit(UiEvent.StopPlay) }
             }
-
-            try {
-                setDataSource(noteFileName.value.text)
-                prepare()
-                start()
-            } catch (e: IOException) {
-                Log.e(LOG_TAG, "prepare() failed")
-            }
+            audioPlayer.start(noteFileName.value.text)
+        } catch (e: IOException) {
+            Log.e(LOG_TAG, "prepare() failed")
         }
-
     }
 
     private suspend fun audioDuration(): Int {
@@ -447,51 +445,29 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     private fun stopPlaying() {
         try {
-
-            player?.let {
-                if (it.isPlaying) {
-                    it.pause()
-                    it.release()
-                }
-                player = null
-            }
+            audioPlayer.stop()
         } catch (e: IllegalStateException) {
             // Handle the exception (e.g., log it or show an error message)
         }
     }
 
     private fun startRecording() {
-        recorder = MediaRecorder().apply {
-            _noteFileName.value = _noteFileName.value.copy(
-                text = "${
-                    context.getDir(
-                        "AudioJournal",
-                        0
-                    )?.absolutePath
-                }/Recording+${formatter.format(now)}+.3gp"
-            )
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-            setOutputFile(noteFileName.value.text)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-
-            try {
-                prepare()
-
-            } catch (e: IOException) {
-                Log.e(LOG_TAG, "prepare() failed")
-            }
-
-            start()
+        try {
+            val outputFile = "${
+                context.getDir(
+                    "AudioJournal",
+                    0
+                )?.absolutePath
+            }/Recording+${formatter.format(now)}+.3gp"
+            _noteFileName.value = _noteFileName.value.copy(text = outputFile)
+            audioRecorder.start(outputFile)
+        } catch (e: IOException) {
+            Log.e(LOG_TAG, "prepare() failed")
         }
     }
 
     private fun stopRecording() {
-        recorder?.apply {
-            stop()
-            release()
-        }
-        recorder = null
+        audioRecorder.stop()
     }
 
     fun onCancelRecord() {
@@ -503,7 +479,7 @@ class AddVoiceNoteViewModel @Inject constructor(
         // Check the device's version
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             // Pause the recording
-            recorder?.pause()
+            audioRecorder.pause()
         } else {
             // Pause is not supported on lower versions
             Toast.makeText(context, "Pause is not supported on this device", Toast.LENGTH_SHORT)
@@ -514,10 +490,10 @@ class AddVoiceNoteViewModel @Inject constructor(
     private fun resumeRecording() {
         // Check the device's version
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            // Pause the recording
-            recorder?.resume()
+            // Resume the recording
+            audioRecorder.resume()
         } else {
-            // Pause is not supported on lower versions
+            // Resume is not supported on lower versions
             Toast.makeText(context, "Resume is not supported on this device", Toast.LENGTH_SHORT)
                 .show()
         }
