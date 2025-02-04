@@ -93,7 +93,7 @@ fun MyAppNavHost(
                 navController.navigate(Screen.VoicesScreen.route)
             }
         }
-        composable(route = "gallery"+"?noteId={noteId}&noteColor={noteColor}",
+        composable(route = "gallery"+"?noteId={noteId}&noteColor={noteColor}&note={note}",
             arguments = listOf(
                 navArgument(
                     name = "noteId"
@@ -106,6 +106,12 @@ fun MyAppNavHost(
                 ) {
                     type = NavType.IntType
                     defaultValue = -1
+                },
+                navArgument(
+                    name = "note"
+                ) {
+                    type = NavType.StringType
+                    defaultValue = ""
                 },
             )
             ) { entry ->
