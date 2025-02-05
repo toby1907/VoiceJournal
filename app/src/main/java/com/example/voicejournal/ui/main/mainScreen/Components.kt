@@ -242,11 +242,31 @@ fun DynamicDateRow(created: Long) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Spacer(modifier = Modifier.padding(8.dp))
-        Text(text = dayOfMonth.toString()) // Day of the month
+        Text(text = dayOfMonth.toString(),
+            style = TextStyle(
+                fontSize = 24.sp,
+                fontWeight = FontWeight(400),
+                color = Variables.SchemesPrimary
+            )
+            ) // Day of the month
         Spacer(modifier = Modifier.padding(8.dp))
         Column {
-            Text(text = formattedDate) // Date ("March 16, 2024")
-            Text(text = formattedTime) // Time
+            Text(text = formattedDate,
+                style = TextStyle(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight(400),
+                    color = Variables.SchemesOnSurface
+                )
+            )
+                        // Date ("March 16, 2024")
+            Text(text = formattedTime,
+                style = TextStyle(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight(400),
+                    color = Variables.SchemesOnSurface,
+
+                )
+                ) // Time
         }
     }
 }

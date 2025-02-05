@@ -35,6 +35,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.navigation.navOptions
 import coil.compose.rememberAsyncImagePainter
 import com.example.voicejournal.R
 import com.example.voicejournal.Screen
@@ -102,7 +103,13 @@ fun GalleryScreen(
                               Log.d("previewhtmlString", galleryScreenViewModel.noteState.value.voiceJournal?.title?:"")
                               navController.navigate(
                                   Screen.AddEditNoteScreen.route +
-                                          "?noteId=${galleryScreenViewModel.noteState.value.voiceJournal?.id}&noteColor=${galleryScreenViewModel.noteState.value.voiceJournal?.color}&note=${encodedString}"
+                                          "?noteId=${galleryScreenViewModel.noteState.value.voiceJournal?.id}&noteColor=${galleryScreenViewModel.noteState.value.voiceJournal?.color}&note=${encodedString}",
+                                  navOptions = navOptions {
+                                      popUpTo("gallery") {
+                                          inclusive = true
+                                      }
+                                  }
+
                               )
                           }
 

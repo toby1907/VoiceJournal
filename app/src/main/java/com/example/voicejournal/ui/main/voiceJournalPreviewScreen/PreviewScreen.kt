@@ -320,7 +320,7 @@ fun VoiceJournalPreviewScreen(
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowLeft,
                     contentDescription = "Go back",
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = Variables.SchemesOnSurface
                 )
             }
             IconButton(
@@ -334,7 +334,7 @@ fun VoiceJournalPreviewScreen(
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowRight,
                     contentDescription = "Go forward",
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = Variables.SchemesOnSurface
                 )
             }
         }
