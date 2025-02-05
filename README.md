@@ -20,9 +20,9 @@ VoiceJournal is an all-in-one voice journal app designed to capture and cherish 
 - **[compose-rich-editor](https://github.com/MohamedRejeb/compose-rich-editor)**: A Rich text editor library for both Jetpack Compose and Compose Multiplatform, fully customizable, supports HTML and Markdown
 
 ## Screenshots
-| ::::::::::::::::::::::::::::::::::::::::  |    ::::::::::::::::::::::::::::::::::::::::    |  ::::::::::::::::::::::::::::::::::::::::   |     ::::::::::::::::::::::::::::::::::::::::      |        ::::::::::::::::::::::::::::::::::::::::         |             ::::::::::::::::::::::::::::::::::::::::              |
-|:-----------------------------------------:|:----------------------------------------------:|:-------------------------------------------:|:-------------------------------------------------:|:-------------------------------------------------------:|:-----------------------------------------------------------------:|
-| ![Home Screen](./screenshots/home2.1.jpg) | ![Progress screen](./screenshots/progress.jpg) | ![focus setting](./screenshots/setting.jpg) | ![focus session](./screenshots/focus_session.jpg) | ![Complete Screen](./screenshots/completion_screen.jpg) | ![Congratulation Screen](./screenshots/congratulation_screen.jpg) |
+|   ::::::::::::::::::::::::::::::::::::::::    |   ::::::::::::::::::::::::::::::::::::::::    |      ::::::::::::::::::::::::::::::::::::::::       |       ::::::::::::::::::::::::::::::::::::::::        |    ::::::::::::::::::::::::::::::::::::::::     |        ::::::::::::::::::::::::::::::::::::::::         |
+|:---------------------------------------------:|:---------------------------------------------:|:---------------------------------------------------:|:-----------------------------------------------------:|:-----------------------------------------------:|:-------------------------------------------------------:|
+| ![home screen](./screenshots/home_screen.jpg) | ![edit screen](./screenshots/edit_screen.jpg) | ![preview screen](./screenshots/preview_screen.jpg) | ![calendar screen](./screenshots/calendar_screen.jpg) | ![media screen](./screenshots/media_screen.jpg) | ![favorites screen](./screenshots/favorites_screen.jpg) |
 
 ## Setup Instructions
 

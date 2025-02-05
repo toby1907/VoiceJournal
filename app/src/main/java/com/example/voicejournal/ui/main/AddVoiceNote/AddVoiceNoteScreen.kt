@@ -181,7 +181,6 @@ fun AddVoiceNoteScreen(
         // Remove the selected image URIs
         addVoiceNoteViewModel.removeSelectedImageUris()
         addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
-
         // Navigate back to the main screen
         navController.popBackStack()
     })

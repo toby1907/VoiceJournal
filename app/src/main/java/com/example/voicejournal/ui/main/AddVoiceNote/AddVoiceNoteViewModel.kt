@@ -394,6 +394,7 @@ class AddVoiceNoteViewModel @Inject constructor(
                         )
                     }
                 }
+                removeSelectedImageUris()
 
             }
         }
