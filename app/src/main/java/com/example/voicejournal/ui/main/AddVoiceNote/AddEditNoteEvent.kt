@@ -19,10 +19,12 @@ sealed class AddEditNoteEvent {
     data class Error(val message:String):AddEditNoteEvent()
     data class SaveNoteBeforeNav(val value: (VoiceJournal)->Unit):AddEditNoteEvent()
 
+
     //   data class ChangeColor(val color: Int): AddEditNoteEvent()
     object SaveNote: AddEditNoteEvent()
     object StopPlay: AddEditNoteEvent()
     object StopRecording: AddEditNoteEvent()
     object RestoreJournal: AddEditNoteEvent()
+    object SaveNoteOnly: AddEditNoteEvent()
 
 }

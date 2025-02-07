@@ -50,17 +50,16 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val context: Context,
     private val audioRecorder: AudioRecorder,
     private val audioPlayer: AudioPlayer
-) : ViewModel()
-{
-   /* private var recorder: MediaRecorder? = null
-    private var player: MediaPlayer? = null*/
+) : ViewModel() {
+    /* private var recorder: MediaRecorder? = null
+     private var player: MediaPlayer? = null*/
     private val formatter = SimpleDateFormat("yyyy_MM_dd_hh_mm_ss", Locale.getDefault())
     private val now = Date()
     private var recentlyDeletedJournal: VoiceJournal? = null
     // recentlyDeletedJournal to be implemented later TODO()
 
 
-    private  val _voiceJournalId = mutableStateOf(-1)
+    private val _voiceJournalId = mutableStateOf(-1)
     private val _noteTitle = mutableStateOf(
         NoteTextFieldState(
             hint = "Enter title..."
@@ -367,7 +366,7 @@ class AddVoiceNoteViewModel @Inject constructor(
             }
 
             is AddEditNoteEvent.SaveNoteBeforeNav -> {
-                viewModelScope.launch {
+               /* viewModelScope.launch {
                     try {
                         val voiceJournal = VoiceJournal(
                             title = noteTitle.value.text,
@@ -381,7 +380,7 @@ class AddVoiceNoteViewModel @Inject constructor(
                             favourite = favourite.value.favourite
                         )
 
-                       val id = voiceJournalRepository.saveAndId(voiceJournal)
+                        val id = voiceJournalRepository.saveAndId(voiceJournal)
                         val voiceJournalId = voiceJournal.copy(id = id.toInt())
                         event.value.invoke(voiceJournalId)
 
@@ -394,8 +393,39 @@ class AddVoiceNoteViewModel @Inject constructor(
                         )
                     }
                 }
-                removeSelectedImageUris()
+                removeSelectedImageUris()*/
+                saveNote(true)
 
+            }
+
+            is AddEditNoteEvent.SaveNoteOnly -> {
+                /*  viewModelScope.launch {
+                      try {
+                          voiceJournalRepository.save(
+                              VoiceJournal(
+                                  title = noteTitle.value.text,
+                                  content = noteContent.value.text,
+                                  created = created.value.created,
+                                  fileName = noteFileName.value.text,
+                                  id = currentNoteId,
+                                  color = noteColor.value,
+                                  imageUris = tempImageUris.value.imageFileUris,
+                                  tags = tags.value,
+                                  favourite = favourite.value.favourite
+                              )
+                          )
+                       //   _eventFlow.emit(UiEvent.SaveNote)
+                      } catch (e: InvalidNoteException) {
+                          Log.d("Note", "could not save")
+                          _eventFlow.emit(
+                              UiEvent.ShowSnackbar(
+                                  message = e.message ?: "Couldn't save note"
+                              )
+                          )
+                      }
+                  }
+                  removeSelectedImageUris()*/
+                saveNote(false)
             }
         }
     }
@@ -628,6 +658,53 @@ class AddVoiceNoteViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.saveSelectedUris(selectedUris)
         }
+    }
+
+    private fun saveNote(navigate: Boolean) {
+        viewModelScope.launch {
+            // Check if content is empty
+            if (_noteTitle.value.text.isBlank() ) {
+                // Set title to "Untitled" if it's also empty or blank
+                if (_noteContent.value.text?.isBlank() == true) {
+                    _noteContent.value = _noteContent.value.copy(text = "Untitled")
+                }
+
+                // Show snackbar
+                _eventFlow.emit(
+                    UiEvent.ShowSnackbar(
+                        message = "Content cannot be empty. Customize Toolbar..."
+                    )
+                )
+                return@launch // Don't save the note
+            }
+
+            try {
+                voiceJournalRepository.save(
+                    VoiceJournal(
+                        title = noteTitle.value.text,
+                        content = noteContent.value.text,
+                        created = created.value.created,
+                        fileName = noteFileName.value.text,
+                        id = currentNoteId,
+                        color = noteColor.value,
+                        imageUris = tempImageUris.value.imageFileUris,
+                        tags = tags.value,
+                        favourite = favourite.value.favourite
+                    )
+                )
+                if (navigate) {
+                    _eventFlow.emit(UiEvent.SaveNote)
+                }
+            } catch (e: InvalidNoteException) {
+                Log.d("Note", "could not save")
+                _eventFlow.emit(
+                    UiEvent.ShowSnackbar(
+                        message = e.message ?: "Couldn't save note"
+                    )
+                )
+            }
+        }
+        removeSelectedImageUris()
     }
 
 

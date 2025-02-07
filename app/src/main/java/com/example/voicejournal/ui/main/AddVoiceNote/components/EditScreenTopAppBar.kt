@@ -131,35 +131,9 @@ fun EditScreenTopAppBar(
             }
         },
         actions = {
-            IconButton(onClick = {
 
-                scope.launch {
-
-                    val result = snackbarHostState
-                        .showSnackbar(
-                            message = "Your Note will be permanently deleted",
-                            actionLabel = "Yes",
-                            duration = SnackbarDuration.Indefinite
-                        )
-
-                    if (result == SnackbarResult.ActionPerformed) {
-                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.DeleteJournal(note.voiceJournal))
-                        navController.navigateUp()
-                    //    addVoiceNoteViewModel.onEvent(AddEditNoteEvent.RestoreJournal)
-
-                    }
-
-                }
-            }) {
-                if (titleState.text != "") {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
-                        contentDescription = "Delete Journal",
-                        tint = Variables.SchemesError
-                    )
-                }
-            }
-        }, colors = TopAppBarDefaults.topAppBarColors(
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Variables.SchemesPrimaryContainer
         )
     )
