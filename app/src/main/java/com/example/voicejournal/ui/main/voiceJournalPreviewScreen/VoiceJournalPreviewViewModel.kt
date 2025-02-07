@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.voicejournal.Data.SettingsRepository
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 import com.example.voicejournal.Data.model.VoiceJournal
+import com.example.voicejournal.ui.main.AddVoiceNote.AddEditNoteEvent
 import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteViewModel
 import com.example.voicejournal.ui.main.AddVoiceNote.FavouriteState
 import com.example.voicejournal.ui.main.AddVoiceNote.NoteContentTextFieldState
@@ -61,8 +62,8 @@ class VoiceJournalPreviewViewModel @Inject constructor(
     private val _state = MutableStateFlow(NotesState())
     val state: StateFlow<NotesState> = _state.asStateFlow()
 
-    private val _eventFlow2 = MutableSharedFlow<FavouriteScreenEvent>()
-    val eventFlow2 = _eventFlow2.asSharedFlow()
+    private val _favouriteScreenEventFlow = MutableSharedFlow<FavouriteScreenEvent>()
+    val favoriteScreenEvent = _favouriteScreenEventFlow.asSharedFlow()
 
     private val _noteTitle = mutableStateOf(
         NoteTextFieldState(
@@ -255,6 +256,19 @@ getNotes()
                     _eventFlow.emit(PreviewUiEvent.StopPlay)
                 }
             }
+            is FavouriteScreenEvent.DeleteJournal -> {
+                viewModelScope.launch {
+                    event.voiceJournal?.let { voiceJournalRepository.delete(it) }
+                    recentlyDeletedJournal = event.voiceJournal
+                }
+            }
+
+            is FavouriteScreenEvent.RestoreJournal -> {
+                viewModelScope.launch {
+                    voiceJournalRepository.save(recentlyDeletedJournal ?: return@launch)
+                    recentlyDeletedJournal = null
+                }
+            }
 
 
         }
@@ -267,6 +281,8 @@ getNotes()
         object StopPlay : FavouriteScreenEvent()
         data class Play(val filename:String): FavouriteScreenEvent()
         data class Favourite(val value: Boolean):FavouriteScreenEvent()
+        data class DeleteJournal(val voiceJournal: VoiceJournal?): FavouriteScreenEvent()
+        object RestoreJournal: FavouriteScreenEvent()
 
 
     }

@@ -37,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -108,6 +109,7 @@ fun AddVoiceNoteScreen(
    }
 
     LaunchedEffect(state.annotatedString) {
+
         addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredTitle(state.toHtml()))
 
     }
@@ -141,15 +143,27 @@ fun AddVoiceNoteScreen(
 
         }, year, month, day
     )
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val currentOnStopPlay by rememberUpdatedState(
+        newValue = {
+            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
+        }
+    )
 
+    val currentOnSaveNote by rememberUpdatedState(
+        newValue = {
+            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNoteOnly)
+        }
+    )
 
     val lifecycle = lifecycleOwner.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_PAUSE) {
+               currentOnSaveNote()
+                currentOnStopPlay()
                 addVoiceNoteViewModel.removeSelectedImageUris()
-            }
-        }
+            }      }
         lifecycle.addObserver(observer)
         onDispose {
             lifecycle.removeObserver(observer)
@@ -158,9 +172,6 @@ fun AddVoiceNoteScreen(
     }
 
 
-    /* LaunchedEffect(Unit){
-         addVoiceNoteViewModel.getSelectedImageUris()
-     }*/
     val onSave = remember { mutableStateOf(false) }
     //record panel state
     val myState by addVoiceNoteViewModel.recordState.collectAsState()
@@ -174,14 +185,10 @@ fun AddVoiceNoteScreen(
     val uris = addVoiceNoteViewModel.tempImageUris.value.imageFileUris?.filter { it.isNotEmpty() }
         ?.map { Uri.parse(it) }
 
-    // else addVoiceNoteViewModel.noteFileName.value.imageFileUris?.map { Uri.parse(it) }
 
-    // A composable function to handle the back button press from the edit screen
     BackHandler(onBack = {
-        // Remove the selected image URIs
         addVoiceNoteViewModel.removeSelectedImageUris()
         addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
-        // Navigate back to the main screen
         navController.popBackStack()
     })
 
@@ -338,54 +345,7 @@ fun AddVoiceNoteScreen(
     ) {
         Scaffold(modifier = Modifier.imePadding(),
             topBar = {
-                /*  SmallTopAppBar(
-                      title = {
-                          Text(
-                              if (titleState.text != "") "Edit Journal" else "New Journal",
-                              maxLines = 1,
-                              overflow = TextOverflow.Ellipsis
-                          )
-                      },
-                      navigationIcon = {
-                          IconButton(onClick = { navController.navigate(Screen.VoicesScreen.route) }) {
-                              Icon(
-                                  imageVector = Icons.Filled.Close,
-                                  contentDescription = "Cancel"
-                              )
-                          }
-                      },
-                      actions = {
 
-                          IconButton(onClick = {
-                              addVoiceNoteViewModel.onEvent(AddEditNoteEvent.DeleteJournal(note.voiceJournal))
-                              scope.launch {
-                                  navController.navigate(Screen.VoicesScreen.route)
-                                  val result = scaffoldState.snackbarHostState.showSnackbar(
-                                      message = "Note deleted",
-                                      actionLabel = "Undo"
-                                  )*//*
-                                if(result == SnackbarResult.ActionPerformed) {
-                                    viewModel.onEvent(NotesEvent.RestoreNote)
-                                }*//*
-                            }
-                        }) {
-                            if (titleState.text != "") {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
-                                    contentDescription = "Delete Journal"
-                                )
-                            }
-                        }
-                        IconButton(onClick = {
-                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote)
-                            navController.navigate(Screen.VoicesScreen.route)
-                        })
-                        {
-                            Text(text = "Save")
-                        }
-
-                    }
-                )*/
                 EditScreenTopAppBar(
                     navController = navController,
                     addVoiceNoteViewModel = addVoiceNoteViewModel,

@@ -41,7 +41,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -49,6 +52,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,14 +63,24 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
 import com.example.voicejournal.Data.model.VoiceJournal
+import com.example.voicejournal.R
 import com.example.voicejournal.Screen
+import com.example.voicejournal.ui.main.AddVoiceNote.AddEditNoteEvent
 import com.example.voicejournal.ui.main.mainScreen.DynamicDateRow
+import com.example.voicejournal.ui.main.snackbar.SnackbarAction
+import com.example.voicejournal.ui.main.snackbar.SnackbarController
+import com.example.voicejournal.ui.main.snackbar.SnackbarEvent
+import com.example.voicejournal.ui.main.voiceJournalPreviewScreen.VoiceJournalPreviewViewModel.FavouriteScreenEvent
 import com.example.voicejournal.ui.main.voiceJournalPreviewScreen.components.PlayRecordPanel
 import com.example.voicejournal.ui.theme.Variables
 import com.mohamedrejeb.richeditor.model.rememberRichTextState
@@ -82,9 +96,30 @@ fun VoiceJournalPreviewScreen(
     noteColor: Int,
     noteIndex: Int,
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val currentOnStopPlay by rememberUpdatedState(
+        newValue = {
+            voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay)
+        }
+    )
+
+    DisposableEffect(key1 = lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                currentOnStopPlay()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     BackHandler(onBack = {
+        voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay )
         navController.navigate(Screen.VoicesScreen.route)
     })
+
 
     val voiceNotes by voiceJournalPreviewViewModel.state.collectAsState()
     val noteState = voiceJournalPreviewViewModel.noteState
@@ -172,7 +207,10 @@ fun VoiceJournalPreviewScreen(
                         }
                     },
                     navigationIcon = {
-                        IconButton(onClick = { navController.navigate(Screen.VoicesScreen.route) }) {
+                        IconButton(onClick = {
+                            voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay )
+                            navController.navigate(Screen.VoicesScreen.route)
+                        }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
@@ -190,13 +228,41 @@ fun VoiceJournalPreviewScreen(
                                 //val currentNote = voiceNotesList[currentIndex.intValue]
                                 // val favoriteState = remember { mutableStateOf(currentNote.favourite) }
 
-                                IconButton(onClick = { /* Handle share action */ }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Share,
-                                        contentDescription = "Share",
-                                        tint = Variables.SchemesOnPrimary
-                                    )
-                                }
+                                IconButton(onClick = {
+
+                                    scope.launch {
+                                        voiceJournalPreviewViewModel.onEvent(
+                                            FavouriteScreenEvent.DeleteJournal(
+                                                voiceNotesList[currentIndex.intValue]
+                                            )
+                                        )
+                                        SnackbarController.sendEvent(
+                                            event = SnackbarEvent(
+                                                message = "Undo deleted",
+                                                action = SnackbarAction(
+                                                    name = "Undo",
+                                                    action = {
+                                                        voiceJournalPreviewViewModel.onEvent(
+                                                            FavouriteScreenEvent.RestoreJournal
+                                                        )
+                                                    }
+                                                )
+                                                )
+                                        )
+
+                                    }
+                                })
+                                {
+
+                                            Icon(
+                                                painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
+                                                contentDescription = "Delete Journal",
+                                                tint = Variables.SchemesError
+                                            )
+
+                                    }
+
+
                                 Icon(
                                     imageVector = if (favoriteState.value == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                                     contentDescription = "Favorite",
@@ -309,6 +375,7 @@ fun VoiceJournalPreviewScreen(
         ) {
             IconButton(
                 onClick = {
+                    voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay )
                     scope.launch {
                         pagerState.scrollToPage(
                             pagerState.currentPage - 1
@@ -325,6 +392,7 @@ fun VoiceJournalPreviewScreen(
             }
             IconButton(
                 onClick = {
+                    voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay )
                     scope.launch {
                         pagerState.scrollToPage(pagerState.currentPage + 1)
                     }
