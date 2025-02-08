@@ -45,11 +45,11 @@ fun TransparentHintTextField(
                     onFocusChange(it)
                 },
             maxLines = 2,
-            placeholder = {
+          /*  placeholder = {
                 Text(
                 textAlign = TextAlign.Center,
                // modifier= Modifier.fillMaxWidth(),
-                text = "What's the title?") },
+                text = "Untitled") },*/
             colors = TextFieldDefaults.colors(
                 unfocusedContainerColor = Color.Transparent,
                 focusedContainerColor = Color.Transparent,

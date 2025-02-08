@@ -2,7 +2,6 @@ package com.example.voicejournal.ui.main.AddVoiceNote.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material.ScaffoldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
@@ -10,9 +9,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -28,12 +25,10 @@ import com.example.voicejournal.R
 import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.AddEditNoteEvent
 import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteViewModel
-import com.example.voicejournal.ui.main.AddVoiceNote.NoteTextFieldState
 import com.example.voicejournal.ui.main.calendar.clickable
-import com.example.voicejournal.ui.main.mainScreen.NotesEvent
 import com.example.voicejournal.ui.theme.Variables
+import com.mohamedrejeb.richeditor.model.RichTextState
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -47,7 +42,8 @@ fun EditScreenTopAppBar(
     snackbarHostState: SnackbarHostState,
     nav: () -> Unit,
     datePickerDialog: () -> Unit,
-    contentSaved: () -> Unit
+    contentSaved: () -> Unit,
+    state: RichTextState
 
 ) {
     val titleState = addVoiceNoteViewModel.noteTitle.value
@@ -93,14 +89,17 @@ fun EditScreenTopAppBar(
         navigationIcon = {
 
 
-            if (addVoiceNoteViewModel.noteContent.value.text?.isNotEmpty() == true && addVoiceNoteViewModel.noteTitle.value.text.isNotEmpty()) {
+            if (state.annotatedString.text.isNotBlank() && addVoiceNoteViewModel.noteContent.value.text?.isNotBlank()==true ) {
                 IconButton(onClick = {
                     contentSaved()
 
-                    if (addVoiceNoteViewModel.noteContent.value.text?.isNotEmpty() == true) {
+                    if (state.annotatedString.text.isNotBlank()) {
+                        navController.navigateUp()
                         //    navController.navigate(Screen.VoicesScreen.route)
-                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
-                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote)
+                       /* addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
+                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote(
+                            note = state.toHtml()
+                        ))*/
                     } else {
                         addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Error("Kindly Enter a title be for you save"))
                     }
