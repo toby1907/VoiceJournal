@@ -238,7 +238,7 @@ fun VoiceJournalPreviewScreen(
                                         )
                                         SnackbarController.sendEvent(
                                             event = SnackbarEvent(
-                                                message = "Undo deleted",
+                                                message = "Note deleted",
                                                 action = SnackbarAction(
                                                     name = "Undo",
                                                     action = {

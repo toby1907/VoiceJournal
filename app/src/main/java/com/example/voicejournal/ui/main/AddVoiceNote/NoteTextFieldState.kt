@@ -1,7 +1,7 @@
 package com.example.voicejournal.ui.main.AddVoiceNote
 
 data class NoteContentTextFieldState(
-    val text: String? = "",
+    val text: String? = "Untitled",
     val hint: String = "",
     val isHintVisible: Boolean = true,
     val created: Long = System.currentTimeMillis()

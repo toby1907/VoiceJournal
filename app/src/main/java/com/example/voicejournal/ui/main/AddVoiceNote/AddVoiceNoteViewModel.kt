@@ -2,7 +2,6 @@ package com.example.voicejournal.ui.main.AddVoiceNote
 
 import android.content.Context
 import android.media.MediaPlayer
-import android.media.MediaRecorder
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
@@ -21,6 +20,7 @@ import com.example.voicejournal.core.AudioRecorder
 
 import com.example.voicejournal.ui.main.AddVoiceNote.components.Tag
 import com.example.voicejournal.ui.theme.Variables
+import com.mohamedrejeb.richeditor.model.RichTextState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -259,6 +259,8 @@ class AddVoiceNoteViewModel @Inject constructor(
                     isHintVisible = !event.focusState.isFocused &&
                             noteTitle.value.text.isBlank()
                 )
+
+
             }
 
             is AddEditNoteEvent.EnteredContent -> {
@@ -277,6 +279,20 @@ class AddVoiceNoteViewModel @Inject constructor(
             is AddEditNoteEvent.SaveNote -> {
 
                 viewModelScope.launch {
+                    if (event.note.trim().isNotEmpty() ) {
+                        // Set title to "Untitled" if it's also empty or blank
+                        if (_noteContent.value.text?.isBlank() == true) {
+                            _noteContent.value = _noteContent.value.copy(text = "Untitled")
+                        }
+
+                        // Show snackbar
+                        _eventFlow.emit(
+                            UiEvent.ShowSnackbar(
+                                message = "Content cannot be empty"
+                            )
+                        )
+                        return@launch // Don't save the note
+                    }
                     try {
                         voiceJournalRepository.save(
                             VoiceJournal(
@@ -366,11 +382,25 @@ class AddVoiceNoteViewModel @Inject constructor(
             }
 
             is AddEditNoteEvent.SaveNoteBeforeNav -> {
-               /* viewModelScope.launch {
+                viewModelScope.launch {
+                    if (event.note.trim().isEmpty()  ) {
+                        // Set title to "Untitled" if it's also empty or blank
+                        if (_noteContent.value.text?.isBlank() == true) {
+                            _noteContent.value = _noteContent.value.copy(text = "Untitled")
+                        }
+
+                        // Show snackbar
+                        _eventFlow.emit(
+                            UiEvent.ShowSnackbar(
+                                message = "Content cannot be empty"
+                            )
+                        )
+                        return@launch // Don't save the note
+                    }
                     try {
                         val voiceJournal = VoiceJournal(
-                            title = noteTitle.value.text,
-                            content = noteContent.value.text,
+                            title = event.note,
+                            content = noteContent.value.text ?:"Untitled",
                             created = created.value.created,
                             fileName = noteFileName.value.text,
                             id = currentNoteId,
@@ -393,39 +423,15 @@ class AddVoiceNoteViewModel @Inject constructor(
                         )
                     }
                 }
-                removeSelectedImageUris()*/
-                saveNote(true)
+                removeSelectedImageUris()
+
+
 
             }
 
             is AddEditNoteEvent.SaveNoteOnly -> {
-                /*  viewModelScope.launch {
-                      try {
-                          voiceJournalRepository.save(
-                              VoiceJournal(
-                                  title = noteTitle.value.text,
-                                  content = noteContent.value.text,
-                                  created = created.value.created,
-                                  fileName = noteFileName.value.text,
-                                  id = currentNoteId,
-                                  color = noteColor.value,
-                                  imageUris = tempImageUris.value.imageFileUris,
-                                  tags = tags.value,
-                                  favourite = favourite.value.favourite
-                              )
-                          )
-                       //   _eventFlow.emit(UiEvent.SaveNote)
-                      } catch (e: InvalidNoteException) {
-                          Log.d("Note", "could not save")
-                          _eventFlow.emit(
-                              UiEvent.ShowSnackbar(
-                                  message = e.message ?: "Couldn't save note"
-                              )
-                          )
-                      }
-                  }
-                  removeSelectedImageUris()*/
-                saveNote(false)
+
+                saveNote(false,event.note)
             }
         }
     }
@@ -444,6 +450,7 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     data class NoteState(
         val voiceJournal: VoiceJournal? = null,
+       val state: RichTextState =  RichTextState()
     )
 
     private suspend fun startPlaying() {
@@ -660,19 +667,19 @@ class AddVoiceNoteViewModel @Inject constructor(
         }
     }
 
-    private fun saveNote(navigate: Boolean) {
+    private fun saveNote(navigate: Boolean, note: String) {
         viewModelScope.launch {
             // Check if content is empty
-            if (_noteTitle.value.text.isBlank() ) {
+            if (note.trim().isEmpty()) {
                 // Set title to "Untitled" if it's also empty or blank
                 if (_noteContent.value.text?.isBlank() == true) {
-                    _noteContent.value = _noteContent.value.copy(text = "Untitled")
+                    _noteContent.value = noteContent.value.copy(text = "Untitled")
                 }
 
                 // Show snackbar
                 _eventFlow.emit(
                     UiEvent.ShowSnackbar(
-                        message = "Content cannot be empty. Customize Toolbar..."
+                        message = "Content cannot be empty"
                     )
                 )
                 return@launch // Don't save the note
@@ -681,8 +688,8 @@ class AddVoiceNoteViewModel @Inject constructor(
             try {
                 voiceJournalRepository.save(
                     VoiceJournal(
-                        title = noteTitle.value.text,
-                        content = noteContent.value.text,
+                        title = note,
+                        content = noteContent.value.text ?: "Untitled",
                         created = created.value.created,
                         fileName = noteFileName.value.text,
                         id = currentNoteId,
