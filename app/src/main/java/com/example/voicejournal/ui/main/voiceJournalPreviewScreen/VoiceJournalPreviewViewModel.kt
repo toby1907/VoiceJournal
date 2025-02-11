@@ -2,6 +2,7 @@ package com.example.voicejournal.ui.main.voiceJournalPreviewScreen
 
 import android.content.Context
 import android.media.MediaPlayer
+import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -100,6 +101,8 @@ class VoiceJournalPreviewViewModel @Inject constructor(
     //Timer for the Play panel
     private val _timer2 = MutableStateFlow(0L)
     val timer2 = _timer2.asStateFlow()
+    private val _currentNoteUri = MutableStateFlow<Uri?>(null)
+    val currentNoteUri: StateFlow<Uri?> = _currentNoteUri.asStateFlow()
 
     private var timerJob2: Job? = null
 
@@ -396,6 +399,10 @@ getNotes()
         _timer2.value = 0
         _playingState.value = false
         timerJob2?.cancel()
+    }
+
+    fun updateCurrentNoteUri(uri: Uri?) {
+        _currentNoteUri.value = uri
     }
 
 }

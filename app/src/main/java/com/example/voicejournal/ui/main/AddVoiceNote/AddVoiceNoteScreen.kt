@@ -731,14 +731,4 @@ fun AddVoiceNoteScreen(
 }
 
 
-@Composable
-@Preview
-fun AddVoiceNoteScreenPreview() {
-    val context = LocalContext.current
-    AddVoiceNoteScreen(
-        navController = NavController(context),
-        noteColor = Color.Blue.toArgb(),
-        note = "note",
-        snackbarHostState = SnackbarHostState()
-    )
-}
+
