@@ -2,11 +2,12 @@ package com.example.voicejournal.Data
 
 import com.example.voicejournal.Data.RepositoryImpl.VoiceJournalRepository
 import com.example.voicejournal.Data.model.VoiceJournal
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
 
-class VoiceJournalRepositoryImpl (private val voiceJournalDao: VoiceJournalDao):
-    VoiceJournalRepository {
+class VoiceJournalRepositoryImpl (private val voiceJournalDao: VoiceJournalDao): VoiceJournalRepository {
    /* companion object
 
     @Volatile
@@ -24,9 +25,9 @@ class VoiceJournalRepositoryImpl (private val voiceJournalDao: VoiceJournalDao):
 
 
     }*/
-    override  fun getNote(id: Int): Flow<VoiceJournal?> {
-        return voiceJournalDao.getLetter(id)
-    }
+   override  fun getNote(id: Int): Flow<VoiceJournal?> {
+       return voiceJournalDao.getLetter(id)
+   }
     private val SINGLE_EXECUTOR = Executors.newSingleThreadExecutor()
     fun executeThread(f: () -> Unit) {
         SINGLE_EXECUTOR.execute(f)
@@ -48,5 +49,18 @@ class VoiceJournalRepositoryImpl (private val voiceJournalDao: VoiceJournalDao):
         return voiceJournalDao.searchDatabase(searchQuery)
     }
 
+  /*  override suspend fun save(voiceJournal: VoiceJournal,callback: (Int) -> Unit) {
+        SINGLE_EXECUTOR.execute {
+            val id = voiceJournalDao.insert(voiceJournal)
+            callback(id.toInt())
+        }
+    }*/
+    override suspend fun saveAndId(voiceJournal: VoiceJournal): Long {
+        var id: Long = 0
+        withContext(Executors.newSingleThreadExecutor().asCoroutineDispatcher()) {
+            id = voiceJournalDao.insert(voiceJournal)
+        }
+        return id
+    }
 
 }

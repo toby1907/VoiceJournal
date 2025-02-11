@@ -27,15 +27,14 @@ import com.example.voicejournal.ui.main.voiceJournalPreviewScreen.VoiceJournalPr
 fun MyAppNavHost(
     modifier: Modifier = Modifier,
     startDestination: String = Screen.VoicesScreen.route,
-    voiceNoteViewModel: VoiceNoteViewModel = hiltViewModel(),
-    navController: NavHostController
+    voiceNoteViewModel: VoiceNoteViewModel = hiltViewModel()
 
 ) {
 
     val snackbarHostState = remember { SnackbarHostState() }
 
 
-//    val navController: NavHostController = rememberNavController()
+    val navController: NavHostController = rememberNavController()
 
 
     NavHost(
@@ -94,7 +93,7 @@ fun MyAppNavHost(
                 navController.navigate(Screen.VoicesScreen.route)
             }
         }
-        composable(route = "gallery"+"?noteId={noteId}&noteColor={noteColor}",
+        composable(route = "gallery"+"?noteId={noteId}&noteColor={noteColor}&note={note}",
             arguments = listOf(
                 navArgument(
                     name = "noteId"
@@ -107,6 +106,12 @@ fun MyAppNavHost(
                 ) {
                     type = NavType.IntType
                     defaultValue = -1
+                },
+                navArgument(
+                    name = "note"
+                ) {
+                    type = NavType.StringType
+                    defaultValue = ""
                 },
             )
             ) { entry ->

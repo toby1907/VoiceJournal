@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface VoiceJournalDao {
     @Query("SELECT* FROM `voice.db`WHERE voice_id =:voiceId")
-     fun getLetter(voiceId: Int): Flow<VoiceJournal?>
+    fun getLetter(voiceId: Int): Flow<VoiceJournal?>
     @Query("SELECT * FROM 'voice.db' ORDER By voice_id ASC" )
     fun getRecentLetter(): LiveData<List<VoiceJournal>>
 

@@ -7,12 +7,9 @@ import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 import com.example.voicejournal.Data.model.VoiceJournal
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
@@ -21,7 +18,6 @@ import javax.inject.Inject
 @HiltViewModel
 class SearchScreenViewModel @Inject constructor(
     private val voiceJournalRepository: VoiceJournalRepositoryImpl,
-    private val getSearchResults: GetSearchResults
 ) : ViewModel() {
 
     sealed class ViewState {

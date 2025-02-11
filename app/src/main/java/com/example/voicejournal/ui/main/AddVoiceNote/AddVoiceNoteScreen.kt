@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.ScaffoldState
-import androidx.compose.material.rememberScaffoldState
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
@@ -39,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -55,7 +54,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
@@ -67,6 +65,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.navigation.NavController
 import com.example.voicejournal.R
+import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.components.AlignStyleBottomSheet
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomAppPanel
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomSheet
@@ -109,10 +108,11 @@ fun AddVoiceNoteScreen(
        Log.d("htmlString", note)
    }
 
-    LaunchedEffect(state.annotatedString) {
+   /* LaunchedEffect(state.annotatedString) {
+
         addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredTitle(state.toHtml()))
 
-    }
+    }*/
 
 
 
@@ -143,15 +143,28 @@ fun AddVoiceNoteScreen(
 
         }, year, month, day
     )
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val currentOnStopPlay by rememberUpdatedState(
+        newValue = {
+            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
+        }
+    )
 
+    val currentOnSaveNote by rememberUpdatedState(
+        newValue = {
+            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNoteOnly(state.toHtml()))
+        }
+    )
 
     val lifecycle = lifecycleOwner.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_PAUSE) {
+            if(state.annotatedString.text.trim().isNotEmpty())    { currentOnSaveNote() }
+                currentOnStopPlay()
                 addVoiceNoteViewModel.removeSelectedImageUris()
-            }
-        }
+
+            }      }
         lifecycle.addObserver(observer)
         onDispose {
             lifecycle.removeObserver(observer)
@@ -160,9 +173,6 @@ fun AddVoiceNoteScreen(
     }
 
 
-    /* LaunchedEffect(Unit){
-         addVoiceNoteViewModel.getSelectedImageUris()
-     }*/
     val onSave = remember { mutableStateOf(false) }
     //record panel state
     val myState by addVoiceNoteViewModel.recordState.collectAsState()
@@ -176,15 +186,10 @@ fun AddVoiceNoteScreen(
     val uris = addVoiceNoteViewModel.tempImageUris.value.imageFileUris?.filter { it.isNotEmpty() }
         ?.map { Uri.parse(it) }
 
-    // else addVoiceNoteViewModel.noteFileName.value.imageFileUris?.map { Uri.parse(it) }
 
-    // A composable function to handle the back button press from the edit screen
     BackHandler(onBack = {
-        // Remove the selected image URIs
         addVoiceNoteViewModel.removeSelectedImageUris()
         addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
-
-        // Navigate back to the main screen
         navController.popBackStack()
     })
 
@@ -317,7 +322,7 @@ fun AddVoiceNoteScreen(
 
                 is AddVoiceNoteViewModel.UiEvent.SaveNote -> {
                     onSave.value = true
-                    navController.navigateUp()
+                    navController.navigate(Screen.VoicesScreen.route)
                     scope.launch  {
                         snackbarHostState.showSnackbar(
                             message = "Journal Saved"
@@ -341,54 +346,7 @@ fun AddVoiceNoteScreen(
     ) {
         Scaffold(modifier = Modifier.imePadding(),
             topBar = {
-                /*  SmallTopAppBar(
-                      title = {
-                          Text(
-                              if (titleState.text != "") "Edit Journal" else "New Journal",
-                              maxLines = 1,
-                              overflow = TextOverflow.Ellipsis
-                          )
-                      },
-                      navigationIcon = {
-                          IconButton(onClick = { navController.navigate(Screen.VoicesScreen.route) }) {
-                              Icon(
-                                  imageVector = Icons.Filled.Close,
-                                  contentDescription = "Cancel"
-                              )
-                          }
-                      },
-                      actions = {
 
-                          IconButton(onClick = {
-                              addVoiceNoteViewModel.onEvent(AddEditNoteEvent.DeleteJournal(note.voiceJournal))
-                              scope.launch {
-                                  navController.navigate(Screen.VoicesScreen.route)
-                                  val result = scaffoldState.snackbarHostState.showSnackbar(
-                                      message = "Note deleted",
-                                      actionLabel = "Undo"
-                                  )*//*
-                                if(result == SnackbarResult.ActionPerformed) {
-                                    viewModel.onEvent(NotesEvent.RestoreNote)
-                                }*//*
-                            }
-                        }) {
-                            if (titleState.text != "") {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
-                                    contentDescription = "Delete Journal"
-                                )
-                            }
-                        }
-                        IconButton(onClick = {
-                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote)
-                            navController.navigate(Screen.VoicesScreen.route)
-                        })
-                        {
-                            Text(text = "Save")
-                        }
-
-                    }
-                )*/
                 EditScreenTopAppBar(
                     navController = navController,
                     addVoiceNoteViewModel = addVoiceNoteViewModel,
@@ -408,41 +366,13 @@ fun AddVoiceNoteScreen(
                     },
                     contentSaved = {
                         contentSaved.value = true
-                    }
+                    },
+                    state = state
                 )
             },
             floatingActionButtonPosition = FabPosition.Center,
             floatingActionButton = {
-                /*   FloatingActionButton(
-                       modifier = Modifier.shadow(
-                           0.dp,
-                           spotColor = Color(0xFF000000),
-                           ambientColor = Color(0xFF000000)
-                       ),
-                       shape = RoundedCornerShape(size = 100.dp),
-                       containerColor = Variables.SchemesOnPrimaryContainer,
-                       contentColor = Color(0xFFffffff),
-                       onClick = {
-                           playState = !playState
 
-                           if (playState && playNoteState) {
-                               addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Play(fileNameState.text))
-                           } else {
-                               addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
-                           }
-                       }
-                   )
-                   {
-
-                           if (playNoteState) {
-
-                               Icon(
-                                   painter = painterResource(if (!playState || mediaState) R.drawable.play_button_24 else R.drawable.pause_button_24),
-                                   contentDescription = "Localized description"
-                               )
-                           }
-
-                   }*/
 
                 if (myState) {
                     RecordPanelComponent(
@@ -556,48 +486,6 @@ fun AddVoiceNoteScreen(
                     openAlignStyleBottomSheet = !openAlignStyleBottomSheet
                 }
 
-
-                /* BottomAppBar(
-                     Modifier
-                         .wrapContentWidth()
-                         .background(Color(colorIntState)),
-                     containerColor = Color(colorIntState)
-                 )
-                 {
-                     // Leading icons should typically have a high content alpha
-                     CompositionLocalProvider(LocalContentAlpha provides ContentAlpha.high) {
-
-                     }
-                     // The actions should be at the end of the BottomAppBar. They use the default medium
-                     // content alpha provided by BottomAppBar
-                     Spacer(Modifier.weight(1f, true))
-                     IconButton(onClick = {
-
-                         recordState = !recordState
-                         mediaState = false
-                         playState = false
-                         if (recordState) {
-                             playButtonState = false
-
-                             addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Recording(fileNameState.text))
-                         } else {
-
-                             addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopRecording)
-                             playButtonState = true
-                         }
-
-
-                     }) {
-                         if (!playNoteState) {
-                             Icon(
-                                 painter = painterResource(if (recordState == false) R.drawable.baseline_mic_black_36 else R.drawable.stop_button_36),
-                                 contentDescription = "Localized description"
-                             )
-                         }
-
-                     }
-
-                 }*/
             },
             snackbarHost = { SnackbarHost(snackbarHostState) }
 
@@ -611,48 +499,8 @@ fun AddVoiceNoteScreen(
                     .padding(innerPadding),
 
 
-                ) {/*
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    VoiceJournal.noteColors.forEach { color ->
-                        val colorInt = color.toArgb()
-                        Box(
-                            modifier = Modifier
-                                .size(50.dp)
-                                .shadow(15.dp, CircleShape)
-                                .clip(CircleShape)
-                                .background(color)
-                                .border(
-                                    width = 3.dp,
-                                    color = if (addVoiceNoteViewModel.noteColor.value == colorInt) {
-                                        Color.Black
-                                    } else Color.Transparent,
-                                    shape = CircleShape
-                                )
-                                .clickable {
-                                    colorIntState = color.toArgb()
-                                    scope.launch {
-                                        noteBackgroundAnimatable.animateTo(
-                                            targetValue = Color(colorInt),
-                                            animationSpec = tween(
-                                                durationMillis = 500
-                                            )
-                                        )
-                                    }
-                                    addVoiceNoteViewModel.onEvent(
-                                        AddEditNoteEvent.ChangeColor(
-                                            colorInt
-                                        )
-                                    )
-                                }
-                        )
-                    }
-                }*/
+
                 Spacer(modifier = Modifier.height(16.dp))
 
 
@@ -698,7 +546,8 @@ fun AddVoiceNoteScreen(
                             unfocusedIndicatorColor = Color.Transparent,
                             textColor = Variables.SchemesOnSurface
 
-                        )
+                        ),
+
                     )
 
                 Spacer(modifier = Modifier.size(8.dp))
@@ -753,14 +602,35 @@ fun AddVoiceNoteScreen(
                 onImageClick = {
 
                     if (note.voiceJournal?.id != null) {
-                        navController.navigate(
-                            "gallery" +
-                                    "?noteId=${note.voiceJournal.id}&noteColor=${noteColor}"
+                        val encodedString = Uri.encode(note.voiceJournal.title)
+                        addVoiceNoteViewModel.onEvent(
+                            AddEditNoteEvent.SaveNoteBeforeNav(
+                                value = {
+                                    navController.navigate(
+                                        "gallery" +
+                                                "?noteId=${note.voiceJournal.id}&noteColor=${noteColor}&note=${encodedString}"
+                                    )
+                                },
+                                note = state.toHtml()
+                            )
                         )
+
+
                     } else {
-                        navController.navigate(
-                            "gallery"
+
+                        addVoiceNoteViewModel.onEvent(
+                            AddEditNoteEvent.SaveNoteBeforeNav(
+                                value = { voiceJournal ->
+                                    val encodedString = Uri.encode(voiceJournal.title)
+                                    navController.navigate(
+                                        "gallery" +
+                                                "?noteId=${voiceJournal.id}&noteColor=${voiceJournal.color}&note=${encodedString}"
+                                    )
+                                },
+                                note = state.toHtml()
+                            )
                         )
+
                     }
                 },
                 showFileChooser = {
@@ -861,14 +731,4 @@ fun AddVoiceNoteScreen(
 }
 
 
-@Composable
-@Preview
-fun AddVoiceNoteScreenPreview() {
-    val context = LocalContext.current
-    AddVoiceNoteScreen(
-        navController = NavController(context),
-        noteColor = Color.Blue.toArgb(),
-        note = "note",
-        snackbarHostState = SnackbarHostState()
-    )
-}
+

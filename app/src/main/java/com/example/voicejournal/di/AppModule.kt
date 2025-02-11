@@ -4,13 +4,14 @@ import android.app.Application
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-
 import androidx.room.Room
-import com.example.voicejournal.Data.JournalSearchAPI
-import com.example.voicejournal.Data.GetSearchResults
 import com.example.voicejournal.Data.SettingsRepository
-import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 import com.example.voicejournal.Data.VoiceJournalDatabase
+import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
+import com.example.voicejournal.core.AudioPlayer
+import com.example.voicejournal.core.AudioPlayerImpl
+import com.example.voicejournal.core.AudioRecorder
+import com.example.voicejournal.core.AudioRecorderImpl
 import com.example.voicejournal.dataStore
 import dagger.Module
 import dagger.Provides
@@ -39,18 +40,6 @@ class AppModule {
     fun provideNoteRepository(db: VoiceJournalDatabase): VoiceJournalRepositoryImpl {
         return VoiceJournalRepositoryImpl(db.voiceJournalDao())
     }
-    @Provides
-    @Singleton
-    fun provideFakeSearchAPI( voiceJournalRepository: VoiceJournalRepositoryImpl,settingsRepository: SettingsRepository,context: Context): JournalSearchAPI {
-        return JournalSearchAPI(voiceJournalRepository,settingsRepository,context)
-    }
-    @Provides
-    @Singleton
-    fun provideSearchResults(api:JournalSearchAPI): GetSearchResults{
-        return GetSearchResults(api)
-    }
-
-
 
         @Provides
         @Singleton
@@ -63,6 +52,19 @@ class AppModule {
         fun provideSettingsRepository(dataStore: DataStore<Preferences>): SettingsRepository {
             return SettingsRepository(dataStore)
         }
+
+    @Provides
+    @Singleton
+    fun provideAudioRecorder(): AudioRecorder {
+        return AudioRecorderImpl()
+    }
+
+
+    @Provides
+    @Singleton
+    fun provideAudioPlayer(): AudioPlayer {
+        return AudioPlayerImpl()
+    }
 
 
 

@@ -17,11 +17,14 @@ sealed class AddEditNoteEvent {
     data class DeleteJournal(val voiceJournal: VoiceJournal?): AddEditNoteEvent()
     data class ChangeStyle( val style: TextStyle): AddEditNoteEvent()
     data class Error(val message:String):AddEditNoteEvent()
-
+    data class SaveNoteBeforeNav(val value: (VoiceJournal)->Unit,val note:String):AddEditNoteEvent()
+    data class SaveNoteOnly(val note:String):AddEditNoteEvent()
+    data class SaveNote(val note:String): AddEditNoteEvent()
     //   data class ChangeColor(val color: Int): AddEditNoteEvent()
-    object SaveNote: AddEditNoteEvent()
+
     object StopPlay: AddEditNoteEvent()
     object StopRecording: AddEditNoteEvent()
     object RestoreJournal: AddEditNoteEvent()
+
 
 }

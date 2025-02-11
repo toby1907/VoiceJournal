@@ -328,7 +328,10 @@ private fun Day(
             .clickable(
                 enabled = day.position == DayPosition.MonthDate,
                 showRipple = !isSelected,
-                onClick = { onClick(day) },
+                onClick = {
+                    onClick(day)
+
+                          },
             ),
         contentAlignment = Alignment.Center
     ) {

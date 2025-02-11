@@ -1,5 +1,6 @@
 package com.example.voicejournal.ui.main.gallery
 
+import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,6 +35,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.navigation.navOptions
 import coil.compose.rememberAsyncImagePainter
 import com.example.voicejournal.R
 import com.example.voicejournal.Screen
@@ -63,12 +66,14 @@ fun GalleryScreen(
             TopAppBar(
                 title = {
                     if(imageFileIsSelected||selectedFiles.isNotEmpty()) {
-                        Spacer(modifier = Modifier.size(8.dp))
+
                        Text(text = numberOfSelectedFiles.toString() )
+                        Spacer(modifier = Modifier.size(24.dp))
                     }
                     else{
-                        Spacer(modifier = Modifier.size(8.dp))
+
                         Text("Select Picture")
+                        Spacer(modifier = Modifier.size(24.dp))
                     }
 
                         },
@@ -91,24 +96,38 @@ fun GalleryScreen(
                                       inclusive = true
                                   }
                               }*/
-                              navController.navigateUp()
+                          //    navController.navigateUp()
 
+                              val encodedString = Uri.encode(galleryScreenViewModel.noteState.value.voiceJournal?.title
+                                  ?: "")
+                              Log.d("previewhtmlString", galleryScreenViewModel.noteState.value.voiceJournal?.title?:"")
+                              navController.navigate(
+                                  Screen.AddEditNoteScreen.route +
+                                          "?noteId=${galleryScreenViewModel.noteState.value.voiceJournal?.id}&noteColor=${galleryScreenViewModel.noteState.value.voiceJournal?.color}&note=${encodedString}",
+                                  navOptions = navOptions {
+                                      popUpTo("gallery") {
+                                          inclusive = true
+                                      }
+                                  }
+
+                              )
                           }
 
                       )
-                      Spacer(modifier = Modifier.size(8.dp))
+                      Spacer(modifier = Modifier.size(24.dp))
 
                   }
                     else{
                       Icon(
-                          painter = painterResource(id = com.google.android.material.R.drawable.ic_m3_chip_close),
+                          Icons.Default.Cancel,
                           contentDescription = "",
                           modifier = Modifier.clickable {
                               navController.popBackStack()
                           }
                       )
-                      Spacer(modifier = Modifier.size(8.dp))
+                      Spacer(modifier = Modifier.size(24.dp))
                   }
+
                 }
                 )
         },

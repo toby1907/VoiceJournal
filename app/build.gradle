@@ -66,6 +66,7 @@ dependencies {
 
     // Lottie-compose
     implementation "com.airbnb.android:lottie-compose:$lottieVersion"
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose-android:2.8.7'
 
     //Calendar library
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
