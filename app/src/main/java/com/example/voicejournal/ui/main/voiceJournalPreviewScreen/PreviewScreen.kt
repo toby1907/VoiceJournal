@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -86,6 +87,10 @@ import com.mohamedrejeb.richeditor.model.rememberRichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -95,347 +100,413 @@ fun VoiceJournalPreviewScreen(
     navController: NavHostController,
     noteColor: Int,
     noteIndex: Int,
+
+
 ) {
+val state by voiceJournalPreviewViewModel.state.collectAsState()
+    // Loading indicator
+    if (state.isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val currentOnStopPlay by rememberUpdatedState(
-        newValue = {
+    // Error message
+    if (state.error != null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(text = "Error: ${state.error}")
+        }
+        return
+    }
+    if (state.notes.isNotEmpty()){
+        val commands: Channel<MediaPlayerViewModel.Commands> = Channel()
+        PreviewContent(
+            voiceJournalPreviewViewModel = voiceJournalPreviewViewModel,
+            navController = navController,
+            noteColor = noteColor,
+            noteIndex = noteIndex,
+            commandsFlow =  commands.receiveAsFlow(),
+            commands = commands
+            )
+    }
+}
+
+   @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+   @Composable
+   fun PreviewContent(
+       voiceJournalPreviewViewModel: VoiceJournalPreviewViewModel,
+       navController: NavHostController,
+       noteColor: Int,
+       noteIndex: Int,
+       commandsFlow: Flow<MediaPlayerViewModel.Commands>,
+       commands: Channel<MediaPlayerViewModel.Commands>,
+
+       ){
+        val lifecycleOwner = LocalLifecycleOwner.current
+        val currentOnStopPlay by rememberUpdatedState(
+            newValue = {
+                voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay)
+            }
+        )
+
+        DisposableEffect(key1 = lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_STOP) {
+                    currentOnStopPlay()
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
+        BackHandler(onBack = {
             voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay)
-        }
-    )
+            navController.navigate(Screen.VoicesScreen.route)
+        })
 
-    DisposableEffect(key1 = lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) {
-                currentOnStopPlay()
+
+        val voiceNotes by voiceJournalPreviewViewModel.state.collectAsState()
+        val noteState = voiceJournalPreviewViewModel.noteState
+        val voiceNotesList: List<VoiceJournal> = voiceNotes.notes
+        val fileNameState = voiceJournalPreviewViewModel.noteFileName.value
+        val timerValue by voiceJournalPreviewViewModel.timer2.collectAsState()
+        val playingState by voiceJournalPreviewViewModel.playingState.collectAsState()
+      //  val commands: Channel<MediaPlayerViewModel.Commands> = Channel()
+        val commandsScope = rememberCoroutineScope()
+      //  val commandsFlow: Flow<MediaPlayerViewModel.Commands> = commands.receiveAsFlow()
+
+        val viewModel: MediaPlayerViewModel = hiltViewModel()
+
+
+        val audioState by viewModel.state.collectAsStateWithLifecycle()
+
+        Log.d("noteIndexPreviewScreen", "$noteIndex")
+
+        val state = rememberRichTextState()
+        val pagerState = rememberPagerState(initialPage = noteIndex.takeIf { it != -1 } ?: 0,
+            pageCount = { voiceNotesList.size })
+        val scope = rememberCoroutineScope()
+        val currentIndex = remember { mutableIntStateOf(0) }
+        currentIndex.intValue = noteIndex
+
+        /*  LaunchedEffect(pagerState) {
+      viewModel.initUri(Uri.parse(voiceNotesList[currentIndex.intValue].fileName))
+          }*/
+        LaunchedEffect(currentIndex.intValue,pagerState) {
+            if (currentIndex.intValue != -1 && voiceNotesList.isNotEmpty()) {
+                if (voiceNotesList[currentIndex.intValue].fileName.isNotEmpty()) {
+                    viewModel.initUri(Uri.parse(voiceNotesList[currentIndex.intValue].fileName))
+                }
             }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    BackHandler(onBack = {
-        voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay )
-        navController.navigate(Screen.VoicesScreen.route)
-    })
-
-
-    val voiceNotes by voiceJournalPreviewViewModel.state.collectAsState()
-    val noteState = voiceJournalPreviewViewModel.noteState
-    val voiceNotesList: List<VoiceJournal> = voiceNotes.notes
-    val fileNameState = voiceJournalPreviewViewModel.noteFileName.value
-    val timerValue by voiceJournalPreviewViewModel.timer2.collectAsState()
-    val playingState by voiceJournalPreviewViewModel.playingState.collectAsState()
-    val commands: Channel<MediaPlayerViewModel.Commands> = Channel()
-    val commandsScope = rememberCoroutineScope()
-
-    val viewModel: MediaPlayerViewModel = hiltViewModel()
-   // val uri = voiceJournalPreviewViewModel.currentNoteUri.collectAsState()
-  /*  LaunchedEffect(uri) {
-        uri.value?.let { viewModel.initUri(it) }
-    }*/
-
-//    LaunchedEffect(uri) {
-//        viewModel.effect.onEach {
-//            when (it) {
-//                MediaPlayerViewModel.Effect.AudioListened -> onAudioListened()
-//                MediaPlayerViewModel.Effect.FileNotFound -> onFileNotFound()
-//            }
-//        }.collect()
-//    }
-
-   /* LaunchedEffect(uri) {
-        commands.onEach {
-            when (it) {
-                MediaPlayerViewModel.Commands.Pause -> viewModel.pause()
-                MediaPlayerViewModel.Commands.Play -> viewModel.play()
-            }
-        }.collect()
-    }*/
-
-    val audioState by viewModel.state.collectAsStateWithLifecycle()
-
-    Log.d("noteIndexPreviewScreen", "$noteIndex")
-
-    val state = rememberRichTextState()
-    val pagerState = rememberPagerState(initialPage = noteIndex.takeIf { it != -1 } ?: 0,
-        pageCount = { voiceNotesList.size })
-    val scope = rememberCoroutineScope()
-    val currentIndex = remember { mutableIntStateOf(0) }
-    currentIndex.intValue = noteIndex
-
-    val toolbarHeight = 48.dp
-    val toolbarHeightPx = with(LocalDensity.current) { toolbarHeight.roundToPx().toFloat() }
-    val toolbarOffsetHeightPx = remember { mutableStateOf(0f) }
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val delta = available.y
-                val newOffset = toolbarOffsetHeightPx.value + delta
-                toolbarOffsetHeightPx.value = newOffset.coerceIn(-toolbarHeightPx, 0f)
-                return Offset.Zero
-            }
-        }
-    }
-
-
-    @Stable
-    fun <T> spring(
-        dampingRatio: Float = Spring.DampingRatioNoBouncy,
-        stiffness: Float = Spring.StiffnessHigh,
-        visibilityThreshold: T? = null
-    ): SpringSpec<T> =
-        SpringSpec(dampingRatio, stiffness, visibilityThreshold)
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(nestedScrollConnection)
-            .background(color = Variables.SchemesSurface),
-    ) {
-
-        val paddingOffset = with(LocalDensity.current) { toolbarOffsetHeightPx.value.toDp() }
-        HorizontalPager(
-            modifier = Modifier.align(Alignment.TopCenter),
-            state = pagerState,
-            pageSize = PageSize.Fill,
-            contentPadding = PaddingValues(top = paddingOffset),
-            userScrollEnabled = false
-            // flingBehavior = PagerDefaults.flingBehavior(state = pagerState, snapAnimationSpec = spring(stiffness = Spring.StiffnessMediumLow))
-        ) { index ->
-            state.setHtml(voiceNotesList[index].title)
-            val currentNote = voiceNotesList[index]
-            val favoriteState = remember { mutableStateOf(currentNote.favourite) }
-            val timerValue2 = voiceJournalPreviewViewModel.getDuration(currentNote.fileName)
-
-            currentIndex.intValue = index
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-
-
-                ) {
-                TopAppBar(
-                    modifier = Modifier
-                        .height(toolbarHeight)
-                    //   .offset { IntOffset(x = 0, y = toolbarOffsetHeightPx.value.roundToInt()) }
-                    ,
-                    title = {
-                        if (voiceNotesList[currentIndex.intValue].content != null) {
-                            Text(
-                                text = voiceNotesList[currentIndex.intValue].content!!,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay )
-                            navController.navigate(Screen.VoicesScreen.route)
-                        }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Variables.SchemesOnPrimary
-                            )
-                        }
-                    },
-                    actions = {
-                        Row(
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-
-                            if (voiceNotesList.isNotEmpty() && currentIndex.intValue in voiceNotesList.indices) {
-                          //      val currentNote = voiceNotesList[currentIndex.intValue]
-                            //    val favoriteState = remember { mutableStateOf(currentNote.favourite) }
-
-                                IconButton(onClick = {
-
-                                    scope.launch {
-                                        voiceJournalPreviewViewModel.onEvent(
-                                            FavouriteScreenEvent.DeleteJournal(
-                                                voiceNotesList[currentIndex.intValue]
-                                            )
-                                        )
-                                        SnackbarController.sendEvent(
-                                            event = SnackbarEvent(
-                                                message = "Note deleted",
-                                                action = SnackbarAction(
-                                                    name = "Undo",
-                                                    action = {
-                                                        voiceJournalPreviewViewModel.onEvent(
-                                                            FavouriteScreenEvent.RestoreJournal
-                                                        )
-                                                    }
-                                                )
-                                                )
-                                        )
-
-                                    }
-                                })
-                                {
-
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
-                                                contentDescription = "Delete Journal",
-                                                tint = Variables.SchemesError
-                                            )
-
-                                    }
-
-
-                                Icon(
-                                    imageVector = if (favoriteState.value == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                    contentDescription = "Favorite",
-                                    modifier = Modifier.toggleable(
-                                        value = favoriteState.value ?: false,
-                                        onValueChange = { input ->
-                                            voiceJournalPreviewViewModel.onChangeFavourite(
-                                                change = input,
-                                                currentNote = currentNote
-                                            )
-                                            favoriteState.value = input
-                                            // voiceJournalPreviewViewModel.getNotes()
-                                        }
-
-                                    ),  tint = if (favoriteState.value==true) Variables.SchemesError else Variables.SchemesOnPrimary
-                                    )
-
-                                IconButton(
-                                    onClick = {
-                                        val encodedString = Uri.encode(voiceNotesList[index].title)
-                                        Log.d("previewhtmlString", voiceNotesList[index].title)
-                                        navController.navigate(
-                                            Screen.AddEditNoteScreen.route +
-                                                    "?noteId=${voiceNotesList[currentIndex.intValue].id}&noteColor=${voiceNotesList[currentIndex.intValue].color}&note=${encodedString}"
-                                        )
-                                    })
-                                {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit",
-                                        tint = Variables.SchemesOnPrimary,
-                                    )
-                                }
-
-                                // Add more icons as needed (e.g., three-dot menu)
-                            }
-                        }
-                    },
-                    backgroundColor = Variables.SchemesPrimary,
-                    contentColor = Variables.SchemesOnPrimary
-                )
-
-             val filteredList = voiceNotesList[index].imageUris?.filter { it.isNotEmpty()}
-
-            if (filteredList?.isNotEmpty() == true) {
-                 Image(
-                     painter = rememberAsyncImagePainter(filteredList.first()),
-                     contentDescription = null,
-                     contentScale = ContentScale.Crop,
-                     modifier = Modifier
-                         .aspectRatio(1f)
-
-                 )
-             }
-
-
-                Spacer(modifier = Modifier.padding(8.dp))
-             Row   {
-                 DynamicDateRow(created = voiceNotesList[index].created)
-                if( voiceNotesList[index].fileName.isNotEmpty()) {
-                  //  voiceJournalPreviewViewModel.updateCurrentNoteUri(uri = Uri.parse(voiceNotesList[index].fileName))
-
-                    viewModel.initUri(Uri.parse(voiceNotesList[index].fileName))
-                  when(audioState) {
-                      is MediaPlayerViewModel.State.Loaded ->      PlayRecordPanel(
-                            onPlay = {
-                                viewModel.play()
-                            },
-                            onCancelRecord = {
-                                viewModel.resetToStart()
-                            },
-                            onPaused = {
-                                viewModel.pause()
-                            },
-                            state = audioState as MediaPlayerViewModel.State.Loaded
-                        )
-
-                      MediaPlayerViewModel.State.FileNotFound -> {}
-                      MediaPlayerViewModel.State.None -> {}
-                      MediaPlayerViewModel.State.Preparing -> {}
-                  }
-                 }
-             }
-
-                RichTextEditor(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    state = state,
-                    colors = RichTextEditorDefaults.richTextEditorColors(
-                        textColor = MaterialTheme.colorScheme.onPrimary,
-                        containerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-
-                        ),
-                    readOnly = true
-                )
-            }
-
-
+        LaunchedEffect(pagerState) {
+            viewModel.initUri(Uri.parse(voiceNotesList[currentIndex.intValue].fileName))
         }
 
+        LaunchedEffect(voiceNotesList[currentIndex.intValue].fileName) {
+            viewModel.effect.onEach {
+                when (it) {
+                    MediaPlayerViewModel.Effect.AudioListened -> {
+
+                    }
+
+                    MediaPlayerViewModel.Effect.FileNotFound -> {
+
+                    }
+                }
+            }.collect()
+        }
+
+        LaunchedEffect(voiceNotesList[currentIndex.intValue].fileName) {
+            commandsFlow.onEach {
+                when (it) {
+                    MediaPlayerViewModel.Commands.Pause -> viewModel.pause()
+                    MediaPlayerViewModel.Commands.Play -> viewModel.play()
+                    MediaPlayerViewModel.Commands.Cancel -> viewModel.resetToStart()
+                }
+            }.collect()
+        }
+
+        val toolbarHeight = 48.dp
+        val toolbarHeightPx = with(LocalDensity.current) { toolbarHeight.roundToPx().toFloat() }
+        val toolbarOffsetHeightPx = remember { mutableStateOf(0f) }
+        val nestedScrollConnection = remember {
+            object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                    val delta = available.y
+                    val newOffset = toolbarOffsetHeightPx.value + delta
+                    toolbarOffsetHeightPx.value = newOffset.coerceIn(-toolbarHeightPx, 0f)
+                    return Offset.Zero
+                }
+            }
+        }
+
+
+        @Stable
+        fun <T> spring(
+            dampingRatio: Float = Spring.DampingRatioNoBouncy,
+            stiffness: Float = Spring.StiffnessHigh,
+            visibilityThreshold: T? = null
+        ): SpringSpec<T> =
+            SpringSpec(dampingRatio, stiffness, visibilityThreshold)
 
         Box(
             modifier = Modifier
-                .offset(y = -(16).dp)
-                .fillMaxWidth(0.5f)
-                .clip(RoundedCornerShape(100))
-                .background(Color.Transparent)
-                .padding(8.dp)
-                .align(Alignment.BottomCenter)
+                .fillMaxSize()
+                .nestedScroll(nestedScrollConnection)
+                .background(color = Variables.SchemesSurface),
         ) {
-            IconButton(
-                onClick = {
-                    voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay )
-                    scope.launch {
-                        pagerState.scrollToPage(
-                            pagerState.currentPage - 1
+
+            val paddingOffset = with(LocalDensity.current) { toolbarOffsetHeightPx.value.toDp() }
+            HorizontalPager(
+                modifier = Modifier.align(Alignment.TopCenter),
+                state = pagerState,
+                pageSize = PageSize.Fill,
+                contentPadding = PaddingValues(top = paddingOffset),
+                userScrollEnabled = false
+                // flingBehavior = PagerDefaults.flingBehavior(state = pagerState, snapAnimationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+            ) { index ->
+                state.setHtml(voiceNotesList[index].title)
+                val currentNote = voiceNotesList[index]
+
+                val favoriteState = remember { mutableStateOf(currentNote.favourite) }
+                val timerValue2 = voiceJournalPreviewViewModel.getDuration(currentNote.fileName)
+
+                currentIndex.intValue = index
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+
+                    ) {
+                    TopAppBar(
+                        modifier = Modifier
+                            .height(toolbarHeight)
+                        //   .offset { IntOffset(x = 0, y = toolbarOffsetHeightPx.value.roundToInt()) }
+                        ,
+                        title = {
+                            if (voiceNotesList[currentIndex.intValue].content != null) {
+                                Text(
+                                    text = voiceNotesList[currentIndex.intValue].content!!,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                            }
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = {
+                                voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay)
+                                navController.navigate(Screen.VoicesScreen.route)
+                            }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = Variables.SchemesOnPrimary
+                                )
+                            }
+                        },
+                        actions = {
+                            Row(
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+
+                                if (voiceNotesList.isNotEmpty() && currentIndex.intValue in voiceNotesList.indices) {
+
+                                    IconButton(onClick = {
+
+                                        scope.launch {
+                                            voiceJournalPreviewViewModel.onEvent(
+                                                FavouriteScreenEvent.DeleteJournal(
+                                                    voiceNotesList[currentIndex.intValue]
+                                                )
+                                            )
+                                            SnackbarController.sendEvent(
+                                                event = SnackbarEvent(
+                                                    message = "Note deleted",
+                                                    action = SnackbarAction(
+                                                        name = "Undo",
+                                                        action = {
+                                                            voiceJournalPreviewViewModel.onEvent(
+                                                                FavouriteScreenEvent.RestoreJournal
+                                                            )
+                                                        }
+                                                    )
+                                                )
+                                            )
+
+                                        }
+                                    })
+                                    {
+
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
+                                            contentDescription = "Delete Journal",
+                                            tint = Variables.SchemesError
+                                        )
+
+                                    }
+
+
+                                    Icon(
+                                        imageVector = if (favoriteState.value == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = "Favorite",
+                                        modifier = Modifier.toggleable(
+                                            value = favoriteState.value ?: false,
+                                            onValueChange = { input ->
+                                                voiceJournalPreviewViewModel.onChangeFavourite(
+                                                    change = input,
+                                                    currentNote = currentNote
+                                                )
+                                                favoriteState.value = input
+                                                // voiceJournalPreviewViewModel.getNotes()
+                                            }
+
+                                        ),
+                                        tint = if (favoriteState.value == true) Variables.SchemesError else Variables.SchemesOnPrimary
+                                    )
+
+                                    IconButton(
+                                        onClick = {
+                                            val encodedString =
+                                                Uri.encode(voiceNotesList[index].title)
+                                            Log.d("previewhtmlString", voiceNotesList[index].title)
+                                            navController.navigate(
+                                                Screen.AddEditNoteScreen.route +
+                                                        "?noteId=${voiceNotesList[currentIndex.intValue].id}&noteColor=${voiceNotesList[currentIndex.intValue].color}&note=${encodedString}"
+                                            )
+                                        })
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit",
+                                            tint = Variables.SchemesOnPrimary,
+                                        )
+                                    }
+
+                                }
+                            }
+                        },
+                        backgroundColor = Variables.SchemesPrimary,
+                        contentColor = Variables.SchemesOnPrimary
+                    )
+
+                    val filteredList = voiceNotesList[index].imageUris?.filter { it.isNotEmpty() }
+
+                    if (filteredList?.isNotEmpty() == true) {
+                        Image(
+                            painter = rememberAsyncImagePainter(filteredList.first()),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .aspectRatio(1f)
                         )
                     }
-                },
-                modifier = Modifier.align(Alignment.CenterStart)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowLeft,
-                    contentDescription = "Go back",
-                    tint = Variables.SchemesOnSurface
-                )
-            }
-            IconButton(
-                onClick = {
-                    voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay )
-                    scope.launch {
-                        pagerState.scrollToPage(pagerState.currentPage + 1)
+
+
+                    Spacer(modifier = Modifier.padding(8.dp))
+                    Row {
+                        DynamicDateRow(created = voiceNotesList[index].created)
+                        if (voiceNotesList[index].fileName.isNotEmpty()) {
+
+                            viewModel.initUri(Uri.parse(voiceNotesList[index].fileName))
+                            when (audioState) {
+                                is MediaPlayerViewModel.State.Loaded -> PlayRecordPanel(
+                                    onPlay = {
+                                        commandsScope.launch {
+                                    //        commands.send(MediaPlayerViewModel.Commands.Play)
+                                            viewModel.play()
+                                        }
+                                        // viewModel.play()
+                                    },
+                                    onCancelRecord = {
+                                        commandsScope.launch {
+                                        //    commands.send(MediaPlayerViewModel.Commands.Cancel)
+                                            viewModel.pause()
+                                        }
+                                    },
+                                    onPaused = {
+                                        commandsScope.launch {
+                                         //   commands.send(MediaPlayerViewModel.Commands.Pause)
+                                            viewModel.pause()
+                                        }
+                                    },
+                                    state = audioState as MediaPlayerViewModel.State.Loaded
+                                )
+
+                                MediaPlayerViewModel.State.FileNotFound -> {}
+                                MediaPlayerViewModel.State.None -> {}
+                                MediaPlayerViewModel.State.Preparing -> {}
+                            }
+                        }
                     }
-                },
-                modifier = Modifier.align(Alignment.CenterEnd)
+
+                    RichTextEditor(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        state = state,
+                        colors = RichTextEditorDefaults.richTextEditorColors(
+                            textColor = MaterialTheme.colorScheme.onPrimary,
+                            containerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+
+                            ),
+                        readOnly = true
+                    )
+                }
+
+
+            }
+
+
+            Box(
+                modifier = Modifier
+                    .offset(y = -(16).dp)
+                    .fillMaxWidth(0.5f)
+                    .clip(RoundedCornerShape(100))
+                    .background(Color.Transparent)
+                    .padding(8.dp)
+                    .align(Alignment.BottomCenter)
             ) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowRight,
-                    contentDescription = "Go forward",
-                    tint = Variables.SchemesOnSurface
-                )
+                IconButton(
+                    onClick = {
+
+                        scope.launch {
+                            pagerState.scrollToPage(
+                                pagerState.currentPage - 1
+                            )
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowLeft,
+                        contentDescription = "Go back",
+                        tint = Variables.SchemesOnSurface
+                    )
+                }
+                IconButton(
+                    onClick = {
+
+                        scope.launch {
+                            pagerState.scrollToPage(pagerState.currentPage + 1)
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowRight,
+                        contentDescription = "Go forward",
+                        tint = Variables.SchemesOnSurface
+                    )
+                }
             }
         }
-    }
 
 }

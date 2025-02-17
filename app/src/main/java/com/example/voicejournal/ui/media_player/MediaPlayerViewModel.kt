@@ -26,7 +26,7 @@ class MediaPlayerViewModel @Inject constructor() : ViewModel() {
 
     private var refreshJob: Job? = null
 
-    private lateinit var uri: Uri
+    private var uri: Uri = Uri.EMPTY
 
     private val _effect: Channel<Effect> = Channel()
     val effect = _effect.receiveAsFlow()
@@ -59,6 +59,7 @@ class MediaPlayerViewModel @Inject constructor() : ViewModel() {
 
     var uris = mutableListOf<Uri>()
     fun initUri(uri: Uri) {
+       // stopAndRelease()
         this.uri = uri
         uris.add(uri)
 
@@ -103,13 +104,13 @@ class MediaPlayerViewModel @Inject constructor() : ViewModel() {
             }
         }
         jukeboxPlayer.setOnCompletionListener(uri) {
-            _state.value = State.Loaded(
-                mediaPlayerDuration = it.duration,
+            _state.value = State.Loaded(mediaPlayerDuration = it.duration,
                 mediaPlayerPosition = 0,
-                playingState = PlayingState.Pause
-            )
+                playingState = PlayingState.Pause)
             resetToStart()
-            viewModelScope.launch { _effect.send(Effect.AudioListened) }
+            viewModelScope.launch {
+                _effect.send(Effect.AudioListened)
+            }
         }
     }
 
@@ -177,8 +178,8 @@ class MediaPlayerViewModel @Inject constructor() : ViewModel() {
         releaseMediaPlayer()
     }
 
-    private fun releaseMediaPlayer() {
-        jukeboxPlayer.stopAndRelease(uri)
+     fun releaseMediaPlayer() {
+         jukeboxPlayer.stopAndRelease(uri)
     }
 
     fun onSeek(sliderPosition: Float) {
@@ -194,5 +195,15 @@ class MediaPlayerViewModel @Inject constructor() : ViewModel() {
         object Play : Commands
         object Pause : Commands
         object Cancel : Commands
+    }
+
+    fun stopAndRelease() {
+        jukeboxPlayer.prepare(uri) { player ->
+            _state.value = State.Loaded(mediaPlayerDuration = player.duration,
+                mediaPlayerPosition = 0,
+                playingState = PlayingState.Pause)
+
+        }
+
     }
 }

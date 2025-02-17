@@ -63,9 +63,10 @@ class JukeboxPlayer {
     }
 
     fun stopAndRelease(uri: Uri) {
-        with(players[uri]!!.mediaPlayer) {
-            stop()
-            release()
+
+        with(players[uri]?.mediaPlayer) {
+            this?.stop()
+            this?.release()
         }
     }
 }

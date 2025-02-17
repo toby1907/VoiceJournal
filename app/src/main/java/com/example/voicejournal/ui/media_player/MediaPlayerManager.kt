@@ -82,4 +82,12 @@ class MediaPlayerManager @Inject constructor() {
             release()
         }
     }
+    fun stopAndReleaseAll() {
+        players.forEach { (_, playerWithDataSet) ->
+            playerWithDataSet.mediaPlayer.stop()
+            playerWithDataSet.mediaPlayer.release()
+        }
+        players.clear()
+    }
+
 }

@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -201,18 +203,31 @@ getNotes()
 
     }
 
-     fun getNotes():Int {
+     private fun getNotes():Int {
         viewModelScope.launch {
-            voiceJournalRepository.getAllVoiceJournals()
-                .collect {
-                    notes = it
-                    _state.value = NotesState(
-                        notes = it,
-                        noteIndex = notes.indexOf(noteState.value.voiceJournal)
+            _state.update { it.copy(isLoading = true) }
+            try {
+                voiceJournalRepository.getAllVoiceJournals().collectLatest{notes ->
+                        _state.value = _state.value.copy(
+                            notes = notes,
+                            noteIndex = notes.indexOf(noteState.value.voiceJournal),
+                            isLoading = false,
+                            error = null
                         )
 
-                    Log.d("index in getNotes","${_state.value.noteIndex}")
+                        Log.d("index in getNotes","${_state.value.noteIndex}")
+
                 }
+
+            } catch (e: Exception){
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Failed to load notes: ${e.message}"
+                    )
+                }
+            }
+
 
         }
         Log.d("NotesState from functio","${_state.value.noteIndex}")
@@ -362,7 +377,7 @@ getNotes()
                 player = null
             }
         } catch (e: IllegalStateException) {
-            // Handle the exception (e.g., log it or show an error message)
+     Log.d("stopPlaying","$e")
         }
     }
     // Play panel Timer
