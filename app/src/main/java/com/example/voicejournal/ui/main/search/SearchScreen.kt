@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,12 +47,15 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.example.voicejournal.Data.model.VoiceJournal
+import com.example.voicejournal.Data.model.isNoteLocked
 import com.example.voicejournal.R
 import com.example.voicejournal.ui.theme.Variables
 import com.example.voicejournal.ui.theme.Variables.SchemesSecondary
 import com.example.voicejournal.ui.theme.Variables.SchemesSurfaceTint
-import com.mohamedrejeb.richeditor.model.rememberRichTextState
-import com.mohamedrejeb.richeditor.ui.material3.RichText
+import com.example.voicejournal.Data.model.primaryBodyPreviewText
+import com.example.voicejournal.Data.model.primaryRichTitleHtml
+import com.example.voicejournal.ui.common.richeditor.RichText
+import com.example.voicejournal.ui.common.richeditor.rememberRichTextState
 import kotlinx.coroutines.FlowPreview
 
 @OptIn(FlowPreview::class)
@@ -300,27 +304,39 @@ fun SearchResultsList(items: List<VoiceJournal>, onItemClicked: (VoiceJournal) -
         itemsIndexed(items = items) { index, voiceJournal ->
             Column(modifier = Modifier.fillMaxWidth().clickable { onItemClicked.invoke(voiceJournal) }) {
                 val titleState = rememberRichTextState()
+                val isLocked = voiceJournal.isNoteLocked()
+                val titleHtml = voiceJournal.primaryRichTitleHtml(revealLockedContent = !isLocked)
+                val bodyPreview = voiceJournal.primaryBodyPreviewText(revealLockedContent = !isLocked)
 
-                titleState.setHtml(voiceJournal.title)
+                titleState.setHtml(titleHtml)
                 Spacer(
                     modifier = Modifier.height(height = if (index == 0) 16.dp else 4.dp)
                 )
 
-                RichText(
-
-                    state = titleState,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    style = TextStyle(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight(500),
-                        color = Variables.SchemesOnSurface,
-                    ),
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    RichText(
+                        state = titleState,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = TextStyle(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight(500),
+                            color = Variables.SchemesOnSurface,
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (isLocked) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Locked note",
+                            tint = Variables.SchemesOnSurfaceVariant,
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = voiceJournal.content?:"",
+                    text = bodyPreview,
                     color = Variables.SchemesOnSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp),
                     fontSize = 12.sp

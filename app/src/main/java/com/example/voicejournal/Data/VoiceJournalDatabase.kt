@@ -10,12 +10,15 @@ import com.example.voicejournal.Data.model.VoiceJournal
 
 @Database(
     entities = [VoiceJournal::class],
-    version = 4, // Increment the version number
+    version = 7, // Increment the version number
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2), // Keep the existing auto-migration
         AutoMigration(from = 2, to = 3), // Add a new auto-migration
-        AutoMigration(from = 3, to = 4)
+        AutoMigration(from = 3, to = 4),
+        AutoMigration(from = 4, to = 5),
+        AutoMigration(from = 5, to = 6),
+        AutoMigration(from = 6, to = 7)
     ]
 )
 

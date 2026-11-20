@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ScaffoldState
 import androidx.compose.material.TopAppBar
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
@@ -23,7 +24,13 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -49,6 +56,7 @@ import com.example.voicejournal.ui.main.mainScreen.VoiceNoteViewModel
 import com.example.voicejournal.ui.main.mainScreen.components.BottomNavPanel
 import com.example.voicejournal.ui.main.media.MediaScreen
 import com.example.voicejournal.ui.theme.Variables
+import java.util.Locale
 
 @Composable
 fun MainScreen(
@@ -80,6 +88,22 @@ fun ContentMain(
 
     val voiceNotes = voiceNoteViewModel.state.value
     val voiceNotesList: List<VoiceJournal> = voiceNotes.notes
+    val folderOptions = voiceNotesList.mapNotNull { it.folderName?.trim() }
+        .filter { it.isNotBlank() }
+        .distinctBy { it.lowercase(Locale.getDefault()) }
+        .sortedBy { it.lowercase(Locale.getDefault()) }
+    var selectedFolder by remember { mutableStateOf<String?>(null) }
+    var folderFilterDialogVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(folderOptions, selectedFolder) {
+        if (!selectedFolder.isNullOrBlank() && folderOptions.none { it == selectedFolder }) {
+            selectedFolder = null
+        }
+    }
+    val filteredHomeNotes = if (selectedFolder.isNullOrBlank()) {
+        voiceNotes.notes
+    } else {
+        voiceNotes.notes.filter { it.folderName?.trim() == selectedFolder }
+    }
 
     val lazyListState = rememberLazyListState()
     Box(
@@ -96,7 +120,11 @@ fun ContentMain(
         )
         Scaffold(modifier = Modifier.imePadding(),
             topBar = {
-             JournalTopAppBar(voiceNoteViewModel,navController)
+             JournalTopAppBar(
+                 navController = navController,
+                 selectedFolder = selectedFolder,
+                 onFolderFilterClick = { folderFilterDialogVisible = true }
+             )
             },
             floatingActionButtonPosition = FabPosition.End,
             floatingActionButton = {
@@ -145,7 +173,7 @@ fun ContentMain(
                     startDestination = "home"
                 ) {
                     composable("home") {
-                     NoteListScreen(navController =navController , notes =voiceNotes.notes )
+                     NoteListScreen(navController =navController , notes =filteredHomeNotes )
                     }
                     composable("favourite") {
                         FavouriteScreenMain(navController = navController)
@@ -171,6 +199,40 @@ fun ContentMain(
 
             }
         )
+        if (folderFilterDialogVisible) {
+            AlertDialog(
+                onDismissRequest = { folderFilterDialogVisible = false },
+                title = { Text("Filter by folder") },
+                text = {
+                    androidx.compose.foundation.layout.Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TextButton(onClick = {
+                            selectedFolder = null
+                            folderFilterDialogVisible = false
+                        }) {
+                            Text(if (selectedFolder == null) "All folders ✓" else "All folders")
+                        }
+                        folderOptions.forEach { folder ->
+                            TextButton(onClick = {
+                                selectedFolder = folder
+                                folderFilterDialogVisible = false
+                            }) {
+                                Text(if (selectedFolder == folder) "$folder ✓" else folder)
+                            }
+                        }
+                        if (folderOptions.isEmpty()) {
+                            Text("No folders available yet.")
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { folderFilterDialogVisible = false }) {
+                        Text("Close")
+                    }
+                }
+            )
+        }
     }
 
 }
@@ -184,7 +246,11 @@ fun NoteListScreen(navController:NavController,notes:List<VoiceJournal>){
 }
 
 @Composable
-fun JournalTopAppBar(noteViewModel: VoiceNoteViewModel,navController: NavController){
+fun JournalTopAppBar(
+    navController: NavController,
+    selectedFolder: String?,
+    onFolderFilterClick: () -> Unit
+){
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
@@ -216,10 +282,20 @@ fun JournalTopAppBar(noteViewModel: VoiceNoteViewModel,navController: NavControl
                             painter = painterResource(id = R.drawable.search_bar), contentDescription = "Search Icon")
 
                     }
-                    IconButton(onClick = { /*TODO*/ }) {
+                    IconButton(onClick = onFolderFilterClick) {
                         Icon(tint = Variables.SchemesOnPrimary,
-                            painter = painterResource(id = R.drawable.menu_vertical), contentDescription = "Menu Option")
+                            painter = painterResource(id = R.drawable.menu_vertical), contentDescription = "Folder Filter")
 
+                    }
+                    if (!selectedFolder.isNullOrBlank()) {
+                        Text(
+                            text = selectedFolder,
+                            style = TextStyle(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight(500),
+                                color = Variables.SchemesOnPrimary
+                            )
+                        )
                     }
                 }
             },
@@ -305,7 +381,3 @@ fun JournalItem(
 
 
 }*/
-
-
-
-

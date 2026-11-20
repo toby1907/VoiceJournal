@@ -1,0 +1,221 @@
+# RichTextState
+
+`RichTextState` is the core component that manages the state of the Rich Text Editor. It handles:
+- Text content and styling
+- Selection and cursor position
+- Configuration settings
+- Text operations and modifications
+- Import/export functionality
+
+## Basic Usage
+
+### Creating the State
+
+To create a `RichTextState`, use the `rememberRichTextState` function:
+
+```kotlin
+val state = rememberRichTextState()
+
+RichTextEditor(
+    state = state,
+    modifier = Modifier.fillMaxWidth()
+)
+```
+
+## Configuration
+
+### Appearance Settings
+
+```kotlin
+// Link appearance
+richTextState.config.linkColor = Color.Blue
+richTextState.config.linkTextDecoration = TextDecoration.Underline
+
+// Code span appearance
+richTextState.config.codeSpanColor = Color.Yellow
+richTextState.config.codeSpanBackgroundColor = Color.Transparent
+richTextState.config.codeSpanStrokeColor = Color.LightGray
+richTextState.config.codeSpanCornerRadius = 8.sp
+richTextState.config.codeSpanStrokeWidth = 1.sp
+richTextState.config.codeSpanPadding = TextPaddingValues(horizontal = 2.sp, vertical = 2.sp)
+```
+
+### List Configuration
+
+```kotlin
+// Global list indentation
+richTextState.config.listIndent = 20
+
+// Specific list type indentation
+richTextState.config.orderedListIndent = 20
+richTextState.config.unorderedListIndent = 20
+
+// List behavior
+richTextState.config.exitListOnEmptyItem = true  // Exit list when pressing Enter on empty item
+```
+
+### Clipboard
+
+By default, copy and paste carry rich text: copying writes HTML alongside plain text, and pasting from a browser or another rich text app imports its formatting (bold, underline, links, lists, and so on). Set `richClipboardEnabled` to `false` to restrict the clipboard to plain text:
+
+```kotlin
+richTextState.config.richClipboardEnabled = false
+```
+
+When disabled, paste inserts plain text styled by the editor's normal insertion logic (it inherits the style at the caret, exactly like typed text), and copy writes plain text only. The web clipboard event handlers (Ctrl+C/V/X on JS and Wasm) follow the same rule.
+
+## Text Operations
+
+### Selection Management
+
+The editor's selection can be controlled programmatically:
+
+```kotlin
+// Set selection range
+richTextState.selection = TextRange(0, 5)
+
+// Select all text
+richTextState.selection = TextRange(0, richTextState.annotatedString.text.length)
+
+// Move cursor to end
+richTextState.selection = TextRange(richTextState.annotatedString.text.length)
+```
+
+### Replacing a selection
+
+Typing, an IME commit, or a plain-text paste over a non-collapsed selection styles the inserted text from the replaced range's start (the platform typing-attributes convention), not from the character before the caret. The restyle is part of the same edit, so undo treats the replacement as a single entry. Rich span styles are inherited only when they accept edge text and are not atomic, so replacing a whole link or image never linkifies or atomizes the typed text.
+
+### Text Modification
+
+The `RichTextState` provides methods to modify text while preserving styles:
+
+```kotlin
+// Insert text at specific position
+richTextState.addTextAtIndex(5, "Hello")
+
+// Insert text after current selection
+richTextState.addTextAfterSelection("Hello")
+
+// Remove text
+richTextState.removeTextRange(TextRange(0, 5))
+richTextState.removeSelectedText()
+
+// Replace text
+richTextState.replaceTextRange(TextRange(0, 5), "Hello")
+richTextState.replaceSelectedText("Hello")
+```
+
+### Text Change Monitoring
+
+You can monitor text changes using the `annotatedString` property:
+
+```kotlin
+LaunchedEffect(richTextState.annotatedString) {
+    // Handle text changes
+    println("Text changed: ${richTextState.annotatedString.text}")
+}
+```
+
+## State Persistence
+
+To save and restore the editor's state:
+
+```kotlin
+// Save state
+val html = richTextState.toHtml()
+// or
+val markdown = richTextState.toMarkdown()
+
+// Restore state
+richTextState.setHtml(savedHtml)
+// or
+richTextState.setMarkdown(savedMarkdown)
+```
+
+## Undo / Redo
+
+`RichTextState` ships its own undo/redo stack that snapshots the full rich-text
+tree (paragraphs, spans, list prefixes, link/image/token spans, selection, and
+pending styles). It overrides `BasicTextField`'s built-in undo so rich content
+never gets out of sync with plain text.
+
+```kotlin
+val state = rememberRichTextState(
+    historyLimit = 100,
+    coalesceWindowMs = 500L,
+)
+
+IconButton(onClick = { state.history.undo() }, enabled = state.history.canUndo) {
+    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
+}
+IconButton(onClick = { state.history.redo() }, enabled = state.history.canRedo) {
+    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
+}
+```
+
+### Keyboard shortcuts (hardware keyboard)
+
+- Undo: `Ctrl+Z` (Windows/Linux) / `Cmd+Z` (macOS)
+- Redo: `Ctrl+Shift+Z` (Windows/Linux) / `Cmd+Shift+Z` (macOS)
+
+### Coalescing
+
+Consecutive typing / deletion within `coalesceWindowMs` (default 500ms) collapses
+into a single undo step. The following always start a new group:
+
+- Line breaks (Enter)
+- Formatting toggles (bold, color, link, list, paragraph style, rich span style)
+- Structural changes (image/token insert, list level changes)
+- Paste operations
+- Programmatic replacements (`setHtml`, `setMarkdown`, `setConfig` - these also
+  clear the stacks entirely since they typically mean "load a new document")
+- Caret moves (do not push a snapshot but seal the pending group, so the next
+  typed character starts a fresh undo step)
+
+### Grouping edits into one undo step
+
+A multi-step programmatic edit (for example applying a style to several
+disjoint ranges) normally records one undo entry per call. Wrap the calls in
+`state.history.group { }` to record everything committed inside the block as a
+single entry:
+
+```kotlin
+state.history.group {
+    state.addSpanStyle(SpanStyle(color = Color.Red), TextRange(0, 3))
+    state.addSpanStyle(SpanStyle(color = Color.Red), TextRange(8, 13))
+}
+```
+
+One undo restores the state from before the block; one redo reapplies the whole
+block. The function is marked `@ExperimentalRichTextApi`.
+
+- Works for every commit kind inside the block: formatting, rich spans, text
+  replacement, list and paragraph toggles.
+- Entering the group seals any pending typing group, and the group itself is
+  sealed on exit, so surrounding edits never merge into it.
+- Nested `group` calls join the outermost group.
+- A block that commits nothing adds no entry.
+- If the block throws, whatever it already committed is kept as one undo entry
+  and the exception is rethrown.
+
+### Opt out
+
+Pass `undoBehavior = UndoBehavior.Disabled` to any editor composable to fall
+back to `BasicTextField`'s native shortcuts. You can still call
+`state.history.undo()` directly from your own UI.
+
+### Limits
+
+`state.history.limit` caps the undo stack (default 100 entries; oldest are
+evicted FIFO). `state.history.clear()` empties both stacks.
+
+## Related Documentation
+
+- For styling text spans, see [Span Style](span_style.md)
+- For styling paragraphs, see [Paragraph Style](paragraph_style.md)
+- For headings (H1..H6), see [Headings](headings.md)
+- For working with lists, see [Ordered and Unordered Lists](ordered_unordered_lists.md)
+- For inline images, see [Images](images.md)
+- For mentions, hashtags, and slash commands, see [Mentions & Triggers](mentions_and_triggers.md)
+- For HTML conversion, see [HTML Import and Export](html_import_export.md)
+- For Markdown conversion, see [Markdown Import and Export](markdown_import_export.md)

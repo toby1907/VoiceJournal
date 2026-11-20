@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.voicejournal.Data.GetSearchResults
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
+import com.example.voicejournal.Data.model.isNoteLocked
+import com.example.voicejournal.Data.model.matchesVisibleMetadata
 import com.example.voicejournal.Data.model.VoiceJournal
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -159,9 +161,12 @@ class SearchScreenViewModel @Inject constructor(
      viewModelScope.launch(Dispatchers.IO) {
        if (searchQuery.isNotBlank())  {
              voiceJournalRepository.searchDatabase("%$searchQuery%").collect { voiceJournalList ->
+                val visibleResults = voiceJournalList.filter {
+                    !it.isNoteLocked() || it.matchesVisibleMetadata(searchQuery)
+                }
                  _viewState.update {
                      ViewState.SearchResultsFetched(
-                         results = voiceJournalList
+                         results = visibleResults
                      )
                  }
              }
@@ -183,6 +188,4 @@ data class SearchResult(
     val title: String,
     val subtitle: String,
 )
-
-
 

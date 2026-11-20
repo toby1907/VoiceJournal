@@ -1,0 +1,88 @@
+@file:OptIn(com.mohamedrejeb.richeditor.annotation.ExperimentalRichTextApi::class)
+
+package com.mohamedrejeb.richeditor.clipboard
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import com.mohamedrejeb.richeditor.model.RichTextState
+import kotlinx.browser.document
+import org.w3c.dom.events.Event
+
+@Composable
+internal actual fun ClipboardEventEffect(richTextState: RichTextState) {
+    DisposableEffect(richTextState) {
+        val pasteHandler: (Event) -> Unit = handler@{ event ->
+            if (!richTextState.isFocused) return@handler
+
+            val html =
+                if (richTextState.config.richClipboardEnabled) getClipboardDataHtml(event)
+                else null
+            if (!html.isNullOrBlank()) {
+                event.preventDefault()
+                event.stopPropagation()
+                val position = richTextState.selection.min
+                richTextState.removeSelectedText()
+                richTextState.insertHtml(html = html, position = position)
+                return@handler
+            }
+
+            val text = getClipboardDataText(event)
+            if (!text.isNullOrBlank()) {
+                event.preventDefault()
+                event.stopPropagation()
+                val position = richTextState.selection.min
+                richTextState.removeSelectedText()
+                richTextState.addTextAtIndex(index = position, text = text)
+            }
+        }
+
+        val copyHandler: (Event) -> Unit = handler@{ event ->
+            if (!richTextState.isFocused) return@handler
+
+            val selection = richTextState.copySelection ?: return@handler
+            event.preventDefault()
+            event.stopPropagation()
+            if (richTextState.config.richClipboardEnabled) {
+                setClipboardData(event, "text/html", richTextState.toHtml(selection))
+            }
+            setClipboardData(event, "text/plain", richTextState.toText(selection))
+        }
+
+        val cutHandler: (Event) -> Unit = handler@{ event ->
+            if (!richTextState.isFocused) return@handler
+
+            val selection = richTextState.copySelection ?: return@handler
+            event.preventDefault()
+            event.stopPropagation()
+            if (richTextState.config.richClipboardEnabled) {
+                setClipboardData(event, "text/html", richTextState.toHtml(selection))
+            }
+            setClipboardData(event, "text/plain", richTextState.toText(selection))
+            richTextState.removeSelectedText()
+        }
+
+        // Use capture phase (true) to intercept before the browser's default handler
+        document.addEventListener("paste", pasteHandler, true)
+        document.addEventListener("copy", copyHandler, true)
+        document.addEventListener("cut", cutHandler, true)
+
+        onDispose {
+            document.removeEventListener("paste", pasteHandler, true)
+            document.removeEventListener("copy", copyHandler, true)
+            document.removeEventListener("cut", cutHandler, true)
+        }
+    }
+}
+
+@Suppress("UNUSED_PARAMETER")
+private fun getClipboardDataHtml(event: Event): String? =
+    js("event.clipboardData && event.clipboardData.getData('text/html')") as? String
+
+@Suppress("UNUSED_PARAMETER")
+private fun getClipboardDataText(event: Event): String? =
+    js("event.clipboardData && event.clipboardData.getData('text/plain')") as? String
+
+@Suppress("UNUSED_PARAMETER")
+private fun setClipboardData(event: Event, format: String, data: String) {
+    js("event.clipboardData && event.clipboardData.setData(format, data)")
+}

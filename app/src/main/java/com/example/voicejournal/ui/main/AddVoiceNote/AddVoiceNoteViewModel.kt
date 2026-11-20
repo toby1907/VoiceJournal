@@ -6,6 +6,7 @@ import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.SavedStateHandle
@@ -13,14 +14,27 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.voicejournal.Data.model.InvalidNoteException
 import com.example.voicejournal.Data.SettingsRepository
+import com.example.voicejournal.Data.model.imageUrisFromBlocks
 import com.example.voicejournal.Data.model.VoiceJournal
+import com.example.voicejournal.Data.model.NoteBlock
+import com.example.voicejournal.Data.model.NoteBlockFactory
+import com.example.voicejournal.Data.model.NoteBlockOps
+import com.example.voicejournal.Data.model.NoteBlockType
+import com.example.voicejournal.Data.model.hashNotePin
+import com.example.voicejournal.Data.model.isNoteLocked
+import com.example.voicejournal.Data.model.encodeDrawingPath
+import com.example.voicejournal.Data.model.extractPlainTextFromHtml
+import com.example.voicejournal.Data.model.primaryAudioPath
+import com.example.voicejournal.Data.model.primaryBodyPreviewText
+import com.example.voicejournal.Data.model.primaryRichTitleHtml
+import com.example.voicejournal.Data.model.resolvedNoteBlocks
 import com.example.voicejournal.Data.VoiceJournalRepositoryImpl
 import com.example.voicejournal.core.AudioPlayer
 import com.example.voicejournal.core.AudioRecorder
 
 import com.example.voicejournal.ui.main.AddVoiceNote.components.Tag
 import com.example.voicejournal.ui.theme.Variables
-import com.mohamedrejeb.richeditor.model.RichTextState
+import com.example.voicejournal.ui.common.richeditor.RichTextState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -75,6 +89,11 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val _favourite = mutableStateOf(
         FavouriteState()
     )
+    private val _folderName = mutableStateOf("")
+    private val _noteLocked = mutableStateOf(false)
+    private val _noteBlocks = mutableStateListOf<NoteBlock>()
+    private val _currentBlockPreviewAudioUri = mutableStateOf<String?>(null)
+    private var notePinHash: String? = null
     private var tempUris: List<String> = listOf()
     private var tempFileName: String = ""
     private val _imageUris = mutableStateOf(
@@ -108,6 +127,10 @@ class AddVoiceNoteViewModel @Inject constructor(
     val noteFileName: State<NoteFileNameFieldState> = _noteFileName
     val tempImageUris: State<UriState> = _tempImageUris
     val favourite: State<FavouriteState> = _favourite
+    val folderName: State<String> = _folderName
+    val noteLocked: State<Boolean> = _noteLocked
+    val noteBlocks: List<NoteBlock> get() = _noteBlocks
+    val currentBlockPreviewAudioUri: State<String?> = _currentBlockPreviewAudioUri
 
     // val imageUris: State<UriState> =  _imageUris
     val playNoteState: State<Boolean> = _playNoteState
@@ -138,6 +161,7 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val _noteColor = mutableStateOf(
         Variables.SchemesSurface.toArgb()
         /*VoiceJournal.noteColors.random().toArgb()*/
+
     )
     private val _noteState = mutableStateOf(NoteState())
     val noteState: State<NoteState> = _noteState
@@ -159,56 +183,57 @@ class AddVoiceNoteViewModel @Inject constructor(
                     voiceJournalRepository.getNote(noteId).collect { note ->
                         _noteState.value = noteState.value.copy(voiceJournal = note)
                         if (note != null) {
+                            migrateLegacyNoteBlocksIfNeeded(note)
+                        }
+                        if (note != null) {
                             currentNoteId = note.id
-                        }
-                        if (note != null) {
+                            val hydratedTitle = note.primaryRichTitleHtml()
+                            val hydratedContent = note.primaryBodyPreviewText()
+                            val hydratedAudioPath = note.primaryAudioPath()
+                            val hydratedImageUris = note.imageUrisFromBlocks()
+                            setNoteBlocks(note.resolvedNoteBlocks())
+
                             _noteTitle.value =
-                                _noteTitle.value.copy(text = note.title, isHintVisible = false)
-                            Log.d("NoteTitleNew", note.title)
-                        }
-                        if (note != null) {
+                                _noteTitle.value.copy(text = hydratedTitle, isHintVisible = false)
+                            Log.d("NoteTitleNew", hydratedTitle)
+
                             _noteContent.value = _noteContent.value.copy(
-                                text = note.content,
+                                text = hydratedContent,
                                 isHintVisible = false
                             )
-                        }
 
-                        if (note != null) {
                             _created.value = _created.value.copy(
                                 created = note.created,
                                 isHintVisible = false
                             )
-                        }
 
-                        if (note != null) {
                             _noteColor.value = note.color
-                        }
-                        if (note != null) {
-                            tempFileName = note.fileName
+
+                            tempFileName = hydratedAudioPath
                             _noteFileName.value = _noteFileName.value.copy(
                                 text = tempFileName
                             )
-                        }
-                        if (note != null) {
-                            if (note.imageUris?.isNotEmpty() == true) {
-                                tempUris = note.imageUris!!
+
+                            if (hydratedImageUris.isNotEmpty()) {
+                                tempUris = hydratedImageUris
                                 _tempImageUris.value = _tempImageUris.value.copy(
-                                    imageFileUris = note.imageUris
+                                    imageFileUris = hydratedImageUris
                                 )
-                                Log.d("Image from file", "${note.imageUris}")
+                                Log.d("Image from file", "$hydratedImageUris")
                             }
-                        }
-                        if (note != null) {
+
                             if (note.tags != null) {
                                 _tags.value = note.tags!!
                             }
-                        }
-                        if (note != null) {
+
                             if (note.favourite != null) {
                                 _favourite.value = _favourite.value.copy(
                                     favourite = note.favourite!!
                                 )
                             }
+                            _folderName.value = note.folderName.orEmpty()
+                            _noteLocked.value = note.isNoteLocked()
+                            notePinHash = note.lockPinHash
 
                         }
 
@@ -304,7 +329,11 @@ class AddVoiceNoteViewModel @Inject constructor(
                                 color = noteColor.value,
                                 imageUris = tempImageUris.value.imageFileUris,
                                 tags = tags.value,
-                                favourite = favourite.value.favourite
+                                favourite = favourite.value.favourite,
+                                noteBlocks = buildPersistableNoteBlocks(noteTitle.value.text),
+                                folderName = _folderName.value.trim().ifBlank { null },
+                                isLocked = _noteLocked.value,
+                                lockPinHash = if (_noteLocked.value) notePinHash else null
                             )
                         )
                         _eventFlow.emit(UiEvent.SaveNote)
@@ -407,7 +436,11 @@ class AddVoiceNoteViewModel @Inject constructor(
                             color = noteColor.value,
                             imageUris = tempImageUris.value.imageFileUris,
                             tags = tags.value,
-                            favourite = favourite.value.favourite
+                            favourite = favourite.value.favourite,
+                            noteBlocks = buildPersistableNoteBlocks(event.note),
+                            folderName = _folderName.value.trim().ifBlank { null },
+                            isLocked = _noteLocked.value,
+                            lockPinHash = if (_noteLocked.value) notePinHash else null
                         )
 
                         val id = voiceJournalRepository.saveAndId(voiceJournal)
@@ -487,6 +520,46 @@ class AddVoiceNoteViewModel @Inject constructor(
         } catch (e: IllegalStateException) {
             // Handle the exception (e.g., log it or show an error message)
         }
+        _currentBlockPreviewAudioUri.value = null
+    }
+
+    fun toggleAudioBlockPlayback(audioUri: String?) {
+        val uri = audioUri?.trim().orEmpty()
+        if (uri.isBlank()) {
+            viewModelScope.launch {
+                _eventFlow.emit(UiEvent.ShowSnackbar("Audio block has no playable file"))
+            }
+            return
+        }
+        if (_currentBlockPreviewAudioUri.value == uri) {
+            stopAudioBlockPlayback()
+            return
+        }
+        viewModelScope.launch {
+            try {
+                stopPlaying()
+                audioPlayer.setOnCompletionListener {
+                    _currentBlockPreviewAudioUri.value = null
+                }
+                audioPlayer.start(uri)
+                _currentBlockPreviewAudioUri.value = uri
+            } catch (e: IOException) {
+                _currentBlockPreviewAudioUri.value = null
+                _eventFlow.emit(UiEvent.ShowSnackbar("Unable to play selected audio block"))
+            } catch (e: IllegalStateException) {
+                _currentBlockPreviewAudioUri.value = null
+                _eventFlow.emit(UiEvent.ShowSnackbar("Audio player is not ready"))
+            }
+        }
+    }
+
+    fun stopAudioBlockPlayback() {
+        try {
+            audioPlayer.stop()
+        } catch (e: IllegalStateException) {
+            // Ignore invalid state while stopping preview.
+        }
+        _currentBlockPreviewAudioUri.value = null
     }
 
     private fun startRecording() {
@@ -594,6 +667,7 @@ class AddVoiceNoteViewModel @Inject constructor(
         super.onCleared()
         timerJob?.cancel()
         timerJob2?.cancel()
+        stopAudioBlockPlayback()
     }
 
     // Play panel Timer
@@ -667,6 +741,345 @@ class AddVoiceNoteViewModel @Inject constructor(
         }
     }
 
+    private fun migrateLegacyNoteBlocksIfNeeded(note: VoiceJournal) {
+        if (!note.noteBlocks.isNullOrEmpty()) return
+        val migratedBlocks = NoteBlockFactory.createForNote(
+            titleHtml = note.title,
+            content = note.content,
+            audioPath = note.fileName,
+            imageUris = note.imageUris
+        )
+        viewModelScope.launch {
+            voiceJournalRepository.update(note.copy(noteBlocks = migratedBlocks))
+        }
+        setNoteBlocks(migratedBlocks)
+    }
+
+    fun refreshBlocksFromCurrentNote(titleHtml: String) {
+        setNoteBlocks(buildPersistableNoteBlocks(titleHtml))
+    }
+
+    fun addTextBlockFromEditor(titleHtml: String) {
+        val plainText = extractPlainTextFromHtml(titleHtml).ifBlank { null }
+        val block = NoteBlock(
+            id = java.util.UUID.randomUUID().toString(),
+            order = _noteBlocks.size,
+            type = NoteBlockType.TEXT.name,
+            text = plainText,
+            richTextHtml = titleHtml.takeIf { it.isNotBlank() }
+        )
+        setNoteBlocks(NoteBlockOps.normalized(_noteBlocks + block))
+    }
+
+    fun addFloatingTextBox(pageIndex: Int = 0, initialText: String = "Text") {
+        val block = NoteBlock(
+            id = java.util.UUID.randomUUID().toString(),
+            order = _noteBlocks.size,
+            type = NoteBlockType.TEXT.name,
+            text = initialText,
+            richTextHtml = "<p>$initialText</p>",
+            canvasPageIndex = pageIndex,
+            canvasX = 40f,
+            canvasY = 80f,
+            canvasWidth = 200f,
+            canvasHeight = 90f
+        )
+        setNoteBlocks(NoteBlockOps.normalized(_noteBlocks + block))
+    }
+
+    fun updateBlockText(blockId: String, newText: String) {
+        val updated = _noteBlocks.map {
+            if (it.id == blockId) {
+                it.copy(text = newText, richTextHtml = "<p>$newText</p>")
+            } else it
+        }
+        setNoteBlocks(updated)
+    }
+
+    fun addAudioBlockFromCurrentFile() {
+        val audioPath = noteFileName.value.text.trim()
+        if (audioPath.isBlank()) return
+        val block = NoteBlock(
+            id = java.util.UUID.randomUUID().toString(),
+            order = _noteBlocks.size,
+            type = NoteBlockType.AUDIO.name,
+            mediaUri = audioPath
+        )
+        setNoteBlocks(NoteBlockOps.normalized(_noteBlocks + block))
+    }
+
+    fun addChecklistBlock() {
+        val block = NoteBlock(
+            id = java.util.UUID.randomUUID().toString(),
+            order = _noteBlocks.size,
+            type = NoteBlockType.CHECKLIST.name,
+            text = "Checklist item",
+            isChecked = false
+        )
+        setNoteBlocks(NoteBlockOps.normalized(_noteBlocks + block))
+    }
+
+    fun toggleChecklistBlockChecked(blockId: String) {
+        setNoteBlocks(NoteBlockOps.toggleChecklistChecked(_noteBlocks, blockId))
+    }
+
+    fun applyTranscriptToCurrentAudio(rawTranscript: String) {
+        val transcript = rawTranscript.trim()
+        if (transcript.isBlank()) {
+            viewModelScope.launch {
+                _eventFlow.emit(UiEvent.ShowSnackbar("No speech captured to transcribe"))
+            }
+            return
+        }
+        val currentAudioPath = noteFileName.value.text.trim()
+        val updated = NoteBlockOps.upsertAudioTranscript(_noteBlocks, currentAudioPath, transcript)
+        val hadAudioBlock = _noteBlocks.any { it.type == NoteBlockType.AUDIO.name }
+        if (!hadAudioBlock && currentAudioPath.isNotBlank()) {
+            val block = NoteBlock(
+                id = java.util.UUID.randomUUID().toString(),
+                order = _noteBlocks.size,
+                type = NoteBlockType.AUDIO.name,
+                mediaUri = currentAudioPath,
+                transcript = transcript
+            )
+            setNoteBlocks(NoteBlockOps.normalized(_noteBlocks + block))
+            return
+        }
+        if (!hadAudioBlock && currentAudioPath.isBlank()) {
+            viewModelScope.launch {
+                _eventFlow.emit(UiEvent.ShowSnackbar("Record audio before adding a transcript"))
+            }
+            return
+        }
+        setNoteBlocks(updated)
+    }
+
+    fun addImageBlocksFromCurrentUris() {
+        val uris = tempImageUris.value.imageFileUris.orEmpty().filter { it.isNotBlank() }
+        if (uris.isEmpty()) return
+        val blocksToAdd = uris.mapIndexed { index, uri ->
+            NoteBlock(
+                id = java.util.UUID.randomUUID().toString(),
+                order = _noteBlocks.size + index,
+                type = NoteBlockType.IMAGE.name,
+                mediaUri = uri
+            )
+        }
+        setNoteBlocks(NoteBlockOps.normalized(_noteBlocks + blocksToAdd))
+    }
+
+    fun moveBlockUp(blockId: String) {
+        setNoteBlocks(NoteBlockOps.moveUp(_noteBlocks, blockId))
+    }
+
+    fun moveBlockDown(blockId: String) {
+        setNoteBlocks(NoteBlockOps.moveDown(_noteBlocks, blockId))
+    }
+
+    fun removeBlock(blockId: String) {
+        setNoteBlocks(NoteBlockOps.remove(_noteBlocks, blockId))
+    }
+
+    fun updateBlockCanvasLayout(
+        blockId: String,
+        pageIndex: Int,
+        x: Float,
+        y: Float,
+        width: Float? = null,
+        height: Float? = null
+    ) {
+        setNoteBlocks(
+            NoteBlockOps.updateCanvasLayout(
+                blocks = _noteBlocks,
+                blockId = blockId,
+                pageIndex = pageIndex,
+                x = x,
+                y = y,
+                width = width,
+                height = height
+            )
+        )
+    }
+
+    fun resizeBlockCanvas(blockId: String, width: Float?, height: Float?) {
+        setNoteBlocks(
+            NoteBlockOps.resizeCanvasBlock(
+                blocks = _noteBlocks,
+                blockId = blockId,
+                width = width,
+                height = height
+            )
+        )
+    }
+
+    fun bringBlockToFront(blockId: String) {
+        setNoteBlocks(NoteBlockOps.moveToFrontOnPage(_noteBlocks, blockId))
+    }
+
+    fun sendBlockToBack(blockId: String) {
+        setNoteBlocks(NoteBlockOps.moveToBackOnPage(_noteBlocks, blockId))
+    }
+
+    fun addDrawingStroke(
+        pageIndex: Int,
+        normalizedPoints: List<Pair<Float, Float>>,
+        colorArgb: Long,
+        strokeWidthPx: Float,
+        alpha: Float,
+        tool: String
+    ) {
+        if (normalizedPoints.size < 2) return
+        val encoded = encodeDrawingPath(normalizedPoints)
+        setNoteBlocks(
+            NoteBlockOps.addDrawingStroke(
+                blocks = _noteBlocks,
+                pageIndex = pageIndex,
+                normalizedPath = encoded,
+                color = colorArgb,
+                strokeWidth = strokeWidthPx,
+                alpha = alpha,
+                tool = tool
+            )
+        )
+    }
+
+    fun eraseLastDrawingStroke(pageIndex: Int) {
+        setNoteBlocks(NoteBlockOps.eraseLastDrawingStroke(_noteBlocks, pageIndex))
+    }
+
+    fun eraseDrawingStrokeAtPoint(
+        pageIndex: Int,
+        normalizedX: Float,
+        normalizedY: Float,
+        normalizedRadius: Float
+    ) {
+        setNoteBlocks(
+            NoteBlockOps.eraseDrawingStrokeAtPoint(
+                blocks = _noteBlocks,
+                pageIndex = pageIndex,
+                normalizedX = normalizedX,
+                normalizedY = normalizedY,
+                normalizedRadius = normalizedRadius
+            )
+        )
+    }
+
+    fun setNotePin(pin: String) {
+        notePinHash = hashNotePin(pin)
+        _noteLocked.value = true
+    }
+
+    fun clearNotePin() {
+        notePinHash = null
+        _noteLocked.value = false
+    }
+
+    fun verifyNotePin(pin: String): Boolean {
+        val expectedHash = notePinHash ?: return !_noteLocked.value
+        return hashNotePin(pin) == expectedHash
+    }
+
+    fun changeNotePin(currentPin: String, newPin: String): Boolean {
+        if (!verifyNotePin(currentPin)) return false
+        setNotePin(newPin)
+        return true
+    }
+
+    fun setFolderName(name: String) {
+        _folderName.value = name
+    }
+
+    private fun setNoteBlocks(blocks: List<NoteBlock>) {
+        _noteBlocks.clear()
+        _noteBlocks.addAll(
+            NoteBlockOps.ensureCanvasLayout(
+                NoteBlockOps.normalized(blocks)
+            )
+        )
+    }
+
+    private fun buildPersistableNoteBlocks(titleHtml: String): List<NoteBlock> {
+        noteState.value.state.normalizePageMarkers()
+        val blocks = if (_noteBlocks.isEmpty()) {
+            NoteBlockFactory.createForNote(
+                titleHtml = titleHtml,
+                content = noteContent.value.text,
+                audioPath = noteFileName.value.text,
+                imageUris = tempImageUris.value.imageFileUris
+            ).toMutableList()
+        } else {
+            _noteBlocks.toMutableList()
+        }
+
+        val cleanTitleHtml = titleHtml.trim()
+        val titlePlainText = if (cleanTitleHtml.isNotBlank()) extractPlainTextFromHtml(cleanTitleHtml) else ""
+        if (cleanTitleHtml.isNotBlank()) {
+            val richIndex = blocks.indexOfFirst {
+                it.type == NoteBlockType.TEXT.name && !it.richTextHtml.isNullOrBlank()
+            }
+            if (richIndex >= 0) {
+                blocks[richIndex] = blocks[richIndex].copy(
+                    richTextHtml = cleanTitleHtml,
+                    text = titlePlainText.ifBlank { blocks[richIndex].text }
+                )
+            } else {
+                blocks.add(
+                    0,
+                    NoteBlock(
+                        id = java.util.UUID.randomUUID().toString(),
+                        order = 0,
+                        type = NoteBlockType.TEXT.name,
+                        text = titlePlainText.ifBlank { null },
+                        richTextHtml = cleanTitleHtml
+                    )
+                )
+            }
+        }
+
+        val contentText = noteContent.value.text.orEmpty().trim()
+        val bodyIndex = blocks.indexOfFirst {
+            it.type == NoteBlockType.TEXT.name && it.richTextHtml.isNullOrBlank()
+        }
+        if (contentText.isNotBlank()) {
+            if (bodyIndex >= 0) {
+                blocks[bodyIndex] = blocks[bodyIndex].copy(text = contentText)
+            } else {
+                blocks.add(
+                    NoteBlock(
+                        id = java.util.UUID.randomUUID().toString(),
+                        order = blocks.size,
+                        type = NoteBlockType.TEXT.name,
+                        text = contentText
+                    )
+                )
+            }
+        }
+
+        val audioPath = noteFileName.value.text.trim()
+        val audioIndex = blocks.indexOfFirst { it.type == NoteBlockType.AUDIO.name }
+        if (audioPath.isNotBlank()) {
+            if (audioIndex >= 0) {
+                blocks[audioIndex] = blocks[audioIndex].copy(mediaUri = audioPath)
+            } else {
+                blocks.add(
+                    NoteBlock(
+                        id = java.util.UUID.randomUUID().toString(),
+                        order = blocks.size,
+                        type = NoteBlockType.AUDIO.name,
+                        mediaUri = audioPath
+                    )
+                )
+            }
+        } else {
+            blocks.removeAll { it.type == NoteBlockType.AUDIO.name }
+        }
+
+        val latestImages = tempImageUris.value.imageFileUris.orEmpty()
+        val imageSynced = NoteBlockOps.syncImageBlocks(blocks, latestImages)
+
+        return NoteBlockOps.ensureCanvasLayout(NoteBlockOps.normalized(imageSynced))
+    }
+
     private fun saveNote(navigate: Boolean, note: String) {
         viewModelScope.launch {
             // Check if content is empty
@@ -696,7 +1109,11 @@ class AddVoiceNoteViewModel @Inject constructor(
                         color = noteColor.value,
                         imageUris = tempImageUris.value.imageFileUris,
                         tags = tags.value,
-                        favourite = favourite.value.favourite
+                        favourite = favourite.value.favourite,
+                        noteBlocks = buildPersistableNoteBlocks(note),
+                        folderName = _folderName.value.trim().ifBlank { null },
+                        isLocked = _noteLocked.value,
+                        lockPinHash = if (_noteLocked.value) notePinHash else null
                     )
                 )
                 if (navigate) {

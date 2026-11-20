@@ -13,7 +13,7 @@ import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import com.example.voicejournal.ui.main.AddVoiceNote.components.Tag
 import com.example.voicejournal.ui.theme.*
-@TypeConverters(UriListConverter::class, TagListConverter::class)
+@TypeConverters(UriListConverter::class, TagListConverter::class, NoteBlockListConverter::class)
 @Entity(tableName = "voice.db")
 data class VoiceJournal(
     @PrimaryKey(autoGenerate = true)
@@ -27,6 +27,10 @@ data class VoiceJournal(
     @ColumnInfo(name = "imageUris") var imageUris: List<String>?,
     @ColumnInfo(name = "tags") var tags: List<Tag>?,
     @ColumnInfo(name = "favourite") var favourite:Boolean?,
+    @ColumnInfo(name = "noteBlocks") var noteBlocks: List<NoteBlock>? = null,
+    @ColumnInfo(name = "folderName") var folderName: String? = null,
+    @ColumnInfo(name = "isLocked") var isLocked: Boolean? = false,
+    @ColumnInfo(name = "lockPinHash") var lockPinHash: String? = null
 )
 {
     companion object {
@@ -49,7 +53,9 @@ data class VoiceJournal(
             parseHtml(title),
             "${parseHtml(title).first()}",
             "${content?.first()}",
-            "${ tags?.get(0)?.name }"
+            "${ tags?.get(0)?.name }",
+            folderName.orEmpty(),
+            noteBlocks.orEmpty().joinToString(" ") { "${it.text.orEmpty()} ${it.transcript.orEmpty()}" }
         )
 
         return matchingCombinations.any {

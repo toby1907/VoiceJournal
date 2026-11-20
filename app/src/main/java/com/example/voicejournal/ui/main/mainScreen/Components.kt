@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,10 +38,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import com.example.voicejournal.Data.model.VoiceJournal
+import com.example.voicejournal.Data.model.imageUrisFromBlocks
+import com.example.voicejournal.Data.model.isNoteLocked
+import com.example.voicejournal.Data.model.primaryAudioPath
+import com.example.voicejournal.Data.model.primaryBodyPreviewText
+import com.example.voicejournal.Data.model.primaryRichTitleHtml
 import com.example.voicejournal.R
 import com.example.voicejournal.ui.theme.Variables
-import com.mohamedrejeb.richeditor.model.rememberRichTextState
-import com.mohamedrejeb.richeditor.ui.material3.RichText
+import com.example.voicejournal.ui.common.richeditor.RichText
+import com.example.voicejournal.ui.common.richeditor.rememberRichTextState
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -54,9 +61,14 @@ fun NewJournalItem(
 ) {
     val titleState = rememberRichTextState()
     val iconState = rememberRichTextState()
+    val isLocked = voiceJournal.isNoteLocked()
+    val displayTitleHtml = voiceJournal.primaryRichTitleHtml(revealLockedContent = !isLocked)
+    val bodyPreview = voiceJournal.primaryBodyPreviewText(revealLockedContent = !isLocked)
+    val audioPath = voiceJournal.primaryAudioPath(revealLockedContent = !isLocked)
+    val imageUris = voiceJournal.imageUrisFromBlocks(revealLockedContent = !isLocked)
 
-    titleState.setHtml(voiceJournal.title)
-    iconState.setHtml(voiceJournal.title)
+    titleState.setHtml(displayTitleHtml)
+    iconState.setHtml(displayTitleHtml)
     iconState.setText(iconState.annotatedString.text.getOrNull(0).toString()
         .toUpperCase(Locale.getDefault()))
 
@@ -112,6 +124,17 @@ fun NewJournalItem(
                                 contentDescription = "Favorite"
                             )
                         }
+                        if (isLocked) {
+                            Icon(
+                                tint = Variables.SchemesOnSurface,
+                                modifier = Modifier
+                                    .padding(1.dp)
+                                    .width(12.dp)
+                                    .height(12.dp),
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Locked note"
+                            )
+                        }
                         Box(
                             modifier = Modifier
                                 .size(4.dp)
@@ -126,7 +149,7 @@ fun NewJournalItem(
                             painter = painterResource(id = R.drawable.cloud_off),
                             contentDescription = "Cloud Upload state"
                         )
-                        if (voiceJournal.fileName != "") {
+                        if (audioPath.isNotBlank()) {
                             Box(
                                 modifier = Modifier
                                     .size(4.dp)
@@ -144,6 +167,18 @@ fun NewJournalItem(
                         }
                     }
                 }
+                voiceJournal.folderName?.takeIf { it.isNotBlank() }?.let { folder ->
+                    Text(
+                        text = "Folder: $folder",
+                        style = TextStyle(
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight(500),
+                            color = Variables.SchemesOnSurfaceVariant
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
 
 
@@ -156,7 +191,7 @@ fun NewJournalItem(
                         modifier = Modifier.fillMaxHeight()
                     ) {
 
-                        voiceJournal.content?.let {
+                        bodyPreview.takeIf { it.isNotBlank() }?.let {
                             Text(
                                 text = it,
                                 maxLines = 1,
@@ -184,10 +219,10 @@ fun NewJournalItem(
                         )
                     }
                     Spacer(modifier = Modifier.padding(4.dp))
-                    val filterImages = voiceJournal.imageUris?.filter { it.isNotEmpty() }
+                    val filterImages = imageUris.filter { it.isNotEmpty() }
                     if (filterImages?.isNotEmpty()==true) {
                         Image(
-                            painter = rememberAsyncImagePainter(voiceJournal.imageUris?.last()),
+                            painter = rememberAsyncImagePainter(filterImages.last()),
                             contentDescription = null,
                             modifier = Modifier
                                 .size(90.dp)

@@ -27,7 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.mohamedrejeb.richeditor.model.RichTextState
+import com.example.voicejournal.ui.common.richeditor.RichTextState
 import kotlinx.coroutines.DisposableHandle
 
 @OptIn(ExperimentalMaterial3Api::class)
