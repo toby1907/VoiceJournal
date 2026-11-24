@@ -432,6 +432,8 @@ fun AddVoiceNoteScreen(
 
 
 
+    val onSave = remember { mutableStateOf(false) }
+
     val lifecycle = lifecycleOwner.lifecycle
 
     DisposableEffect(lifecycle) {
@@ -440,7 +442,7 @@ fun AddVoiceNoteScreen(
 
             if (event == Lifecycle.Event.ON_PAUSE) {
 
-            if(state.annotatedString.text.trim().isNotEmpty())    { currentOnSaveNote() }
+                if (!onSave.value && state.annotatedString.text.trim().isNotEmpty()) { currentOnSaveNote() }
 
                 currentOnStopPlay()
 
@@ -461,12 +463,6 @@ fun AddVoiceNoteScreen(
 
 
     }
-
-
-
-
-
-    val onSave = remember { mutableStateOf(false) }
 
     //record panel state
 
@@ -822,7 +818,9 @@ fun AddVoiceNoteScreen(
 
                     onSave.value = true
 
-                    navController.navigate(Screen.VoicesScreen.route)
+                    if (!navController.popBackStack()) {
+                        navController.navigate(Screen.VoicesScreen.route)
+                    }
 
                     scope.launch  {
 
@@ -959,6 +957,8 @@ fun AddVoiceNoteScreen(
                     contentSaved = {
 
                         contentSaved.value = true
+                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
+                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote(state.toHtml()))
 
                     },
 
@@ -1412,7 +1412,7 @@ fun AddVoiceNoteScreen(
 
                                     fontWeight = FontWeight.SemiBold,
 
-                                    color = MaterialTheme.colorScheme.onPrimary
+                                    color = Variables.SchemesOnPrimaryContainer
 
                                 )
 

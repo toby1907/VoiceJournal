@@ -79,7 +79,7 @@ fun AlignStyleBottomSheet(
                         Icon(
                             imageVector = Icons.Default.FormatAlignLeft,
                             contentDescription = "Start Align Control",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = com.example.voicejournal.ui.theme.Variables.SchemesOnSurface
                         )
                     }
                 }
@@ -94,7 +94,7 @@ fun AlignStyleBottomSheet(
                         Icon(
                             imageVector = Icons.Default.FormatAlignCenter,
                             contentDescription = "Center Align Control",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = com.example.voicejournal.ui.theme.Variables.SchemesOnSurface
                         )
                     }
 
@@ -112,7 +112,7 @@ fun AlignStyleBottomSheet(
                         Icon(
                             imageVector = Icons.Default.FormatAlignRight,
                             contentDescription = "End Align Control",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = com.example.voicejournal.ui.theme.Variables.SchemesOnSurface
                         )
 
                     }
@@ -141,12 +141,12 @@ fun AlignStyleBottomSheet(
                         selected = isOrderedList,
                         onChangeClick = { isOrderedListSelected = it },
                         onClick = onOrderedListClick,
-                        text = com.example.voicejournal.ui.main.AddVoiceNote.components.Alignment.Left.name
+                        text = "Numbered List"
                     ) {
                         Icon(
-                            imageVector = Icons.Default.FormatListBulleted,
-                            contentDescription = "Start Align Control",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            imageVector = Icons.Default.FormatListNumbered,
+                            contentDescription = "Numbered List",
+                            tint = com.example.voicejournal.ui.theme.Variables.SchemesOnSurface
                         )
                     }
                 }
@@ -157,12 +157,12 @@ fun AlignStyleBottomSheet(
                         selected = isUnorderedList,
                         onChangeClick = { isUnorderedListSelected = it },
                         onClick = onUnorderedListClick,
-                        text = com.example.voicejournal.ui.main.AddVoiceNote.components.Alignment.Center.name
+                        text = "Bulleted List"
                     ) {
                         Icon(
-                            imageVector = Icons.Default.FormatListNumbered,
-                            contentDescription = "Center Align Control",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            imageVector = Icons.Default.FormatListBulleted,
+                            contentDescription = "Bulleted List",
+                            tint = com.example.voicejournal.ui.theme.Variables.SchemesOnSurface
                         )
                     }
 

@@ -168,7 +168,7 @@ class AddVoiceNoteViewModel @Inject constructor(
     val noteColor: State<Int> = _noteColor
 
 
-    private val _eventFlow = MutableSharedFlow<UiEvent>()
+    private val _eventFlow = MutableSharedFlow<UiEvent>(extraBufferCapacity = 1)
     val eventFlow = _eventFlow.asSharedFlow()
 
     private var currentNoteId: Int? = null
@@ -302,51 +302,7 @@ class AddVoiceNoteViewModel @Inject constructor(
             }
 
             is AddEditNoteEvent.SaveNote -> {
-
-                viewModelScope.launch {
-                    if (event.note.trim().isNotEmpty() ) {
-                        // Set title to "Untitled" if it's also empty or blank
-                        if (_noteContent.value.text?.isBlank() == true) {
-                            _noteContent.value = _noteContent.value.copy(text = "Untitled")
-                        }
-
-                        // Show snackbar
-                        _eventFlow.emit(
-                            UiEvent.ShowSnackbar(
-                                message = "Content cannot be empty"
-                            )
-                        )
-                        return@launch // Don't save the note
-                    }
-                    try {
-                        voiceJournalRepository.save(
-                            VoiceJournal(
-                                title = noteTitle.value.text,
-                                content = noteContent.value.text,
-                                created = created.value.created,
-                                fileName = noteFileName.value.text,
-                                id = currentNoteId,
-                                color = noteColor.value,
-                                imageUris = tempImageUris.value.imageFileUris,
-                                tags = tags.value,
-                                favourite = favourite.value.favourite,
-                                noteBlocks = buildPersistableNoteBlocks(noteTitle.value.text),
-                                folderName = _folderName.value.trim().ifBlank { null },
-                                isLocked = _noteLocked.value,
-                                lockPinHash = if (_noteLocked.value) notePinHash else null
-                            )
-                        )
-                        _eventFlow.emit(UiEvent.SaveNote)
-                    } catch (e: InvalidNoteException) {
-                        Log.d("Note", "could not save")
-                        _eventFlow.emit(
-                            UiEvent.ShowSnackbar(
-                                message = e.message ?: "Couldn't save note"
-                            )
-                        )
-                    }
-                }
-                removeSelectedImageUris()
+                saveNote(navigate = true, note = event.note)
             }
 
             is AddEditNoteEvent.Play -> {
@@ -775,7 +731,7 @@ class AddVoiceNoteViewModel @Inject constructor(
         val block = NoteBlock(
             id = java.util.UUID.randomUUID().toString(),
             order = _noteBlocks.size,
-            type = NoteBlockType.TEXT.name,
+            type = NoteBlockType.FLOATING_TEXT.name,
             text = initialText,
             richTextHtml = "<p>$initialText</p>",
             canvasPageIndex = pageIndex,
@@ -1082,8 +1038,9 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     private fun saveNote(navigate: Boolean, note: String) {
         viewModelScope.launch {
-            // Check if content is empty
-            if (note.trim().isEmpty()) {
+            val hasDrawing = _noteBlocks.any { it.type == NoteBlockType.DRAWING.name }
+            // Check if content is empty and there are no drawings
+            if (note.trim().isEmpty() && !hasDrawing) {
                 // Set title to "Untitled" if it's also empty or blank
                 if (_noteContent.value.text?.isBlank() == true) {
                     _noteContent.value = noteContent.value.copy(text = "Untitled")
@@ -1099,10 +1056,11 @@ class AddVoiceNoteViewModel @Inject constructor(
             }
 
             try {
-                voiceJournalRepository.save(
+                val resolvedTitle = noteContent.value.text?.trim()?.takeIf { it.isNotBlank() } ?: "Untitled"
+                val savedId = voiceJournalRepository.saveAndId(
                     VoiceJournal(
                         title = note,
-                        content = noteContent.value.text ?: "Untitled",
+                        content = resolvedTitle,
                         created = created.value.created,
                         fileName = noteFileName.value.text,
                         id = currentNoteId,
@@ -1116,6 +1074,9 @@ class AddVoiceNoteViewModel @Inject constructor(
                         lockPinHash = if (_noteLocked.value) notePinHash else null
                     )
                 )
+                if (savedId > 0L) {
+                    currentNoteId = savedId.toInt()
+                }
                 if (navigate) {
                     _eventFlow.emit(UiEvent.SaveNote)
                 }

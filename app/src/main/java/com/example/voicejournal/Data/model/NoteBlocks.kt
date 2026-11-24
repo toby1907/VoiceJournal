@@ -9,6 +9,7 @@ import java.util.UUID
 
 enum class NoteBlockType {
     TEXT,
+    FLOATING_TEXT,
     CHECKLIST,
     IMAGE,
     AUDIO,

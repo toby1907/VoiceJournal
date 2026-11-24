@@ -51,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 
 import androidx.compose.ui.res.painterResource
 
@@ -201,6 +202,8 @@ fun EditScreenTopAppBar(
 
                             .fillMaxWidth()
 
+                            .testTag("note_title_input")
+
                             .onFocusChanged {
 
                                 addVoiceNoteViewModel.onEvent(AddEditNoteEvent.ChangeContentFocus(it))
@@ -295,21 +298,11 @@ fun EditScreenTopAppBar(
 
         navigationIcon = {
 
-            if (state.annotatedString.text.isNotBlank() && addVoiceNoteViewModel.noteContent.value.text?.isNotBlank() == true) {
+            if (state.annotatedString.text.isNotBlank() || addVoiceNoteViewModel.noteBlocks.any { it.type == com.example.voicejournal.Data.model.NoteBlockType.DRAWING.name }) {
 
                 IconButton(onClick = {
 
                     contentSaved()
-
-                    if (state.annotatedString.text.isNotBlank()) {
-
-                        navController.navigateUp()
-
-                    } else {
-
-                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Error("Kindly Enter a title before you save"))
-
-                    }
 
                 }) {
 

@@ -956,6 +956,7 @@ fun RichTextEditor(
             modifier = Modifier.fillMaxSize(),
             factory = { context ->
                 RichEditText(context).apply {
+                    contentDescription = "Notebook Canvas Editor"
                     movementMethod = LinkMovementMethod.getInstance()
                     linksClickable = true
                     autoLinkMask = Linkify.WEB_URLS
@@ -1121,7 +1122,7 @@ private fun TextUnit.resolveSpOrFallback(fallback: Float): Float {
     return if (isSpecified) value else fallback
 }
 
-private class RichEditText(context: Context) : AppCompatEditText(context) {
+internal class RichEditText(context: Context) : AppCompatEditText(context) {
     companion object {
         const val LINES_PER_PAGE = 15
     }
@@ -1161,6 +1162,7 @@ private class RichEditText(context: Context) : AppCompatEditText(context) {
     val fixedLineHeight: Int = (38f * density).roundToInt()
     private val topPadPx: Int = (20f * density).roundToInt()
     private val bottomPadPx: Int = (20f * density).roundToInt()
+    val bottomScrollPaddingPx: Int = (180f * density).roundToInt()
     private val horizontalPadPx: Int = (16f * density).roundToInt()
     val pageGapPx: Int = (32f * density).roundToInt()
 
@@ -1175,7 +1177,7 @@ private class RichEditText(context: Context) : AppCompatEditText(context) {
 
     fun getMaxScrollY(): Int {
         val pages = getTotalPages()
-        val totalH = pages * pageHeightPx + (pages - 1) * pageGapPx + bottomPadPx
+        val totalH = pages * pageHeightPx + (pages - 1) * pageGapPx + bottomScrollPaddingPx
         return maxOf(0, totalH - height)
     }
 
@@ -1229,9 +1231,15 @@ private class RichEditText(context: Context) : AppCompatEditText(context) {
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         val pages = getTotalPages()
-        val totalH = pages * pageHeightPx + (pages - 1) * pageGapPx + bottomPadPx
+        val totalH = pages * pageHeightPx + (pages - 1) * pageGapPx + bottomScrollPaddingPx
         val w = measuredWidth
-        val h = maxOf(measuredHeight, totalH)
+        val hMode = MeasureSpec.getMode(heightMeasureSpec)
+        val hSize = MeasureSpec.getSize(heightMeasureSpec)
+        val h = when (hMode) {
+            MeasureSpec.EXACTLY -> hSize
+            MeasureSpec.AT_MOST -> minOf(maxOf(measuredHeight, totalH), hSize)
+            else -> maxOf(measuredHeight, totalH)
+        }
         setMeasuredDimension(w, h)
     }
 

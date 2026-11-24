@@ -506,7 +506,7 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
                                 modifier = Modifier.fillMaxWidth(),
                                 state = state,
                                 colors = RichTextEditorDefaults.richTextEditorColors(
-                                    textColor = MaterialTheme.colorScheme.onPrimary,
+                                    textColor = Variables.SchemesOnSurface,
                                     containerColor = Color.Transparent,
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent,

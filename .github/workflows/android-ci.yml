@@ -1,0 +1,114 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main, develop, media-player-revamp]
+  pull_request:
+    branches: [main, develop, media-player-revamp]
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run Debug Unit Tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Upload Unit Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
+
+  emulator-tests:
+    name: Instrumented Emulator Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Cache AVD
+        id: avd-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-33-google_apis-x86_64-pixel_6
+
+      - name: Create AVD and generate snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Run Connected Android Tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            set +e
+            ./gradlew connectedDebugAndroidTest --stacktrace
+            TEST_EXIT_CODE=$?
+            mkdir -p emulator-screenshots
+            adb pull /sdcard/Android/data/com.example.voicejournal/files/Pictures/test_screenshots/. emulator-screenshots/ || true
+            exit $TEST_EXIT_CODE
+
+      - name: Upload Emulator Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-screenshots
+          path: emulator-screenshots/
+          if-no-files-found: ignore
+
+      - name: Upload Connected Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: connected-test-report
+          path: app/build/reports/androidTests/connected/
+          if-no-files-found: ignore

@@ -142,7 +142,7 @@ fun ContentMain(
                 {
                     Icon(
                         painter = painterResource(id = R.drawable.add_36),
-                        contentDescription = ""
+                        contentDescription = "Add Note"
                     )
                 }
             },

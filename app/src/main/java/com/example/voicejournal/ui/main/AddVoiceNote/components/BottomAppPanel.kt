@@ -117,7 +117,7 @@ fun BottomAppPanel(
                             cardVisibleState()
                         },
                         contentDescription = "Attachment",
-                        tint = MaterialTheme.colorScheme.onPrimary
+                        tint = Variables.SchemesOnSurface
                     )
                 }
             }
@@ -130,7 +130,7 @@ fun BottomAppPanel(
                 Icon(
                     painter = painterResource(id = R.drawable.tag),
                     contentDescription = "Tag",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = Variables.SchemesOnSurface
                 )
             }
 
@@ -148,14 +148,14 @@ fun BottomAppPanel(
                     Text(
                         text = state.currentHeadingStyle.label,
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = Variables.SchemesOnSurface,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.size(2.dp))
                     Icon(
                         imageVector = Icons.Default.ArrowDropDown,
                         contentDescription = "Heading Dropdown",
-                        tint = MaterialTheme.colorScheme.onPrimary,
+                        tint = Variables.SchemesOnSurface,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -196,14 +196,14 @@ fun BottomAppPanel(
                     Text(
                         text = "${state.currentFontSizeSp}",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = Variables.SchemesOnSurface,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.size(2.dp))
                     Icon(
                         imageVector = Icons.Default.ArrowDropDown,
                         contentDescription = "Font Size Dropdown",
-                        tint = MaterialTheme.colorScheme.onPrimary,
+                        tint = Variables.SchemesOnSurface,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -231,7 +231,7 @@ fun BottomAppPanel(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_checklist_24),
                     contentDescription = "Checklist",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = Variables.SchemesOnSurface
                 )
             }
 
@@ -243,7 +243,7 @@ fun BottomAppPanel(
                 Icon(
                     painter = painterResource(id = R.drawable.ic_textbox_24),
                     contentDescription = "Floating Text Box",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = Variables.SchemesOnSurface
                 )
             }
 
@@ -255,7 +255,7 @@ fun BottomAppPanel(
                 Icon(
                     painter = painterResource(id = R.drawable.format_align_left),
                     contentDescription = "Body",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = Variables.SchemesOnSurface
                 )
             }
 
@@ -270,7 +270,7 @@ fun BottomAppPanel(
                 Icon(
                     imageVector = Icons.Default.FormatBold,
                     contentDescription = "Bold Control",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = Variables.SchemesOnSurface
                 )
             }
 
@@ -285,7 +285,7 @@ fun BottomAppPanel(
                 Icon(
                     painter = painterResource(id = R.drawable.format_italic),
                     contentDescription = "Italic Control",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = Variables.SchemesOnSurface
                 )
             }
 
@@ -300,7 +300,7 @@ fun BottomAppPanel(
                 Icon(
                     painter = painterResource(id = R.drawable.strikethrough),
                     contentDescription = "Strikethrough Control",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = Variables.SchemesOnSurface
                 )
             }
 
@@ -315,7 +315,7 @@ fun BottomAppPanel(
                 Icon(
                     painter = painterResource(id = R.drawable.format_underlined),
                     contentDescription = "Underline Control",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = Variables.SchemesOnSurface
                 )
             }
 
@@ -329,7 +329,7 @@ fun BottomAppPanel(
                 Icon(
                     imageVector = Icons.Default.Draw,
                     contentDescription = "Drawing Mode",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = Variables.SchemesOnSurface
                 )
             }
 
@@ -341,7 +341,7 @@ fun BottomAppPanel(
                 Icon(
                     imageVector = Icons.Default.Undo,
                     contentDescription = "Undo",
-                    tint = if (state.canUndo) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.38f)
+                    tint = if (state.canUndo) Variables.SchemesOnSurface else Variables.SchemesOnSurface.copy(alpha = 0.38f)
                 )
             }
 
@@ -353,7 +353,7 @@ fun BottomAppPanel(
                 Icon(
                     imageVector = Icons.Default.Redo,
                     contentDescription = "Redo",
-                    tint = if (state.canRedo) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.38f)
+                    tint = if (state.canRedo) Variables.SchemesOnSurface else Variables.SchemesOnSurface.copy(alpha = 0.38f)
                 )
             }
         }
@@ -365,7 +365,7 @@ fun BottomAppPanel(
             Icon(
                 painter = painterResource(id = R.drawable.double_arrow),
                 contentDescription = "More Options",
-                tint = MaterialTheme.colorScheme.onPrimary
+                tint = Variables.SchemesOnSurface
             )
         }
     }

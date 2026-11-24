@@ -64,7 +64,7 @@ fun FloatingTextBoxOverlay(
 
     val textBoxBlocks = remember(blocks, currentPageIndex) {
         blocks.filter {
-            it.type == NoteBlockType.TEXT.name &&
+            it.type == NoteBlockType.FLOATING_TEXT.name &&
                     (it.canvasPageIndex ?: 0) == currentPageIndex &&
                     it.canvasX != null
         }
@@ -114,7 +114,7 @@ fun FloatingTextBoxOverlay(
                                 imageVector = Icons.Default.OpenWith,
                                 contentDescription = "Move Text Box",
                                 modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                tint = Variables.SchemesOnPrimaryContainer.copy(alpha = 0.7f)
                             )
                             Spacer(modifier = Modifier.weight(1f))
                             IconButton(
@@ -125,7 +125,7 @@ fun FloatingTextBoxOverlay(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Delete Text Box",
                                     modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimary
+                                    tint = Variables.SchemesOnPrimaryContainer
                                 )
                             }
                         }

@@ -74,133 +74,139 @@ fun DrawingToolbar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Tools: Pen
-            ToolIcon(
-                selected = selectedTool == CanvasDrawingTool.PEN,
-                onClick = { onToolSelected(CanvasDrawingTool.PEN) },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Create,
-                        contentDescription = "Pen",
-                        modifier = Modifier.size(20.dp),
-                        tint = if (selectedTool == CanvasDrawingTool.PEN) MaterialTheme.colorScheme.onPrimary else Variables.SchemesOnSurface
-                    )
-                }
-            )
-
-            // Highlighter
-            ToolIcon(
-                selected = selectedTool == CanvasDrawingTool.HIGHLIGHTER,
-                onClick = { onToolSelected(CanvasDrawingTool.HIGHLIGHTER) },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.BorderColor,
-                        contentDescription = "Highlighter",
-                        modifier = Modifier.size(20.dp),
-                        tint = if (selectedTool == CanvasDrawingTool.HIGHLIGHTER) MaterialTheme.colorScheme.onPrimary else Variables.SchemesOnSurface
-                    )
-                }
-            )
-
-            // Eraser
-            ToolIcon(
-                selected = selectedTool == CanvasDrawingTool.ERASER,
-                onClick = { onToolSelected(CanvasDrawingTool.ERASER) },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.AutoFixNormal,
-                        contentDescription = "Eraser",
-                        modifier = Modifier.size(20.dp),
-                        tint = if (selectedTool == CanvasDrawingTool.ERASER) MaterialTheme.colorScheme.onPrimary else Variables.SchemesOnSurface
-                    )
-                }
-            )
-
-            Spacer(modifier = Modifier.width(4.dp))
-            Box(
+            Row(
                 modifier = Modifier
-                    .width(1.dp)
-                    .height(24.dp)
-                    .background(Color.Gray.copy(alpha = 0.35f))
-            )
-            Spacer(modifier = Modifier.width(4.dp))
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Tools: Pen
+                ToolIcon(
+                    selected = selectedTool == CanvasDrawingTool.PEN,
+                    onClick = { onToolSelected(CanvasDrawingTool.PEN) },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Create,
+                            contentDescription = "Pen",
+                            modifier = Modifier.size(20.dp),
+                            tint = if (selectedTool == CanvasDrawingTool.PEN) MaterialTheme.colorScheme.onPrimary else Variables.SchemesOnSurface
+                        )
+                    }
+                )
 
-            // Colors
-            colorPresets.forEach { color ->
-                val isSelected = selectedColorArgb == color
+                // Highlighter
+                ToolIcon(
+                    selected = selectedTool == CanvasDrawingTool.HIGHLIGHTER,
+                    onClick = { onToolSelected(CanvasDrawingTool.HIGHLIGHTER) },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.BorderColor,
+                            contentDescription = "Highlighter",
+                            modifier = Modifier.size(20.dp),
+                            tint = if (selectedTool == CanvasDrawingTool.HIGHLIGHTER) MaterialTheme.colorScheme.onPrimary else Variables.SchemesOnSurface
+                        )
+                    }
+                )
+
+                // Eraser
+                ToolIcon(
+                    selected = selectedTool == CanvasDrawingTool.ERASER,
+                    onClick = { onToolSelected(CanvasDrawingTool.ERASER) },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.AutoFixNormal,
+                            contentDescription = "Eraser",
+                            modifier = Modifier.size(20.dp),
+                            tint = if (selectedTool == CanvasDrawingTool.ERASER) MaterialTheme.colorScheme.onPrimary else Variables.SchemesOnSurface
+                        )
+                    }
+                )
+
+                Spacer(modifier = Modifier.width(4.dp))
                 Box(
                     modifier = Modifier
-                        .size(26.dp)
-                        .clip(CircleShape)
-                        .background(Color(color.toInt()))
-                        .clickable { onColorSelected(color) }
-                        .then(
-                            if (isSelected) {
-                                Modifier.border(2.dp, Variables.SchemesPrimary, CircleShape)
-                            } else {
-                                Modifier.border(1.dp, Color(0x33000000), CircleShape)
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isSelected) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(Color.White)
+                        .width(1.dp)
+                        .height(24.dp)
+                        .background(Color.Gray.copy(alpha = 0.35f))
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // Colors
+                colorPresets.forEach { color ->
+                    val isSelected = selectedColorArgb == color
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(Color(color.toInt()))
+                            .clickable { onColorSelected(color) }
+                            .then(
+                                if (isSelected) {
+                                    Modifier.border(2.dp, Variables.SchemesPrimary, CircleShape)
+                                } else {
+                                    Modifier.border(1.dp, Color(0x33000000), CircleShape)
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isSelected) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(24.dp)
+                        .background(Color.Gray.copy(alpha = 0.35f))
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // Stroke widths
+                strokePresets.forEach { (width, label) ->
+                    val isSelected = selectedStrokeWidth == width
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSelected) Variables.SchemesPrimaryContainer else Color.Transparent,
+                        modifier = Modifier
+                            .clickable { onStrokeWidthSelected(width) }
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) Variables.SchemesOnPrimaryContainer else Variables.SchemesOnSurface,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.width(4.dp))
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(24.dp)
-                    .background(Color.Gray.copy(alpha = 0.35f))
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-
-            // Stroke widths
-            strokePresets.forEach { (width, label) ->
-                val isSelected = selectedStrokeWidth == width
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) Variables.SchemesPrimaryContainer else Color.Transparent,
-                    modifier = Modifier
-                        .clickable { onStrokeWidthSelected(width) }
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                // Undo stroke
+                IconButton(
+                    onClick = onUndoStroke,
+                    modifier = Modifier.size(36.dp)
                 ) {
-                    Text(
-                        text = label,
-                        fontSize = 12.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isSelected) Variables.SchemesOnPrimaryContainer else Variables.SchemesOnSurface,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                    Icon(
+                        imageVector = Icons.Default.Undo,
+                        contentDescription = "Undo stroke",
+                        tint = Variables.SchemesOnSurface
                     )
                 }
             }
 
-            // Undo stroke
-            IconButton(
-                onClick = onUndoStroke,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Undo,
-                    contentDescription = "Undo stroke",
-                    tint = Variables.SchemesOnSurface
-                )
-            }
-
-            // Done button
+            // Done button pinned outside scroll area on the right
             TextButton(
                 onClick = onDoneClick,
                 shape = RoundedCornerShape(8.dp)
