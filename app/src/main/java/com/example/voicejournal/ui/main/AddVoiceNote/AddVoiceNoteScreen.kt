@@ -971,7 +971,7 @@ fun AddVoiceNoteScreen(
             floatingActionButtonPosition = FabPosition.Center,
 
             floatingActionButton = {
-                Box(modifier = Modifier.imePadding()) {
+                Box {
 
 
 
