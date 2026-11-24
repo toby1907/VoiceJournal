@@ -84,8 +84,9 @@ enum class HeadingStyle(val label: String, val sizeSp: Int, val isBold: Boolean)
 @Composable
 fun rememberRichTextState(): RichTextState = remember { RichTextState() }
 
-private const val PAGE_BREAK_LABEL = "────────── Page break ──────────"
-private const val PAGE_BREAK_MARKER = "\n\n$PAGE_BREAK_LABEL\n\n"
+private const val LEGACY_PAGE_BREAK_LABEL = "────────── Page break ──────────"
+private const val PAGE_BREAK_TOKEN = "\u200B\u2060\u200B"
+private const val PAGE_BREAK_MARKER = "\n$PAGE_BREAK_TOKEN\n\n"
 
 class RichTextState {
     private data class Snapshot(
@@ -159,6 +160,19 @@ class RichTextState {
             preprocessed = preprocessed.replace(Regex("<h3>(.*?)</h3>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))) {
                 "<p><a href=\"voicejournal-size:20\"><b>${it.groupValues[1]}</b></a></p>"
             }
+            // Bridge invisible page break spans and upgrade any legacy visible page break labels
+            preprocessed = preprocessed.replace(
+                Regex("""<span[^>]*data-voicejournal-page-break="true"[^>]*>.*?</span>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+                "<a href=\"voicejournal-page-break:1\">$PAGE_BREAK_TOKEN</a>"
+            )
+            preprocessed = preprocessed.replace(
+                Regex("""<p[^>]*>(?:\s|<[^>]+>)*${Regex.escape(LEGACY_PAGE_BREAK_LABEL)}(?:\s|<[^>]+>)*</p>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
+                "<a href=\"voicejournal-page-break:1\">$PAGE_BREAK_TOKEN</a>"
+            )
+            preprocessed = preprocessed.replace(
+                LEGACY_PAGE_BREAK_LABEL,
+                "<a href=\"voicejournal-page-break:1\">$PAGE_BREAK_TOKEN</a>"
+            )
 
             val spanned = HtmlCompat.fromHtml(preprocessed, HtmlCompat.FROM_HTML_MODE_LEGACY)
             val parsed = SpannableStringBuilder(spanned)
@@ -172,12 +186,21 @@ class RichTextState {
                         val start = parsed.getSpanStart(span)
                         val end = parsed.getSpanEnd(span)
                         parsed.removeSpan(span)
-                        parsed.setSpan(
-                            AbsoluteSizeSpan(size, true),
-                            start,
-                            end,
-                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                        )
+                        if (start in 0..end && end <= parsed.length) {
+                            parsed.setSpan(
+                                AbsoluteSizeSpan(size, true),
+                                start,
+                                end,
+                                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                            )
+                        }
+                    }
+                } else if (url == "voicejournal-page-break:1") {
+                    val start = parsed.getSpanStart(span)
+                    val end = parsed.getSpanEnd(span)
+                    parsed.removeSpan(span)
+                    if (start in 0..end && end <= parsed.length) {
+                        parsed.replace(start, end, PAGE_BREAK_MARKER)
                     }
                 }
             }
@@ -198,6 +221,20 @@ class RichTextState {
         if (current.isEmpty()) return ""
 
         val temp = SpannableStringBuilder(current)
+        var breakSearchFrom = 0
+        while (true) {
+            val breakIdx = temp.toString().indexOf(PAGE_BREAK_MARKER, breakSearchFrom)
+            if (breakIdx < 0) break
+            temp.replace(breakIdx, breakIdx + PAGE_BREAK_MARKER.length, PAGE_BREAK_TOKEN)
+            temp.setSpan(
+                URLSpan("voicejournal-page-break:1"),
+                breakIdx,
+                breakIdx + PAGE_BREAK_TOKEN.length,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            breakSearchFrom = breakIdx + PAGE_BREAK_TOKEN.length
+        }
+
         val sizeSpans = temp.getSpans(0, temp.length, AbsoluteSizeSpan::class.java)
         for (span in sizeSpans) {
             val start = temp.getSpanStart(span)
@@ -221,7 +258,11 @@ class RichTextState {
             val content = match.groupValues[2]
             "<span style=\"font-size:${size}px;\" data-font-size=\"$size\">$content</span>"
         }
-        return withFontSizes
+        val withPageBreaks = withFontSizes.replace(
+            Regex("""<a href="voicejournal-page-break:1"[^>]*>.*?</a>""", RegexOption.DOT_MATCHES_ALL),
+            """<span data-voicejournal-page-break="true"></span>"""
+        )
+        return withPageBreaks
     }
 
     fun setText(text: String) {
@@ -490,26 +531,6 @@ class RichTextState {
         val content = currentEditable()
         val insertAt = selectionEnd.coerceIn(0, content.length)
         content.insert(insertAt, PAGE_BREAK_MARKER)
-        val labelStart = insertAt + 2
-        val labelEnd = labelStart + PAGE_BREAK_LABEL.length
-        content.setSpan(
-            AlignmentSpan.Standard(android.text.Layout.Alignment.ALIGN_CENTER),
-            labelStart,
-            labelEnd,
-            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        content.setSpan(
-            StyleSpan(Typeface.ITALIC),
-            labelStart,
-            labelEnd,
-            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        content.setSpan(
-            ForegroundColorSpan(0xFF8A8A8A.toInt()),
-            labelStart,
-            labelEnd,
-            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
         applyEditableToEditor(content, insertAt + PAGE_BREAK_MARKER.length)
         refreshStateSnapshot()
     }
@@ -1125,6 +1146,7 @@ private fun TextUnit.resolveSpOrFallback(fallback: Float): Float {
 internal class RichEditText(context: Context) : AppCompatEditText(context) {
     companion object {
         const val LINES_PER_PAGE = 15
+        const val PAGE_LINE_STRIDE = LINES_PER_PAGE + 2
     }
 
     var onSelectionChangedListener: ((Int, Int) -> Unit)? = null
@@ -1164,16 +1186,21 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
     private val bottomPadPx: Int = (20f * density).roundToInt()
     val bottomScrollPaddingPx: Int = (180f * density).roundToInt()
     private val horizontalPadPx: Int = (16f * density).roundToInt()
-    val pageGapPx: Int = (32f * density).roundToInt()
+    val pageGapPx: Int = (36f * density).roundToInt()
 
     val pageContentHeight: Int = LINES_PER_PAGE * fixedLineHeight
     val pageHeightPx: Int = pageContentHeight + topPadPx + bottomPadPx
+
+    private val cardInsetPx: Float = 8f * density
+    private val cardCornerRadiusPx: Float = 8f * density
 
     private var downX = 0f
     private var downY = 0f
     private var lastTouchY = 0f
     private var isDragging = false
     private var downTime = 0L
+    private var isTwoFingerScrolling = false
+    private var lastTwoFingerY = 0f
 
     fun getMaxScrollY(): Int {
         val pages = getTotalPages()
@@ -1188,20 +1215,25 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
 
     private val activeStroke = mutableListOf<Pair<Float, Float>>()
     private var activeStrokePageIndex = 0
+    private val cardRect = android.graphics.RectF()
+    private val cardPath = android.graphics.Path()
+    private val strokePath = android.graphics.Path()
 
+    private val pageCardPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.FILL
+    }
+    private val pageCardBorderPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 1f * density
+    }
     private val ruledLinePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         style = android.graphics.Paint.Style.STROKE
         strokeWidth = 1f * density
     }
-    private val pageDividerPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        style = android.graphics.Paint.Style.STROKE
-        strokeWidth = 1.5f * density
-        pathEffect = DashPathEffect(floatArrayOf(10f * density, 6f * density), 0f)
-    }
-    private val pageLabelPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = 12f * density
-        textAlign = android.graphics.Paint.Align.CENTER
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    private val pageCounterPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 10f * density
+        textAlign = android.graphics.Paint.Align.RIGHT
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
     }
     private val strokePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         style = android.graphics.Paint.Style.STROKE
@@ -1223,7 +1255,7 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         val statePages = richTextState?.pageCount() ?: 1
         val l = layout
         val lPages = if (l != null && l.lineCount > 0) {
-            ((l.lineCount - 1) / LINES_PER_PAGE) + 1
+            ((l.lineCount - 1) / PAGE_LINE_STRIDE) + 1
         } else 1
         return maxOf(statePages, lPages, 1)
     }
@@ -1341,6 +1373,48 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (drawingEnabled) {
             parent?.requestDisallowInterceptTouchEvent(true)
+            val action = event.actionMasked
+
+            // 2-finger vertical scrolling while in drawing mode
+            if (event.pointerCount >= 2) {
+                val avgY = (event.getY(0) + event.getY(1)) / 2f
+                when (action) {
+                    MotionEvent.ACTION_POINTER_DOWN -> {
+                        activeStroke.clear()
+                        isTwoFingerScrolling = true
+                        lastTwoFingerY = avgY
+                        invalidate()
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (!isTwoFingerScrolling) {
+                            activeStroke.clear()
+                            isTwoFingerScrolling = true
+                            lastTwoFingerY = avgY
+                        } else {
+                            val dy = lastTwoFingerY - avgY
+                            lastTwoFingerY = avgY
+                            val maxScroll = getMaxScrollY()
+                            if (maxScroll > 0) {
+                                val newScrollY = (scrollY + dy.toInt()).coerceIn(0, maxScroll)
+                                scrollTo(scrollX, newScrollY)
+                            }
+                        }
+                    }
+                    MotionEvent.ACTION_POINTER_UP -> {
+                        // Keep scrolling state until all fingers lift to prevent stray marks
+                        isTwoFingerScrolling = true
+                    }
+                }
+                return true
+            }
+
+            if (isTwoFingerScrolling) {
+                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    isTwoFingerScrolling = false
+                }
+                return true
+            }
+
             val totalPages = getTotalPages()
             val contentWidth = (width - paddingLeft - paddingRight).toFloat().coerceAtLeast(1f)
             val padL = paddingLeft.toFloat()
@@ -1354,7 +1428,7 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
             val nx = ((canvasX - padL) / contentWidth).coerceIn(0f, 1f)
             val ny = ((canvasY - pageTop - topPadPx) / pageContentHeight.toFloat()).coerceIn(0f, 1f)
 
-            when (event.action) {
+            when (action) {
                 MotionEvent.ACTION_DOWN -> {
                     if (drawingTool == CanvasDrawingTool.ERASER) {
                         val eraserRadius = (drawingStrokeWidthDp * 2.5f * density / contentWidth).coerceAtLeast(0.015f)
@@ -1372,7 +1446,11 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                         val eraserRadius = (drawingStrokeWidthDp * 2.5f * density / contentWidth).coerceAtLeast(0.015f)
                         onEraseStroke?.invoke(touchedPage, nx, ny, eraserRadius)
                     } else {
-                        activeStroke.add(nx to ny)
+                        // Lock stroke coordinates to activeStrokePageIndex (clamped 0f..1f)
+                        val lockedPage = activeStrokePageIndex.coerceIn(0, totalPages - 1)
+                        val lockedPageTop = lockedPage * singlePageTotal
+                        val lockedNy = ((canvasY - lockedPageTop - topPadPx) / pageContentHeight.toFloat()).coerceIn(0f, 1f)
+                        activeStroke.add(nx to lockedNy)
                         invalidate()
                     }
                     return true
@@ -1513,21 +1591,40 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         val padL = paddingLeft.toFloat()
         val padR = (width - paddingRight).toFloat()
 
-        // Theme-aware paint colors
+        // Theme-aware backdrop & page card colors
         val isDark = ((currentTextColor and 0x00FFFFFF) > 0x888888)
+        val backdropColor = if (isDark) 0xFF232323.toInt() else 0xFFEBE8E6.toInt()
         if (isDark) {
+            pageCardPaint.color = 0xFF141414.toInt()
+            pageCardBorderPaint.color = 0x33FFFFFF
             ruledLinePaint.color = 0x22FFFFFF
-            pageDividerPaint.color = 0x44FFFFFF
-            pageLabelPaint.color = 0x88FFFFFF.toInt()
+            pageCounterPaint.color = 0x66FFFFFF
         } else {
+            pageCardPaint.color = 0xFFFFFFFF.toInt()
+            pageCardBorderPaint.color = 0x22000000
             ruledLinePaint.color = 0x1A000000
-            pageDividerPaint.color = 0x33000000
-            pageLabelPaint.color = 0x66000000
+            pageCounterPaint.color = 0x55000000
         }
 
-        // 1. Draw ruled notebook lines and page dividers
+        // 1. Fill backdrop behind page cards
+        canvas.drawColor(backdropColor)
+
+        val cardLeft = cardInsetPx
+        val cardRight = (width - cardInsetPx).coerceAtLeast(cardLeft + 1f)
+
+        // 2. Render each page card: fill -> clip -> ruled lines -> paper-layer strokes -> counter -> restore -> border
         for (p in 0 until totalPages) {
             val pageTop = p * (pageHeightPx + pageGapPx).toFloat()
+            val pageBottom = pageTop + pageHeightPx.toFloat()
+
+            cardRect.set(cardLeft, pageTop, cardRight, pageBottom)
+            cardPath.reset()
+            cardPath.addRoundRect(cardRect, cardCornerRadiusPx, cardCornerRadiusPx, android.graphics.Path.Direction.CW)
+
+            canvas.drawPath(cardPath, pageCardPaint)
+
+            canvas.save()
+            canvas.clipPath(cardPath)
 
             // 15 ruled lines for this page
             for (line in 0 until LINES_PER_PAGE) {
@@ -1535,32 +1632,41 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                 canvas.drawLine(padL, lineY, padR, lineY, ruledLinePaint)
             }
 
-            // Divider between pages
-            if (p < totalPages - 1) {
-                val dividerY = pageTop + pageHeightPx + (pageGapPx / 2f)
-                canvas.drawLine(padL, dividerY, padR, dividerY, pageDividerPaint)
-                val label = "── Page ${p + 2} ──"
-                canvas.drawText(label, width / 2f, dividerY - (4f * density), pageLabelPaint)
+            // Paper-layer drawing strokes behind text (highlighter -> pen -> active stroke)
+            drawDrawingStrokesForPage(canvas, p, totalPages, pageTop, padL, contentWidth, isHighlighter = true)
+            drawDrawingStrokesForPage(canvas, p, totalPages, pageTop, padL, contentWidth, isHighlighter = false)
+            if (activeStroke.size >= 2 && activeStrokePageIndex.coerceIn(0, totalPages - 1) == p) {
+                drawActiveStrokeForPage(canvas, pageTop, padL, contentWidth)
             }
+
+            // Subtle bottom-right page counter inside the card
+            canvas.drawText(
+                "${p + 1}/$totalPages",
+                cardRight - (10f * density),
+                pageBottom - (6f * density),
+                pageCounterPaint
+            )
+
+            canvas.restore()
+
+            // 1dp rounded border on top of clipped card
+            canvas.drawPath(cardPath, pageCardBorderPaint)
         }
 
-        // 2. Draw highlighter drawing strokes (UNDER text)
-        drawDrawingStrokes(canvas, totalPages, isHighlighter = true)
-
-        // 3. Draw text, spans, cursor
+        // 3. Draw text, spans, cursor LAST so text always renders crisp on top of drawings
         super.onDraw(canvas)
-
-        // 4. Draw pen drawing strokes (OVER text)
-        drawDrawingStrokes(canvas, totalPages, isHighlighter = false)
-
-        // 5. Draw active stroke in progress
-        drawActiveStroke(canvas)
     }
 
-    private fun drawDrawingStrokes(canvas: android.graphics.Canvas, totalPages: Int, isHighlighter: Boolean) {
+    private fun drawDrawingStrokesForPage(
+        canvas: android.graphics.Canvas,
+        pageIndex: Int,
+        totalPages: Int,
+        pageTop: Float,
+        padL: Float,
+        contentWidth: Float,
+        isHighlighter: Boolean
+    ) {
         if (drawingBlocks.isEmpty()) return
-        val contentWidth = (width - paddingLeft - paddingRight).toFloat().coerceAtLeast(1f)
-        val padL = paddingLeft.toFloat()
 
         for (block in drawingBlocks) {
             val tool = block.drawingTool ?: "PEN"
@@ -1568,10 +1674,11 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
             if (isToolHighlighter != isHighlighter) continue
 
             val p = (block.canvasPageIndex ?: 0).coerceIn(0, totalPages - 1)
+            if (p != pageIndex) continue
+
             val points = decodeDrawingPath(block.drawingPath)
             if (points.size < 2) continue
 
-            val pageTop = p * (pageHeightPx + pageGapPx).toFloat()
             val strokeColorInt = block.drawingColor?.toInt() ?: 0xFF000000.toInt()
             val baseAlpha = (block.drawingAlpha ?: 1f).coerceIn(0.05f, 1f)
             val alpha = if (isToolHighlighter) (baseAlpha * 0.45f).coerceIn(0.1f, 0.6f) else baseAlpha
@@ -1580,25 +1687,17 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
             strokePaint.color = colorWithAlpha
             strokePaint.strokeWidth = (block.drawingStrokeWidth ?: (4f * density)).coerceAtLeast(1f)
 
-            for (i in 1 until points.size) {
-                val start = points[i - 1]
-                val end = points[i]
-                val x1 = padL + (start.first * contentWidth)
-                val y1 = pageTop + topPadPx + (start.second * pageContentHeight)
-                val x2 = padL + (end.first * contentWidth)
-                val y2 = pageTop + topPadPx + (end.second * pageContentHeight)
-                canvas.drawLine(x1, y1, x2, y2, strokePaint)
-            }
+            drawSmoothStroke(canvas, points, pageTop, padL, contentWidth)
         }
     }
 
-    private fun drawActiveStroke(canvas: android.graphics.Canvas) {
+    private fun drawActiveStrokeForPage(
+        canvas: android.graphics.Canvas,
+        pageTop: Float,
+        padL: Float,
+        contentWidth: Float
+    ) {
         if (activeStroke.size < 2) return
-        val totalPages = getTotalPages()
-        val p = activeStrokePageIndex.coerceIn(0, totalPages - 1)
-        val pageTop = p * (pageHeightPx + pageGapPx).toFloat()
-        val contentWidth = (width - paddingLeft - paddingRight).toFloat().coerceAtLeast(1f)
-        val padL = paddingLeft.toFloat()
 
         val isHighlighter = drawingTool == CanvasDrawingTool.HIGHLIGHTER
         val baseAlpha = drawingAlpha.coerceIn(0.05f, 1f)
@@ -1609,15 +1708,42 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         strokePaint.color = colorWithAlpha
         strokePaint.strokeWidth = (drawingStrokeWidthDp * density).coerceAtLeast(1f)
 
-        for (i in 1 until activeStroke.size) {
-            val start = activeStroke[i - 1]
-            val end = activeStroke[i]
-            val x1 = padL + (start.first * contentWidth)
-            val y1 = pageTop + topPadPx + (start.second * pageContentHeight)
-            val x2 = padL + (end.first * contentWidth)
-            val y2 = pageTop + topPadPx + (end.second * pageContentHeight)
-            canvas.drawLine(x1, y1, x2, y2, strokePaint)
+        drawSmoothStroke(canvas, activeStroke, pageTop, padL, contentWidth)
+    }
+
+    private fun drawSmoothStroke(
+        canvas: android.graphics.Canvas,
+        points: List<Pair<Float, Float>>,
+        pageTop: Float,
+        padL: Float,
+        contentWidth: Float
+    ) {
+        if (points.size < 2) return
+        strokePath.reset()
+        val firstX = padL + (points[0].first * contentWidth)
+        val firstY = pageTop + topPadPx + (points[0].second * pageContentHeight)
+        strokePath.moveTo(firstX, firstY)
+
+        if (points.size == 2) {
+            val secondX = padL + (points[1].first * contentWidth)
+            val secondY = pageTop + topPadPx + (points[1].second * pageContentHeight)
+            strokePath.lineTo(secondX, secondY)
+        } else {
+            for (i in 1 until points.size - 1) {
+                val curX = padL + (points[i].first * contentWidth)
+                val curY = pageTop + topPadPx + (points[i].second * pageContentHeight)
+                val nextX = padL + (points[i + 1].first * contentWidth)
+                val nextY = pageTop + topPadPx + (points[i + 1].second * pageContentHeight)
+                val midX = (curX + nextX) / 2f
+                val midY = (curY + nextY) / 2f
+                strokePath.quadTo(curX, curY, midX, midY)
+            }
+            val lastX = padL + (points.last().first * contentWidth)
+            val lastY = pageTop + topPadPx + (points.last().second * pageContentHeight)
+            strokePath.lineTo(lastX, lastY)
         }
+
+        canvas.drawPath(strokePath, strokePaint)
     }
 
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {

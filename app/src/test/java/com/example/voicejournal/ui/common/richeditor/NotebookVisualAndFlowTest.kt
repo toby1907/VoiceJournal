@@ -242,4 +242,109 @@ class NotebookVisualAndFlowTest {
         composeRule.onNodeWithText("Done").performClick()
         composeRule.onNodeWithContentDescription("More Options").assertIsDisplayed()
     }
+
+    @Test
+    fun paperLayerDrawing_rendersBehindText_andClipsInsidePageCard() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val density = context.resources.displayMetrics.density
+        val state = RichTextState()
+        val editor = RichEditText(context).apply {
+            setTextColor(Color.BLACK)
+            richTextState = state
+        }
+        state.bindEditor(editor)
+
+        val page1Lines = buildList {
+            add("MMMMMMMMMMMMMMMMMM")
+            for (i in 2..15) add("Line $i")
+        }.joinToString("\n")
+        state.setText(page1Lines)
+        state.onEditorContentChanged(editor.text, editor.text!!.length, editor.text!!.length)
+        state.insertPageBreak()
+        editor.text?.append("Page 2 Top Line")
+        state.onEditorContentChanged(editor.text, editor.text!!.length, editor.text!!.length)
+
+        // Solid opaque blue pen stroke across Line 1 (behind dark black text)
+        // + thick red pen stroke right at bottom edge of Page 1 (must clip inside Page 1 card, 0 bleed in gap)
+        editor.drawingBlocks = listOf(
+            NoteBlock(
+                id = "blue-under-text",
+                order = 0,
+                type = NoteBlockType.DRAWING.name,
+                canvasPageIndex = 0,
+                drawingPath = encodeDrawingPath(listOf(0.0f to 0.03f, 0.5f to 0.03f, 0.9f to 0.03f)),
+                drawingColor = 0xFF1A73E8L,
+                drawingStrokeWidth = 44f * density,
+                drawingAlpha = 1f,
+                drawingTool = CanvasDrawingTool.PEN.name
+            ),
+            NoteBlock(
+                id = "red-bottom-edge",
+                order = 1,
+                type = NoteBlockType.DRAWING.name,
+                canvasPageIndex = 0,
+                drawingPath = encodeDrawingPath(listOf(0.05f to 1.0f, 0.5f to 1.0f, 0.95f to 1.0f)),
+                drawingColor = 0xFFD93025L,
+                drawingStrokeWidth = 60f * density,
+                drawingAlpha = 1f,
+                drawingTool = CanvasDrawingTool.PEN.name
+            )
+        )
+
+        val width = 1080
+        val height = editor.pageHeightPx + editor.pageGapPx + 400
+        editor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        editor.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.WHITE)
+        editor.draw(canvas)
+
+        val outFile = saveBitmap(bitmap, "paper_layer_clip_and_zorder.png")
+        assertTrue("paper_layer_clip_and_zorder.png should exist", outFile.exists() && outFile.length() > 0L)
+
+        // 1. Inspect Line 1 region: verify BOTH solid blue pen pixels AND crisp dark text pixels rendered on top
+        val topPadPx = (20f * density).toInt()
+        val line1Top = topPadPx
+        val line1Bottom = (topPadPx + editor.fixedLineHeight).coerceAtMost(bitmap.height - 1)
+        var blueStrokePixels = 0
+        var darkTextOnBluePixels = 0
+        for (y in line1Top until line1Bottom) {
+            for (x in 50 until 550) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = Color.red(pixel)
+                val g = Color.green(pixel)
+                val b = Color.blue(pixel)
+                if (b > 170 && r < 90) {
+                    blueStrokePixels++
+                }
+                if (r < 60 && g < 60 && b < 60) {
+                    darkTextOnBluePixels++
+                }
+            }
+        }
+        assertTrue("Expected solid blue pen stroke pixels on Line 1 (found $blueStrokePixels)", blueStrokePixels > 100)
+        assertTrue("Expected dark text pixels rendered on top of blue stroke (found $darkTextOnBluePixels)", darkTextOnBluePixels > 50)
+
+        // 2. Inspect the inter-page gap between Page 1 and Page 2: assert 0 red pixels bleed outside Page 1 card
+        val gapStart = editor.pageHeightPx + 2
+        val gapEnd = (editor.pageHeightPx + editor.pageGapPx - 2).coerceAtMost(bitmap.height - 1)
+        var redPixelsInGap = 0
+        for (y in gapStart until gapEnd) {
+            for (x in 0 until width) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = Color.red(pixel)
+                val g = Color.green(pixel)
+                val b = Color.blue(pixel)
+                if (r > 170 && g < 90 && b < 90) {
+                    redPixelsInGap++
+                }
+            }
+        }
+        assertTrue("Expected 0 red stroke pixels to bleed into inter-page gap (found $redPixelsInGap)", redPixelsInGap == 0)
+    }
 }

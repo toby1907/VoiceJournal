@@ -111,15 +111,21 @@ class RichTextStateTest {
     }
 
     @Test
-    fun insertPageBreak_insertsVisibleSeparator() {
+    fun insertPageBreak_insertsInvisibleMarkerAndRoundTripsThroughHtml() {
         val (state, _) = createBoundState("first page")
 
         state.onEditorContentChanged(currentText(state), 10, 10)
         state.insertPageBreak()
 
-        assertTrue(state.annotatedString.text.contains("Page break"))
-        assertTrue(state.toHtml().contains("Page break"))
+        assertTrue(!state.annotatedString.text.contains("Page break"))
+        val html = state.toHtml()
+        assertTrue(html.contains("data-voicejournal-page-break=\"true\""))
         assertEquals(2, state.pageCount())
+
+        val reloaded = RichTextState()
+        reloaded.setHtml(html)
+        assertEquals(2, reloaded.pageCount())
+        assertTrue(!reloaded.annotatedString.text.contains("Page break"))
     }
 
     @Test
