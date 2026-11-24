@@ -59,18 +59,24 @@ fun NewJournalItem(
     voiceJournal: VoiceJournal,
 
 ) {
-    val titleState = rememberRichTextState()
-    val iconState = rememberRichTextState()
     val isLocked = voiceJournal.isNoteLocked()
     val displayTitleHtml = voiceJournal.primaryRichTitleHtml(revealLockedContent = !isLocked)
     val bodyPreview = voiceJournal.primaryBodyPreviewText(revealLockedContent = !isLocked)
     val audioPath = voiceJournal.primaryAudioPath(revealLockedContent = !isLocked)
     val imageUris = voiceJournal.imageUrisFromBlocks(revealLockedContent = !isLocked)
 
-    titleState.setHtml(displayTitleHtml)
-    iconState.setHtml(displayTitleHtml)
-    iconState.setText(iconState.annotatedString.text.getOrNull(0).toString()
-        .toUpperCase(Locale.getDefault()))
+    val titleState = androidx.compose.runtime.remember(displayTitleHtml) {
+        com.example.voicejournal.ui.common.richeditor.RichTextState().apply {
+            setHtml(displayTitleHtml)
+        }
+    }
+    val iconState = androidx.compose.runtime.remember(displayTitleHtml) {
+        com.example.voicejournal.ui.common.richeditor.RichTextState().apply {
+            setHtml(displayTitleHtml)
+            val initial = annotatedString.text.trim().firstOrNull()?.uppercase(Locale.getDefault()) ?: ""
+            setText(initial)
+        }
+    }
 
     Column {
         Row(

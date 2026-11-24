@@ -61,11 +61,8 @@ class NotebookEditorInstrumentedTest {
         get() = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
 
     private fun takeScreenshot(name: String) {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "test_screenshots")
-        dir.mkdirs()
-        val file = File(dir, "$name.png")
-        device.takeScreenshot(file)
+        device.executeShellCommand("mkdir -p /data/local/tmp/test_screenshots")
+        device.executeShellCommand("screencap -p /data/local/tmp/test_screenshots/$name.png")
     }
 
     private fun setEditorLinesAndFocus(linesText: String): ViewAction {
@@ -102,10 +99,14 @@ class NotebookEditorInstrumentedTest {
         composeRule.waitForIdle()
         takeScreenshot("02_editor_title_entered")
 
-        // 3. Enter 15 lines in Notebook Canvas Editor + press Enter to trigger auto page break (2 / 2)
+        // 3. Enter 15 lines in Notebook Canvas Editor, capture Line 15 + scrollbar screenshot, then press Enter to trigger auto page break (2 / 2)
         val fifteenLines = (1..15).joinToString("\n") { "Notebook line $it" }
         onView(withContentDescription("Notebook Canvas Editor"))
             .perform(setEditorLinesAndFocus(fifteenLines))
+        composeRule.waitForIdle()
+        takeScreenshot("02b_line15_keyboard_open_scrollbar")
+
+        onView(withContentDescription("Notebook Canvas Editor"))
             .perform(pressKey(KeyEvent.KEYCODE_ENTER))
 
         composeRule.waitUntil(timeoutMillis = 10_000) {

@@ -91,7 +91,7 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: bash -c 'chmod +x ./gradlew; set +e; ./gradlew connectedDebugAndroidTest --stacktrace; TEST_EXIT_CODE=$?; mkdir -p emulator-screenshots; adb pull /sdcard/Android/data/com.example.voicejournal/files/Pictures/test_screenshots/. emulator-screenshots/ || true; ls -la emulator-screenshots/ || true; exit $TEST_EXIT_CODE'
+          script: bash -c 'chmod +x ./gradlew; adb shell rm -rf /data/local/tmp/test_screenshots; set +e; ./gradlew connectedDebugAndroidTest --stacktrace; TEST_EXIT_CODE=$?; mkdir -p emulator-screenshots; adb pull /data/local/tmp/test_screenshots/. emulator-screenshots/ || true; ls -la emulator-screenshots/ || true; exit $TEST_EXIT_CODE'
 
       - name: Upload Emulator Screenshots
         if: always()
