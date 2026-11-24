@@ -469,4 +469,64 @@ class NotebookVisualAndFlowTest {
             upEvent.recycle()
         }
     }
+
+    @Test
+    fun tapOnSpecificLine_keepsCursorOnTappedLineWithoutSnappingToLine1() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val state = RichTextState()
+        val editor = RichEditText(context).apply {
+            movementMethod = android.text.method.ArrowKeyMovementMethod.getInstance()
+            setTextColor(Color.BLACK)
+            richTextState = state
+        }
+        state.bindEditor(editor)
+
+        val tenLines = (1..10).joinToString("\n") { "Notebook line $it" }
+        state.setText(tenLines)
+        state.onEditorContentChanged(editor.text, editor.text!!.length, editor.text!!.length)
+
+        val width = 1080
+        val height = 1600
+        editor.layoutParams = android.view.ViewGroup.LayoutParams(width, height)
+        editor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        editor.layout(0, 0, width, height)
+
+        // Tap on Line 6 (0-indexed line 5)
+        val targetLineIndex = 5
+        val layout = editor.layout!!
+        val tapY = editor.totalPaddingTop + (layout.getLineTop(targetLineIndex) + layout.getLineBottom(targetLineIndex)) / 2f
+        val tapX = editor.totalPaddingLeft + 120f
+        val now = SystemClock.uptimeMillis()
+        val down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, tapX, tapY, 0)
+        val up = MotionEvent.obtain(now, now + 40, MotionEvent.ACTION_UP, tapX, tapY, 0)
+        try {
+            editor.onTouchEvent(down)
+            editor.onTouchEvent(up)
+        } finally {
+            down.recycle()
+            up.recycle()
+        }
+
+        val tappedOffset = editor.selectionEnd
+        val tappedLine = editor.layout!!.getLineForOffset(tappedOffset)
+        assertTrue(
+            "Cursor should land on tapped line $targetLineIndex (was line $tappedLine, offset=$tappedOffset)",
+            tappedLine == targetLineIndex
+        )
+
+        // Simulate typing on the tapped line and subsequent recomposition property updates
+        editor.text?.insert(tappedOffset, "X")
+        val afterTypeOffset = editor.selectionEnd
+        editor.drawingEnabled = false
+        editor.drawingBlocks = emptyList()
+
+        val finalLine = editor.layout!!.getLineForOffset(editor.selectionEnd)
+        assertTrue(
+            "Cursor should remain on line $targetLineIndex after typing stops (was line $finalLine, offset=${editor.selectionEnd}, expected=$afterTypeOffset)",
+            finalLine == targetLineIndex && editor.selectionEnd == afterTypeOffset
+        )
+    }
 }

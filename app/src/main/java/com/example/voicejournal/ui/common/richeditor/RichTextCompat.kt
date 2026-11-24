@@ -8,6 +8,7 @@ import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextWatcher
+import android.text.method.ArrowKeyMovementMethod
 import android.text.method.LinkMovementMethod
 import android.text.style.AbsoluteSizeSpan
 import android.text.style.AlignmentSpan
@@ -978,9 +979,8 @@ fun RichTextEditor(
             factory = { context ->
                 RichEditText(context).apply {
                     contentDescription = "Notebook Canvas Editor"
-                    movementMethod = LinkMovementMethod.getInstance()
+                    movementMethod = ArrowKeyMovementMethod.getInstance()
                     linksClickable = true
-                    autoLinkMask = Linkify.WEB_URLS
                     gravity = Gravity.TOP or Gravity.START
                     setTextColor(
                         if (colors.textColor == Color.Unspecified) currentTextColor else colors.textColor.toArgb()
@@ -1031,11 +1031,22 @@ fun RichTextEditor(
                 }
             },
             update = { editText ->
-                editText.isFocusable = !readOnly
-                editText.isFocusableInTouchMode = !readOnly
-                editText.gravity = Gravity.TOP or Gravity.START
+                val desiredFocusable = !readOnly
+                if (editText.isFocusable != desiredFocusable) {
+                    editText.isFocusable = desiredFocusable
+                }
+                if (editText.isFocusableInTouchMode != desiredFocusable) {
+                    editText.isFocusableInTouchMode = desiredFocusable
+                }
+                val desiredGravity = Gravity.TOP or Gravity.START
+                if (editText.gravity != desiredGravity) {
+                    editText.gravity = desiredGravity
+                }
                 if (colors.textColor != Color.Unspecified) {
-                    editText.setTextColor(colors.textColor.toArgb())
+                    val desiredColor = colors.textColor.toArgb()
+                    if (editText.currentTextColor != desiredColor) {
+                        editText.setTextColor(desiredColor)
+                    }
                 }
                 editText.onChecklistToggleRequested = { offset ->
                     state.toggleChecklistAtOffset(offset)
@@ -1159,17 +1170,20 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
 
     var drawingBlocks: List<NoteBlock> = emptyList()
         set(value) {
+            if (field == value) return
             field = value
             invalidate()
         }
     var drawingEnabled: Boolean = false
         set(value) {
+            if (field == value) return
             field = value
             isCursorVisible = !value
             invalidate()
         }
     var drawingTool: CanvasDrawingTool = CanvasDrawingTool.PEN
         set(value) {
+            if (field == value) return
             field = value
             invalidate()
         }
@@ -1370,12 +1384,9 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         val prevSelStart = selectionStart
         val prevSelEnd = selectionEnd
         super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
-        if (gainFocus) {
-            onFocusGained?.invoke()
-            if (prevSelStart >= 0 && prevSelEnd >= 0 && !text.isNullOrEmpty()) {
-                val len = text!!.length
-                setSelection(prevSelStart.coerceIn(0, len), prevSelEnd.coerceIn(0, len))
-            }
+        if (gainFocus && selectionStart < 0 && prevSelStart >= 0 && prevSelEnd >= 0 && !text.isNullOrEmpty()) {
+            val len = text!!.length
+            setSelection(prevSelStart.coerceIn(0, len), prevSelEnd.coerceIn(0, len))
         }
     }
 
@@ -1598,7 +1609,7 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
             return true
         }
 
-        when (event.action) {
+        when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = event.x
                 downY = event.y
@@ -1615,6 +1626,11 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                         isDragging = true
                         isPressed = false
                         cancelLongPress()
+                        val cancelEvent = MotionEvent.obtain(event).apply {
+                            action = MotionEvent.ACTION_CANCEL
+                        }
+                        super.onTouchEvent(cancelEvent)
+                        cancelEvent.recycle()
                     }
                     val maxScroll = getMaxScrollY()
                     if (maxScroll > 0) {
@@ -1625,14 +1641,29 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                 }
             }
             MotionEvent.ACTION_UP -> {
+                if (isDragging) {
+                    isDragging = false
+                    return true
+                }
                 val dx = Math.abs(event.x - downX)
                 val dy = Math.abs(event.y - downY)
                 val dt = System.currentTimeMillis() - downTime
-                val isTap = dx < 24 && dy < 24 && dt < 450 && !isDragging
+                val isTap = dx < 24 && dy < 24 && dt < 450
 
                 if (isTap) {
-                    onFocusGained?.invoke()
-                    requestFocus()
+                    // Cleanly terminate super's pending touch state so Editor never resets our selection
+                    isPressed = false
+                    cancelLongPress()
+                    val cancelEvent = MotionEvent.obtain(event).apply {
+                        action = MotionEvent.ACTION_CANCEL
+                    }
+                    super.onTouchEvent(cancelEvent)
+                    cancelEvent.recycle()
+
+                    if (!hasFocus()) {
+                        onFocusGained?.invoke()
+                        requestFocus()
+                    }
                     val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
                     imm?.showSoftInput(this, InputMethodManager.SHOW_IMPLICIT)
 
@@ -1640,7 +1671,7 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                     val y = (event.y + scrollY - totalPaddingTop).coerceAtLeast(0f)
                     val l = layout
 
-                    // Check if tapped near checklist checkbox (first 3 chars of line)
+                    // Check if tapped near checklist checkbox (first 3 chars of line) or directly on a URLSpan
                     if (l != null && !text.isNullOrEmpty() && y <= l.height) {
                         val line = l.getLineForVertical(y.toInt()).coerceIn(0, (l.lineCount - 1).coerceAtLeast(0))
                         val lineStart = l.getLineStart(line)
@@ -1648,13 +1679,28 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                         if (offset <= lineStart + 3 && onChecklistToggleRequested?.invoke(offset) == true) {
                             return true
                         }
+                        if (linksClickable && x <= l.getLineRight(line)) {
+                            val spanned = text
+                            if (spanned != null) {
+                                val urlSpans = spanned.getSpans(offset, offset, URLSpan::class.java)
+                                val hitSpan = urlSpans.firstOrNull { span ->
+                                    val spanStart = spanned.getSpanStart(span)
+                                    val spanEnd = spanned.getSpanEnd(span)
+                                    offset in spanStart until spanEnd
+                                }
+                                if (hitSpan != null) {
+                                    hitSpan.onClick(this)
+                                    return true
+                                }
+                            }
+                        }
                     }
 
                     // Tapped on notebook lines
                     val currentText = text ?: SpannableStringBuilder()
                     val lHeight = fixedLineHeight.coerceAtLeast(1)
                     val totalPages = getTotalPages()
-                    val totalAllowedLines = totalPages * LINES_PER_PAGE
+                    val totalAllowedLines = (totalPages - 1) * PAGE_LINE_STRIDE + LINES_PER_PAGE
 
                     val rawTargetLine = (y / lHeight).toInt().coerceAtLeast(0)
                     val targetLine = rawTargetLine.coerceIn(0, totalAllowedLines - 1)
@@ -1663,7 +1709,6 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                         val line = l.getLineForVertical(y.toInt()).coerceIn(0, (l.lineCount - 1).coerceAtLeast(0))
                         val offset = l.getOffsetForHorizontal(line, x).coerceIn(0, text!!.length)
                         setSelection(offset)
-                        onSelectionChangedListener?.invoke(offset, offset)
                         ensureCursorVisible()
                         post { ensureCursorVisible() }
                         return true
@@ -1680,7 +1725,6 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                         }
                         val targetOffset = currentText.length
                         setSelection(targetOffset)
-                        onSelectionChangedListener?.invoke(targetOffset, targetOffset)
                         ensureCursorVisible()
                         post { ensureCursorVisible() }
                         return true
@@ -1697,18 +1741,18 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                         }
                         val targetOffset = currentText.length
                         setSelection(targetOffset)
-                        onSelectionChangedListener?.invoke(targetOffset, targetOffset)
                         ensureCursorVisible()
                         post { ensureCursorVisible() }
                         return true
                     }
+                    return true
                 }
-                isDragging = false
-                return true
             }
             MotionEvent.ACTION_CANCEL -> {
-                isDragging = false
-                return true
+                if (isDragging) {
+                    isDragging = false
+                    return true
+                }
             }
         }
         return super.onTouchEvent(event)
