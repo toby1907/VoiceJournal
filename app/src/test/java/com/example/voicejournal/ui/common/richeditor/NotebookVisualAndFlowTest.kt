@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -568,6 +570,77 @@ class NotebookVisualAndFlowTest {
         assertTrue(
             "bringPointIntoView must NOT snap scrollY back to 0 (expected $scrolledY, got ${editor.scrollY})",
             editor.scrollY == scrolledY
+        )
+    }
+
+    @Test
+    fun readOnlyMultiPagePreview_scrollsDownPastPage1WithoutBlockingParent() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val state = RichTextState()
+        val page1 = (1..15).joinToString("\n") { "Preview Page 1 Line $it" }
+        state.setText(page1)
+        state.insertPageBreak()
+        val twoPageHtml = state.toHtml() + "<p>Preview Page 2 Line 1</p><p>Preview Page 2 Line 2</p>"
+
+        // 1. Verify standalone read-only full-height RichEditText measures both pages and does NOT steal touch from parent scroll
+        val readOnlyState = RichTextState().apply { setHtml(twoPageHtml) }
+        val readOnlyEditor = RichEditText(context).apply {
+            isFocusable = false
+            isFocusableInTouchMode = false
+            richTextState = readOnlyState
+        }
+        readOnlyState.bindEditor(readOnlyEditor)
+
+        val width = 1080
+        readOnlyEditor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        )
+        readOnlyEditor.layout(0, 0, width, readOnlyEditor.measuredHeight)
+
+        assertTrue(
+            "Full-height read-only 2-page editor should measure taller than 1 page (measured=${readOnlyEditor.measuredHeight}, pageHeight=${readOnlyEditor.pageHeightPx})",
+            readOnlyEditor.measuredHeight >= readOnlyEditor.pageHeightPx * 2
+        )
+        assertTrue("Full-height read-only editor should have getMaxScrollY() == 0", readOnlyEditor.getMaxScrollY() == 0)
+
+        val now = SystemClock.uptimeMillis()
+        val down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 400f, 800f, 0)
+        val move = MotionEvent.obtain(now, now + 16, MotionEvent.ACTION_MOVE, 400f, 400f, 0)
+        try {
+            assertTrue("Read-only full-height editor must not consume ACTION_DOWN so parent verticalScroll works", !readOnlyEditor.onTouchEvent(down))
+            assertTrue("Read-only full-height editor must not consume ACTION_MOVE so parent verticalScroll works", !readOnlyEditor.onTouchEvent(move))
+        } finally {
+            down.recycle()
+            move.recycle()
+        }
+
+        // 2. Verify inside Compose Column.verticalScroll (PreviewScreen layout) that scrollState.maxValue > 0 and can scroll into Page 2
+        var capturedMaxScroll = 0
+        composeRule.setContent {
+            MaterialTheme {
+                val previewState = remember(twoPageHtml) {
+                    RichTextState().apply { setHtml(twoPageHtml) }
+                }
+                val scrollState = rememberScrollState()
+                capturedMaxScroll = scrollState.maxValue
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                ) {
+                    RichTextEditor(
+                        state = previewState,
+                        modifier = Modifier.fillMaxWidth(),
+                        readOnly = true
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        assertTrue(
+            "Compose PreviewScreen verticalScroll should have maxValue > 0 for 2-page note (maxValue=$capturedMaxScroll)",
+            capturedMaxScroll > 0
         )
     }
 }

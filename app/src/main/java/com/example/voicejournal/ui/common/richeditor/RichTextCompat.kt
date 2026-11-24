@@ -641,7 +641,7 @@ class RichTextState {
     internal fun bindEditor(editor: AppCompatEditText) {
         if (boundEditor === editor) return
         boundEditor = editor
-        if (editor.text.isNullOrEmpty() && editable.isNotEmpty()) {
+        if (editable.isNotEmpty() || !editor.text.isNullOrEmpty()) {
             applyEditableToEditor(editable)
         }
     }
@@ -1048,6 +1048,10 @@ fun RichTextEditor(
                         editText.setTextColor(desiredColor)
                     }
                 }
+                val desiredCursorVisible = !readOnly && !drawingEnabled
+                if (editText.isCursorVisible != desiredCursorVisible) {
+                    editText.isCursorVisible = desiredCursorVisible
+                }
                 editText.onChecklistToggleRequested = { offset ->
                     state.toggleChecklistAtOffset(offset)
                 }
@@ -1060,7 +1064,12 @@ fun RichTextEditor(
                 editText.drawingAlpha = drawingAlpha
                 editText.onStrokeDrawn = onStrokeDrawn
                 editText.onEraseStroke = onEraseStroke
-                editText.richTextState = state
+                if (editText.richTextState !== state) {
+                    state.bindEditor(editText)
+                    editText.richTextState = state
+                    editText.requestLayout()
+                    editText.invalidate()
+                }
             }
         )
         if (placeholder != null && state.annotatedString.text.isBlank()) {
@@ -1616,6 +1625,76 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
             return true
         }
 
+        if (!isFocusable) {
+            val maxScroll = getMaxScrollY()
+            if (maxScroll <= 0) {
+                // Full-height read-only preview inside a parent scroll container (e.g. PreviewScreen verticalScroll):
+                // never block parent scrolling; only intercept a tap directly on a URLSpan.
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        if (linksClickable && findUrlSpanAt(event.x, event.y) != null) {
+                            downX = event.x
+                            downY = event.y
+                            downTime = System.currentTimeMillis()
+                            return true
+                        }
+                        return false
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        val dx = Math.abs(event.x - downX)
+                        val dy = Math.abs(event.y - downY)
+                        val dt = System.currentTimeMillis() - downTime
+                        if (linksClickable && dx < 24 && dy < 24 && dt < 450) {
+                            findUrlSpanAt(event.x, event.y)?.let { span ->
+                                span.onClick(this)
+                                return true
+                            }
+                        }
+                        return false
+                    }
+                    else -> return false
+                }
+            }
+            // Bounded read-only viewport: allow vertical drag scrolling + URLSpan taps without opening keyboard
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.x
+                    downY = event.y
+                    lastTouchY = event.y
+                    isDragging = false
+                    downTime = System.currentTimeMillis()
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = lastTouchY - event.y
+                    lastTouchY = event.y
+                    if (Math.abs(event.y - downY) > 8f || isDragging) {
+                        isDragging = true
+                        val newScrollY = (scrollY + dy.toInt()).coerceIn(0, maxScroll)
+                        scrollTo(scrollX, newScrollY)
+                        return true
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_UP -> {
+                    val dx = Math.abs(event.x - downX)
+                    val dy = Math.abs(event.y - downY)
+                    val dt = System.currentTimeMillis() - downTime
+                    if (!isDragging && linksClickable && dx < 24 && dy < 24 && dt < 450) {
+                        findUrlSpanAt(event.x, event.y)?.onClick(this)
+                    }
+                    isDragging = false
+                    return true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    isDragging = false
+                    return true
+                }
+            }
+            return false
+        }
+
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = event.x
@@ -1623,12 +1702,15 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                 lastTouchY = event.y
                 isDragging = false
                 downTime = System.currentTimeMillis()
-                parent?.requestDisallowInterceptTouchEvent(true)
+                if (getMaxScrollY() > 0) {
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                }
             }
             MotionEvent.ACTION_MOVE -> {
                 val dy = lastTouchY - event.y
                 lastTouchY = event.y
-                if (Math.abs(event.y - downY) > 8f || isDragging) {
+                val maxScroll = getMaxScrollY()
+                if (maxScroll > 0 && (Math.abs(event.y - downY) > 8f || isDragging)) {
                     if (!isDragging) {
                         isDragging = true
                         isPressed = false
@@ -1639,11 +1721,8 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                         super.onTouchEvent(cancelEvent)
                         cancelEvent.recycle()
                     }
-                    val maxScroll = getMaxScrollY()
-                    if (maxScroll > 0) {
-                        val newScrollY = (scrollY + dy.toInt()).coerceIn(0, maxScroll)
-                        scrollTo(scrollX, newScrollY)
-                    }
+                    val newScrollY = (scrollY + dy.toInt()).coerceIn(0, maxScroll)
+                    scrollTo(scrollX, newScrollY)
                     return true
                 }
             }
@@ -1763,6 +1842,24 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
             }
         }
         return super.onTouchEvent(event)
+    }
+
+    private fun findUrlSpanAt(eventX: Float, eventY: Float): URLSpan? {
+        val l = layout ?: return null
+        val spanned = text ?: return null
+        if (spanned.isEmpty()) return null
+        val x = (eventX + scrollX - totalPaddingLeft).coerceAtLeast(0f)
+        val y = (eventY + scrollY - totalPaddingTop).coerceAtLeast(0f)
+        if (y > l.height) return null
+        val line = l.getLineForVertical(y.toInt()).coerceIn(0, (l.lineCount - 1).coerceAtLeast(0))
+        if (x > l.getLineRight(line)) return null
+        val offset = l.getOffsetForHorizontal(line, x).coerceIn(0, spanned.length)
+        val urlSpans = spanned.getSpans(offset, offset, URLSpan::class.java)
+        return urlSpans.firstOrNull { span ->
+            val spanStart = spanned.getSpanStart(span)
+            val spanEnd = spanned.getSpanEnd(span)
+            offset in spanStart until spanEnd
+        }
     }
 
     override fun onDraw(canvas: android.graphics.Canvas) {
