@@ -1185,6 +1185,7 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
     private val topPadPx: Int = (20f * density).roundToInt()
     private val bottomPadPx: Int = (20f * density).roundToInt()
     val bottomScrollPaddingPx: Int = (180f * density).roundToInt()
+    val floatingOverlayClearancePx: Int = (140f * density).roundToInt()
     private val horizontalPadPx: Int = (16f * density).roundToInt()
     val pageGapPx: Int = (36f * density).roundToInt()
 
@@ -1193,14 +1194,22 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
 
     private val cardInsetPx: Float = 8f * density
     private val cardCornerRadiusPx: Float = 8f * density
+    private val scrollbarTouchWidthPx: Float = 24f * density
+    private val scrollbarBottomClearancePx: Float = 56f * density
+    private val scrollbarTopMarginPx: Float = 8f * density
+    private val scrollbarRightMarginPx: Float = 3f * density
+    private val scrollbarWidthPx: Float = 5f * density
+    private val scrollbarDraggingWidthPx: Float = 7f * density
 
     private var downX = 0f
     private var downY = 0f
     private var lastTouchY = 0f
     private var isDragging = false
+    private var isScrollbarDragging = false
     private var downTime = 0L
     private var isTwoFingerScrolling = false
     private var lastTwoFingerY = 0f
+    private var viewInitialized = false
 
     fun getMaxScrollY(): Int {
         val pages = getTotalPages()
@@ -1213,11 +1222,60 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         super.scrollTo(x, clampedY)
     }
 
+    fun ensureCursorVisible() {
+        if (!viewInitialized || drawingEnabled || height <= 0) return
+        if (isDragging || isScrollbarDragging) return
+        val l = layout ?: return
+        val textLen = text?.length ?: 0
+        val selEnd = selectionEnd
+        if (selEnd < 0 || l.lineCount <= 0) return
+        val cursor = selEnd.coerceIn(0, textLen)
+        val line = l.getLineForOffset(cursor).coerceIn(0, l.lineCount - 1)
+        val lineTop = totalPaddingTop + l.getLineTop(line)
+        val lineBottom = totalPaddingTop + maxOf(l.getLineBottom(line), l.getLineTop(line) + fixedLineHeight)
+
+        val effectiveBottomClearance = floatingOverlayClearancePx
+            .coerceAtMost((height - fixedLineHeight - topPadPx).coerceAtLeast(0))
+        val visibleTop = scrollY + topPadPx
+        val visibleBottom = scrollY + height - effectiveBottomClearance
+
+        if (lineTop < visibleTop) {
+            val targetY = (lineTop - topPadPx).coerceIn(0, getMaxScrollY())
+            if (targetY != scrollY) {
+                scrollTo(scrollX, targetY)
+            }
+        } else if (lineBottom > visibleBottom) {
+            val availableBand = (height - effectiveBottomClearance - topPadPx - (lineBottom - lineTop)).coerceAtLeast(0)
+            val comfortPx = availableBand.coerceAtMost((12f * density).roundToInt())
+            val targetY = (lineBottom + comfortPx - (height - effectiveBottomClearance)).coerceIn(0, getMaxScrollY())
+            if (targetY != scrollY) {
+                scrollTo(scrollX, targetY)
+            }
+        }
+    }
+
+    private fun scrollFromScrollbarY(touchY: Float) {
+        val maxScroll = getMaxScrollY()
+        if (maxScroll <= 0 || height <= 0) return
+        val trackTop = scrollbarTopMarginPx
+        val trackBottom = (height - scrollbarBottomClearancePx).coerceAtLeast(trackTop + 1f)
+        val trackHeight = (trackBottom - trackTop).coerceAtLeast(1f)
+        val totalContentHeight = (height + maxScroll).toFloat().coerceAtLeast(1f)
+        val minThumbHeight = (40f * density).coerceAtMost(trackHeight)
+        val thumbHeight = (trackHeight * (height.toFloat() / totalContentHeight)).coerceIn(minThumbHeight, trackHeight)
+        val thumbTravel = (trackHeight - thumbHeight).coerceAtLeast(1f)
+        val fraction = ((touchY - trackTop - thumbHeight / 2f) / thumbTravel).coerceIn(0f, 1f)
+        scrollTo(scrollX, (fraction * maxScroll).roundToInt())
+        invalidate()
+    }
+
     private val activeStroke = mutableListOf<Pair<Float, Float>>()
     private var activeStrokePageIndex = 0
     private val cardRect = android.graphics.RectF()
     private val cardPath = android.graphics.Path()
     private val strokePath = android.graphics.Path()
+    private val scrollbarTrackRect = android.graphics.RectF()
+    private val scrollbarThumbRect = android.graphics.RectF()
 
     private val pageCardPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         style = android.graphics.Paint.Style.FILL
@@ -1240,8 +1298,16 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         strokeCap = android.graphics.Paint.Cap.ROUND
         strokeJoin = android.graphics.Paint.Join.ROUND
     }
+    private val scrollbarTrackPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.FILL
+    }
+    private val scrollbarThumbPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.FILL
+    }
 
     init {
+        isVerticalScrollBarEnabled = false
+        isHorizontalScrollBarEnabled = false
         gravity = Gravity.TOP or Gravity.START
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
         setPadding(horizontalPadPx, topPadPx, horizontalPadPx, bottomPadPx)
@@ -1249,6 +1315,7 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         val fontHeight = fm.descent - fm.ascent
         val extra = (fixedLineHeight - fontHeight).coerceAtLeast(0)
         setLineSpacing(extra.toFloat(), 1.0f)
+        viewInitialized = true
     }
 
     fun getTotalPages(): Int {
@@ -1273,6 +1340,25 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
             else -> maxOf(measuredHeight, totalH)
         }
         setMeasuredDimension(w, h)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (!viewInitialized) return
+        if (h > 0 && oldh > 0 && h < oldh && !drawingEnabled) {
+            ensureCursorVisible()
+            post { ensureCursorVisible() }
+        } else if (scrollY > getMaxScrollY()) {
+            scrollTo(scrollX, getMaxScrollY())
+        }
+    }
+
+    override fun onTextChanged(text: CharSequence?, start: Int, lengthBefore: Int, lengthAfter: Int) {
+        super.onTextChanged(text, start, lengthBefore, lengthAfter)
+        if (viewInitialized && height > 0 && !drawingEnabled) {
+            ensureCursorVisible()
+            post { ensureCursorVisible() }
+        }
     }
 
     override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
@@ -1350,6 +1436,7 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                 val nextPageIndex = pageIndex + 1
                 val nextY = nextPageIndex * (pageHeightPx + pageGapPx)
                 scrollTo(0, nextY)
+                ensureCursorVisible()
             }
             return true
         }
@@ -1371,6 +1458,38 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        val actionMasked = event.actionMasked
+        if (isScrollbarDragging) {
+            when (actionMasked) {
+                MotionEvent.ACTION_MOVE -> {
+                    scrollFromScrollbarY(event.y)
+                    return true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    isScrollbarDragging = false
+                    invalidate()
+                    return true
+                }
+            }
+            return true
+        }
+        if (
+            actionMasked == MotionEvent.ACTION_DOWN &&
+            event.pointerCount == 1 &&
+            getMaxScrollY() > 0 &&
+            event.x >= width - scrollbarTouchWidthPx &&
+            event.y >= scrollbarTopMarginPx &&
+            event.y <= (height - scrollbarBottomClearancePx).coerceAtLeast(scrollbarTopMarginPx)
+        ) {
+            isScrollbarDragging = true
+            isDragging = false
+            isPressed = false
+            cancelLongPress()
+            parent?.requestDisallowInterceptTouchEvent(true)
+            scrollFromScrollbarY(event.y)
+            return true
+        }
+
         if (drawingEnabled) {
             parent?.requestDisallowInterceptTouchEvent(true)
             val action = event.actionMasked
@@ -1492,7 +1611,11 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                 val dy = lastTouchY - event.y
                 lastTouchY = event.y
                 if (Math.abs(event.y - downY) > 8f || isDragging) {
-                    isDragging = true
+                    if (!isDragging) {
+                        isDragging = true
+                        isPressed = false
+                        cancelLongPress()
+                    }
                     val maxScroll = getMaxScrollY()
                     if (maxScroll > 0) {
                         val newScrollY = (scrollY + dy.toInt()).coerceIn(0, maxScroll)
@@ -1541,6 +1664,8 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                         val offset = l.getOffsetForHorizontal(line, x).coerceIn(0, text!!.length)
                         setSelection(offset)
                         onSelectionChangedListener?.invoke(offset, offset)
+                        ensureCursorVisible()
+                        post { ensureCursorVisible() }
                         return true
                     }
 
@@ -1556,6 +1681,8 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                         val targetOffset = currentText.length
                         setSelection(targetOffset)
                         onSelectionChangedListener?.invoke(targetOffset, targetOffset)
+                        ensureCursorVisible()
+                        post { ensureCursorVisible() }
                         return true
                     } else if (y > l.height) {
                         val currentLineCount = l.lineCount
@@ -1571,6 +1698,8 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                         val targetOffset = currentText.length
                         setSelection(targetOffset)
                         onSelectionChangedListener?.invoke(targetOffset, targetOffset)
+                        ensureCursorVisible()
+                        post { ensureCursorVisible() }
                         return true
                     }
                 }
@@ -1655,6 +1784,46 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
 
         // 3. Draw text, spans, cursor LAST so text always renders crisp on top of drawings
         super.onDraw(canvas)
+
+        // 4. Draw always-visible, theme-aware vertical scrollbar along the right edge
+        drawVerticalScrollbar(canvas, isDark)
+    }
+
+    private fun drawVerticalScrollbar(canvas: android.graphics.Canvas, isDark: Boolean) {
+        val maxScroll = getMaxScrollY()
+        if (maxScroll <= 0 || height <= 0 || width <= 0) return
+
+        val trackTop = scrollY + scrollbarTopMarginPx
+        val trackBottom = scrollY + (height - scrollbarBottomClearancePx)
+        val trackHeight = trackBottom - trackTop
+        if (trackHeight <= 4f * density) return
+
+        val barWidth = if (isScrollbarDragging) scrollbarDraggingWidthPx else scrollbarWidthPx
+        val barRight = scrollX + width - scrollbarRightMarginPx
+        val barLeft = barRight - barWidth
+        val cornerRadius = barWidth / 2f
+
+        val totalContentHeight = (height + maxScroll).toFloat().coerceAtLeast(1f)
+        val minThumbHeight = (40f * density).coerceAtMost(trackHeight)
+        val thumbHeight = (trackHeight * (height.toFloat() / totalContentHeight)).coerceIn(minThumbHeight, trackHeight)
+        val scrollFraction = (scrollY.toFloat() / maxScroll.toFloat()).coerceIn(0f, 1f)
+        val thumbTravel = (trackHeight - thumbHeight).coerceAtLeast(0f)
+        val thumbTop = trackTop + scrollFraction * thumbTravel
+        val thumbBottom = thumbTop + thumbHeight
+
+        if (isDark) {
+            scrollbarTrackPaint.color = 0x28FFFFFF
+            scrollbarThumbPaint.color = if (isScrollbarDragging) 0xCCFFFFFF.toInt() else 0x88FFFFFF.toInt()
+        } else {
+            scrollbarTrackPaint.color = 0x1F000000
+            scrollbarThumbPaint.color = if (isScrollbarDragging) 0xB3000000.toInt() else 0x73000000.toInt()
+        }
+
+        scrollbarTrackRect.set(barLeft, trackTop, barRight, trackBottom)
+        canvas.drawRoundRect(scrollbarTrackRect, cornerRadius, cornerRadius, scrollbarTrackPaint)
+
+        scrollbarThumbRect.set(barLeft, thumbTop, barRight, thumbBottom)
+        canvas.drawRoundRect(scrollbarThumbRect, cornerRadius, cornerRadius, scrollbarThumbPaint)
     }
 
     private fun drawDrawingStrokesForPage(
@@ -1749,5 +1918,8 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
     override fun onSelectionChanged(selStart: Int, selEnd: Int) {
         super.onSelectionChanged(selStart, selEnd)
         onSelectionChangedListener?.invoke(selStart, selEnd)
+        if (viewInitialized && height > 0 && !drawingEnabled) {
+            ensureCursorVisible()
+        }
     }
 }

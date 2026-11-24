@@ -1222,11 +1222,9 @@ fun AddVoiceNoteScreen(
 
                     .background(noteBackgroundAnimatable.value)
 
-                    .padding(top = innerPadding.calculateTopPadding()),
+                    .padding(top = innerPadding.calculateTopPadding())
 
-
-
-
+                    .imePadding(),
 
                 ) {
 

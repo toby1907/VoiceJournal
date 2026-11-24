@@ -33,7 +33,7 @@ fun BottomNavPanel(navController2: NavHostController) {
 
         )
    LaunchedEffect(Unit){
-       if (selectedItem == 0) {
+       if (selectedItem == 0 && navController2.currentDestination != null && navController2.currentDestination?.route != "home") {
            navController2.navigate("home") {
                popUpTo(0)
            }

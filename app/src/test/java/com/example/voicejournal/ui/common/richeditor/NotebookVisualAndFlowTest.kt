@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.os.SystemClock
+import android.view.MotionEvent
 import android.view.View
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -346,5 +348,125 @@ class NotebookVisualAndFlowTest {
             }
         }
         assertTrue("Expected 0 red stroke pixels to bleed into inter-page gap (found $redPixelsInGap)", redPixelsInGap == 0)
+    }
+
+    @Test
+    fun keyboardOpen_lastLineVisibility_andAlwaysVisibleScrollbar_outputsPng() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val density = context.resources.displayMetrics.density
+        val state = RichTextState()
+        val editor = RichEditText(context).apply {
+            setTextColor(Color.BLACK)
+            richTextState = state
+        }
+        state.bindEditor(editor)
+        assertTrue("Native fading vertical scrollbar should be disabled", !editor.isVerticalScrollBarEnabled)
+
+        val fifteenLines = (1..15).joinToString("\n") { line ->
+            if (line == 15) "Page 1 Line 15 - clear above FAB" else "Page 1 Line $line"
+        }
+        state.setText(fifteenLines)
+        state.onEditorContentChanged(editor.text, editor.text!!.length, editor.text!!.length)
+
+        val width = 1080
+        val closedKeyboardHeight = 2000
+        val openKeyboardHeight = 1250
+        editor.layoutParams = android.view.ViewGroup.LayoutParams(width, closedKeyboardHeight)
+
+        // 1. Initial full-height layout with cursor on Line 15
+        editor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(closedKeyboardHeight, View.MeasureSpec.EXACTLY)
+        )
+        editor.layout(0, 0, width, closedKeyboardHeight)
+        editor.setSelection(editor.text!!.length)
+
+        // 2. Simulate soft keyboard opening via imePadding() shrinking editor to 1080x1250
+        editor.layoutParams = android.view.ViewGroup.LayoutParams(width, openKeyboardHeight)
+        editor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(openKeyboardHeight, View.MeasureSpec.EXACTLY)
+        )
+        editor.layout(0, 0, width, openKeyboardHeight)
+
+        assertTrue("Editor should be scrollable with keyboard open", editor.getMaxScrollY() > 0)
+        assertTrue("ensureCursorVisible() should scroll down so Line 15 is visible (scrollY=${editor.scrollY})", editor.scrollY > 0)
+
+        val layout = editor.layout!!
+        val cursorLine = layout.getLineForOffset(editor.selectionEnd)
+        val lineBottomContent = editor.totalPaddingTop + maxOf(
+            layout.getLineBottom(cursorLine),
+            layout.getLineTop(cursorLine) + editor.fixedLineHeight
+        )
+        val lineBottomViewport = lineBottomContent - editor.scrollY
+        val clearanceLimitY = openKeyboardHeight - editor.floatingOverlayClearancePx
+        assertTrue(
+            "Line 15 bottom ($lineBottomViewport) should sit clear above height - floatingOverlayClearancePx ($clearanceLimitY)",
+            lineBottomViewport <= clearanceLimitY
+        )
+
+        // 3. Render Skia screenshot of keyboard-open viewport with always-visible right-edge scrollbar
+        val bitmap = Bitmap.createBitmap(width, openKeyboardHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.WHITE)
+        canvas.translate(0f, -editor.scrollY.toFloat())
+        editor.draw(canvas)
+
+        val outFile = saveBitmap(bitmap, "keyboard_open_last_line_scrollbar.png")
+        assertTrue("keyboard_open_last_line_scrollbar.png should exist", outFile.exists() && outFile.length() > 0L)
+
+        // 4. Verify visible scrollbar thumb pixels along the right edge (and stopped 56dp above bottom)
+        val stripLeft = (width - (8f * density).toInt()).coerceAtLeast(0)
+        val stripRight = (width - (2f * density).toInt()).coerceAtMost(width)
+        val trackBottomCutoff = (openKeyboardHeight - (56f * density).toInt()).coerceAtLeast(0)
+        var thumbPixels = 0
+        for (y in 0 until trackBottomCutoff) {
+            for (x in stripLeft until stripRight) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = Color.red(pixel)
+                val g = Color.green(pixel)
+                val b = Color.blue(pixel)
+                if (r < 175 && g < 175 && b < 175) {
+                    thumbPixels++
+                }
+            }
+        }
+        assertTrue("Expected visible scrollbar thumb pixels along right edge (found $thumbPixels)", thumbPixels > 200)
+
+        // Ensure scrollbar stops 56dp above bottom so it stays above BottomAppPanel
+        val belowCutoffStart = (openKeyboardHeight - (54f * density).toInt()).coerceAtMost(openKeyboardHeight)
+        var thumbPixelsBelowCutoff = 0
+        for (y in belowCutoffStart until openKeyboardHeight) {
+            for (x in (width - (7f * density).toInt()) until stripRight) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = Color.red(pixel)
+                val g = Color.green(pixel)
+                val b = Color.blue(pixel)
+                if (r < 175 && g < 175 && b < 175) {
+                    thumbPixelsBelowCutoff++
+                }
+            }
+        }
+        assertTrue(
+            "Expected 0 scrollbar thumb pixels in bottom 56dp clearance zone (found $thumbPixelsBelowCutoff)",
+            thumbPixelsBelowCutoff == 0
+        )
+
+        // 5. Verify direct thumb dragging on rightmost 24dp scrolls cleanly to top
+        val now = SystemClock.uptimeMillis()
+        val scrollbarX = width - (6f * density)
+        val downEvent = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, scrollbarX, openKeyboardHeight * 0.5f, 0)
+        val moveEvent = MotionEvent.obtain(now, now + 16, MotionEvent.ACTION_MOVE, scrollbarX, 12f * density, 0)
+        val upEvent = MotionEvent.obtain(now, now + 32, MotionEvent.ACTION_UP, scrollbarX, 12f * density, 0)
+        try {
+            assertTrue("Scrollbar touch down should be handled", editor.onTouchEvent(downEvent))
+            assertTrue("Scrollbar touch move should be handled", editor.onTouchEvent(moveEvent))
+            assertTrue("Scrollbar touch up should be handled", editor.onTouchEvent(upEvent))
+            assertTrue("Dragging scrollbar thumb to top should scroll to 0 (scrollY=${editor.scrollY})", editor.scrollY == 0)
+        } finally {
+            downEvent.recycle()
+            moveEvent.recycle()
+            upEvent.recycle()
+        }
     }
 }
