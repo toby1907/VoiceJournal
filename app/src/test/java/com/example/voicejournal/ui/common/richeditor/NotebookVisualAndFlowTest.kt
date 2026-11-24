@@ -529,4 +529,45 @@ class NotebookVisualAndFlowTest {
             finalLine == targetLineIndex && editor.selectionEnd == afterTypeOffset
         )
     }
+
+    @Test
+    fun bringPointIntoView_doesNotSnapScrollBackToZeroWhenLayoutShorterThanViewport() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val state = RichTextState()
+        val editor = RichEditText(context).apply {
+            movementMethod = android.text.method.ArrowKeyMovementMethod.getInstance()
+            setTextColor(Color.BLACK)
+            richTextState = state
+        }
+        state.bindEditor(editor)
+
+        // Reproduce the exact 7-line layout from the screen recording where layout.height < viewport height,
+        // but Line 7 sits inside the bottom floatingOverlayClearancePx zone (FAB + BottomAppPanel).
+        state.setText("Fgg\n\n\n\n\nThg\n")
+        state.onEditorContentChanged(editor.text, editor.text!!.length, editor.text!!.length)
+
+        val width = 1080
+        val keyboardOpenHeight = 1100
+        editor.layoutParams = android.view.ViewGroup.LayoutParams(width, keyboardOpenHeight)
+        editor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(keyboardOpenHeight, View.MeasureSpec.EXACTLY)
+        )
+        editor.layout(0, 0, width, keyboardOpenHeight)
+        editor.setSelection(editor.text!!.length)
+        editor.ensureCursorVisible()
+
+        val layoutHeight = editor.layout!!.height
+        assertTrue("Precondition: 7-line layout ($layoutHeight) is shorter than viewport ($keyboardOpenHeight)", layoutHeight < keyboardOpenHeight)
+        val scrolledY = editor.scrollY
+        assertTrue("Line 7 should scroll down to clear floating FAB/BottomAppPanel (scrollY=$scrolledY)", scrolledY > 0)
+
+        // TextView.onPreDraw() calls bringPointIntoView(selectionEnd) on the next frame;
+        // previously super.bringPointIntoView() slammed scrollY back to 0!
+        editor.bringPointIntoView(editor.selectionEnd)
+        assertTrue(
+            "bringPointIntoView must NOT snap scrollY back to 0 (expected $scrolledY, got ${editor.scrollY})",
+            editor.scrollY == scrolledY
+        )
+    }
 }

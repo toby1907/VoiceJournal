@@ -1236,12 +1236,19 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         super.scrollTo(x, clampedY)
     }
 
-    fun ensureCursorVisible() {
+    override fun bringPointIntoView(offset: Int): Boolean {
+        if (!viewInitialized || drawingEnabled || height <= 0) return false
+        val prevScrollY = scrollY
+        ensureCursorVisible(offset)
+        return scrollY != prevScrollY
+    }
+
+    fun ensureCursorVisible(targetOffset: Int = selectionEnd) {
         if (!viewInitialized || drawingEnabled || height <= 0) return
         if (isDragging || isScrollbarDragging) return
         val l = layout ?: return
         val textLen = text?.length ?: 0
-        val selEnd = selectionEnd
+        val selEnd = if (targetOffset >= 0) targetOffset else selectionEnd
         if (selEnd < 0 || l.lineCount <= 0) return
         val cursor = selEnd.coerceIn(0, textLen)
         val line = l.getLineForOffset(cursor).coerceIn(0, l.lineCount - 1)
