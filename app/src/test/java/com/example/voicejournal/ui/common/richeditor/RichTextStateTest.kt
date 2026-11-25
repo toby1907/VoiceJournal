@@ -639,6 +639,89 @@ class RichTextStateTest {
         assertTrue(editor.text!!.getSpans(headingStart, headingEnd, StyleSpan::class.java).any { it.style == Typeface.BOLD })
     }
 
+    @Test
+    fun textColor_appliesToHighlightedWordsAndSplitsSurroundingColor() {
+        val red = androidx.compose.ui.graphics.Color(0xFFD32F2F)
+        val blue = androidx.compose.ui.graphics.Color(0xFF1565C0)
+        val (state, editor) = createBoundState("Hello world today")
+
+        // Highlight only "world" (6..11) and apply Red
+        state.onEditorContentChanged(editor.text, 6, 11)
+        state.setTextColor(red)
+
+        assertEquals(red, state.currentSpanStyle.color)
+        assertTrue(editor.text!!.getSpans(0, 6, android.text.style.ForegroundColorSpan::class.java).isEmpty())
+        val worldSpans = editor.text!!.getSpans(6, 11, android.text.style.ForegroundColorSpan::class.java)
+        assertEquals(1, worldSpans.size)
+        assertEquals(0xFFD32F2F.toInt(), worldSpans[0].foregroundColor)
+
+        // Color entire string Blue, then reset only "world" back to Default (null)
+        state.onEditorContentChanged(editor.text, 0, 17)
+        state.setTextColor(blue)
+        state.onEditorContentChanged(editor.text, 6, 11)
+        state.setTextColor(null)
+
+        assertEquals(androidx.compose.ui.graphics.Color.Unspecified, state.currentSpanStyle.color)
+        val before = editor.text!!.getSpans(0, 6, android.text.style.ForegroundColorSpan::class.java)
+        assertTrue(before.any { it.foregroundColor == 0xFF1565C0.toInt() && editor.text!!.getSpanStart(it) == 0 && editor.text!!.getSpanEnd(it) == 6 })
+        val mid = editor.text!!.getSpans(6, 11, android.text.style.ForegroundColorSpan::class.java)
+            .filter { editor.text!!.getSpanStart(it) < 11 && editor.text!!.getSpanEnd(it) > 6 }
+        assertTrue("Expected Default reset to clear color only on 'world'", mid.isEmpty())
+        val after = editor.text!!.getSpans(11, 17, android.text.style.ForegroundColorSpan::class.java)
+        assertTrue(after.any { it.foregroundColor == 0xFF1565C0.toInt() && editor.text!!.getSpanStart(it) == 11 && editor.text!!.getSpanEnd(it) == 17 })
+    }
+
+    @Test
+    fun textColor_noHighlight_onlyAppliesToSubsequentTypedWords_andRoundTripsThroughHtml() {
+        val red = androidx.compose.ui.graphics.Color(0xFFD32F2F)
+        val (state, editor) = createBoundState("Plain ")
+        editor.setSelection(6)
+        state.onEditorContentChanged(editor.text, 6, 6)
+
+        // Select Red with collapsed cursor -> "Plain " remains uncolored
+        state.setTextColor(red)
+        assertEquals(red, state.currentSpanStyle.color)
+        assertTrue(editor.text!!.getSpans(0, 6, android.text.style.ForegroundColorSpan::class.java).isEmpty())
+
+        // Type 'R', then "ed" -> merges into one single Red span [6, 9]
+        editor.text!!.insert(6, "R")
+        state.applyActiveTypingStyle(editor.text!!, 6, 7)
+        state.onEditorContentChanged(editor.text, 7, 7)
+
+        editor.text!!.insert(7, "ed")
+        state.applyActiveTypingStyle(editor.text!!, 7, 9)
+        state.onEditorContentChanged(editor.text, 9, 9)
+
+        val redSpans = editor.text!!.getSpans(6, 9, android.text.style.ForegroundColorSpan::class.java)
+        assertEquals(1, redSpans.size)
+        assertEquals(6, editor.text!!.getSpanStart(redSpans[0]))
+        assertEquals(9, editor.text!!.getSpanEnd(redSpans[0]))
+        assertEquals(0xFFD32F2F.toInt(), redSpans[0].foregroundColor)
+
+        // Reset to Default and type " Back" -> " Back" has no color span
+        state.setTextColor(null)
+        assertEquals(androidx.compose.ui.graphics.Color.Unspecified, state.currentSpanStyle.color)
+        editor.text!!.insert(9, " Back")
+        state.applyActiveTypingStyle(editor.text!!, 9, 14)
+        state.onEditorContentChanged(editor.text, 14, 14)
+
+        val backSpans = editor.text!!.getSpans(9, 14, android.text.style.ForegroundColorSpan::class.java)
+            .filter { editor.text!!.getSpanStart(it) < 14 && editor.text!!.getSpanEnd(it) > 9 }
+        assertTrue(backSpans.isEmpty())
+
+        // Round-trip through HTML and verify Red survives strictly on "Red"
+        val html = state.toHtml()
+        val (reloaded, reloadedEditor) = createBoundState("")
+        reloaded.setHtml(html)
+        val reloadedText = reloadedEditor.text!!.toString()
+        val redIdx = reloadedText.indexOf("Red")
+        assertTrue("Reloaded text should contain 'Red'", redIdx >= 0)
+        reloaded.onEditorContentChanged(reloadedEditor.text, redIdx, redIdx + 3)
+        assertEquals(red, reloaded.currentSpanStyle.color)
+        reloaded.onEditorContentChanged(reloadedEditor.text, 0, 5)
+        assertEquals(androidx.compose.ui.graphics.Color.Unspecified, reloaded.currentSpanStyle.color)
+    }
+
     private fun createBoundState(initialText: String): Pair<RichTextState, AppCompatEditText> {
         val state = RichTextState()
         val editor = AppCompatEditText(ApplicationProvider.getApplicationContext())

@@ -6,15 +6,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Draw
@@ -62,6 +66,7 @@ fun BottomAppPanel(
     onItalicClick: () -> Unit,
     onStrikethroughClick: () -> Unit,
     onUnderlineClick: () -> Unit,
+    onTextColorClick: () -> Unit = {},
     onChecklistClick: () -> Unit = {},
     onAddTextBoxClick: () -> Unit = {},
     onPageBreakClick: () -> Unit = {},
@@ -318,6 +323,37 @@ fun BottomAppPanel(
                     contentDescription = "Underline Control",
                     tint = Variables.SchemesOnSurface
                 )
+            }
+
+            // 6b: Text Color (with live color indicator bar)
+            val activeTextColor = currentSpanStyle.color
+            val hasCustomTextColor = activeTextColor != Color.Unspecified
+            val indicatorColor = if (hasCustomTextColor) activeTextColor else Variables.SchemesOnSurface
+            ControlWrapper(
+                selected = hasCustomTextColor,
+                selectedColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
+                onChangeClick = { },
+                onClick = onTextColorClick,
+                unselectedColor = Color.Transparent
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.semantics { contentDescription = "Text Color Control" }
+                ) {
+                    Text(
+                        text = "A",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Variables.SchemesOnSurface
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(16.dp)
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(indicatorColor)
+                    )
+                }
             }
 
             // 7: Drawing / Pen Mode Toggle

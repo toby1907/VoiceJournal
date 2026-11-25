@@ -1065,4 +1065,133 @@ class NotebookVisualAndFlowTest {
         composeRule.waitForIdle()
         assertTrue("Selecting Lined Notebook should update paperStyle to LINED", selectedStyle == NotePaperStyle.LINED)
     }
+
+    @Test
+    fun textColor_toolbarPaletteSelection_andColoredRendering_outputsPng() {
+        val state = RichTextState()
+        var paletteOpen by mutableStateOf(false)
+        composeRule.setContent {
+            MaterialTheme {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    RichTextEditor(
+                        state = state,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    )
+                    if (paletteOpen) {
+                        com.example.voicejournal.ui.main.AddVoiceNote.components.TextColorPaletteContent(
+                            selectedColor = state.currentSpanStyle.color,
+                            onColorSelected = { chosen ->
+                                state.setTextColor(chosen)
+                                paletteOpen = false
+                            }
+                        )
+                    }
+                    BottomAppPanel(
+                        cardVisibleState = {},
+                        imageUri = emptyList(),
+                        imageSheetVisibleState = {},
+                        tagVisiblestate = {},
+                        onBoldClick = {},
+                        onItalicClick = {},
+                        onStrikethroughClick = {},
+                        onUnderlineClick = {},
+                        onTextColorClick = { paletteOpen = true },
+                        state = state,
+                        alignStyleSheetVisiblity = {}
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        val editorField = RichTextState::class.java.getDeclaredField("boundEditor").apply { isAccessible = true }
+        val realEditor = editorField.get(state) as RichEditText
+
+        // 1. Open palette from BottomAppPanel Text Color button and select Crimson Red
+        composeRule.onNodeWithContentDescription("Text Color Control").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("Text Color Crimson Red").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+
+        assertTrue(
+            "Selected color should be Crimson Red",
+            state.currentSpanStyle.color == androidx.compose.ui.graphics.Color(0xFFD32F2F)
+        )
+
+        // 2. Focus editor and type via IME -> newly typed word gets Crimson Red
+        composeRule.runOnIdle {
+            realEditor.requestFocus()
+            realEditor.setSelection(0)
+            val ic = realEditor.onCreateInputConnection(android.view.inputmethod.EditorInfo())!!
+            ic.commitText("Alert", 1)
+        }
+        composeRule.waitForIdle()
+
+        val alertSpans = realEditor.text!!.getSpans(0, 5, android.text.style.ForegroundColorSpan::class.java)
+        assertTrue("Typed word 'Alert' should carry Crimson Red ForegroundColorSpan", alertSpans.any { it.foregroundColor == 0xFFD32F2F.toInt() })
+
+        // 3. Render multi-color lines on RichEditText and verify actual RGB pixels in text_color_visual.png
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val renderState = RichTextState()
+        val renderEditor = RichEditText(context).apply {
+            setTextColor(Color.BLACK)
+            richTextState = renderState
+        }
+        renderState.bindEditor(renderEditor)
+        renderState.setText("Crimson Red Line\nForest Green Line\nRoyal Blue Line")
+        val text = renderEditor.text!!.toString()
+        val l1Start = 0
+        val l1End = "Crimson Red Line".length
+        val l2Start = text.indexOf("Forest Green Line")
+        val l2End = l2Start + "Forest Green Line".length
+        val l3Start = text.indexOf("Royal Blue Line")
+        val l3End = l3Start + "Royal Blue Line".length
+
+        renderState.onEditorContentChanged(renderEditor.text, l1Start, l1End)
+        renderState.setTextColor(androidx.compose.ui.graphics.Color(0xFFD32F2F))
+        renderState.onEditorContentChanged(renderEditor.text, l2Start, l2End)
+        renderState.setTextColor(androidx.compose.ui.graphics.Color(0xFF2E7D32))
+        renderState.onEditorContentChanged(renderEditor.text, l3Start, l3End)
+        renderState.setTextColor(androidx.compose.ui.graphics.Color(0xFF1565C0))
+
+        val width = 1080
+        val height = 700
+        renderEditor.layoutParams = android.view.ViewGroup.LayoutParams(width, height)
+        renderEditor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        renderEditor.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.WHITE)
+        renderEditor.draw(canvas)
+
+        val outFile = saveBitmap(bitmap, "text_color_visual.png")
+        assertTrue("text_color_visual.png should exist", outFile.exists() && outFile.length() > 0L)
+
+        fun countLineColorPixels(lineIdx: Int, predicate: (Int, Int, Int) -> Boolean): Int {
+            val l = renderEditor.layout!!
+            val yTop = (renderEditor.totalPaddingTop + l.getLineTop(lineIdx)).coerceIn(0, height - 1)
+            val yBot = (renderEditor.totalPaddingTop + l.getLineBottom(lineIdx)).coerceIn(yTop + 1, height)
+            var count = 0
+            for (y in yTop until yBot) {
+                for (x in 140 until 900) {
+                    val p = bitmap.getPixel(x, y)
+                    if (predicate(Color.red(p), Color.green(p), Color.blue(p))) count++
+                }
+            }
+            return count
+        }
+
+        val redPixels = countLineColorPixels(0) { r, g, b -> r > 170 && g < 100 && b < 100 }
+        val greenPixels = countLineColorPixels(1) { r, g, b -> g > 95 && r < 90 && b < 90 }
+        val bluePixels = countLineColorPixels(2) { r, g, b -> b > 150 && r < 80 }
+        assertTrue("Line 0 should render crisp red pixels (found $redPixels)", redPixels > 100)
+        assertTrue("Line 1 should render crisp green pixels (found $greenPixels)", greenPixels > 100)
+        assertTrue("Line 2 should render crisp blue pixels (found $bluePixels)", bluePixels > 100)
+    }
 }

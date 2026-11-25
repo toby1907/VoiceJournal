@@ -157,6 +157,7 @@ import com.example.voicejournal.Screen
 import com.example.voicejournal.Data.model.isNoteLocked
 
 import com.example.voicejournal.ui.main.AddVoiceNote.components.AlignStyleBottomSheet
+import com.example.voicejournal.ui.main.AddVoiceNote.components.TextColorBottomSheet
 
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomAppPanel
 
@@ -706,6 +707,8 @@ fun AddVoiceNoteScreen(
 
     var openAlignStyleBottomSheet by remember { mutableStateOf(false) }
 
+    var openTextColorBottomSheet by remember { mutableStateOf(false) }
+
     var openMoreOptionsSheet by rememberSaveable { mutableStateOf(false) }
 
     var fileChooserState by rememberSaveable {
@@ -751,6 +754,12 @@ fun AddVoiceNoteScreen(
     val alignStylebottomSheetState = rememberModalBottomSheetState(
 
         skipPartiallyExpanded = skipPartiallyExpanded
+
+    )
+
+    val textColorSheetState = rememberModalBottomSheetState(
+
+        skipPartiallyExpanded = true
 
     )
 
@@ -1170,6 +1179,12 @@ fun AddVoiceNoteScreen(
                         onUnderlineClick = {
 
                             state.toggleSpanStyle(SpanStyle(textDecoration = TextDecoration.Underline))
+
+                        },
+
+                        onTextColorClick = {
+
+                            openTextColorBottomSheet = true
 
                         },
 
@@ -1837,6 +1852,28 @@ fun AddVoiceNoteScreen(
             )
 
 
+
+        }
+
+        if (openTextColorBottomSheet) {
+
+            TextColorBottomSheet(
+
+                onDismissRequest = { openTextColorBottomSheet = false },
+
+                sheetState = textColorSheetState,
+
+                selectedColor = state.currentSpanStyle.color,
+
+                onColorSelected = { chosenColor ->
+
+                    state.setTextColor(chosenColor)
+
+                    openTextColorBottomSheet = false
+
+                }
+
+            )
 
         }
 

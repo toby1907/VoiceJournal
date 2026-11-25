@@ -479,6 +479,32 @@ class RichTextState {
         refreshStateSnapshot()
     }
 
+    fun setTextColor(color: Color?) {
+        val resolvedArgb = color?.takeIf { it != Color.Unspecified }?.toArgb()
+        val editor = boundEditor
+        val target: Spannable = editor?.text ?: editable
+        val (rawStart, rawEnd) = liveSelection(target.length)
+        val hasHighlight = rawStart != rawEnd
+
+        if (!hasHighlight) {
+            activeTypingColorArgb = resolvedArgb ?: COLOR_NONE_SENTINEL
+            activeTypingStyleAnchor = rawEnd
+            activeTypingStyleStart = rawEnd
+            activeTypingStyleArmedUnfocused = editor != null && !editor.hasFocus()
+            refreshStateSnapshot()
+            return
+        }
+
+        recordInlineStyleUndoSnapshot()
+        applyColorSpan(target, rawStart, rawEnd, resolvedArgb)
+        activeTypingColorArgb = resolvedArgb ?: COLOR_NONE_SENTINEL
+        activeTypingStyleAnchor = rawEnd
+        activeTypingStyleStart = rawEnd
+        activeTypingStyleArmedUnfocused = false
+        syncAfterInPlaceSpanEdit(target, rawStart, rawEnd)
+        refreshStateSnapshot()
+    }
+
     fun toggleParagraphStyle(style: ParagraphStyle) {
         val alignment = when (style.textAlign) {
             TextAlign.Center -> android.text.Layout.Alignment.ALIGN_CENTER
@@ -1687,13 +1713,31 @@ class RichTextState {
         val safeEnd = end.coerceIn(safeStart, target.length)
         if (safeStart >= safeEnd) return
 
-        val spans = target.getSpans(safeStart, safeEnd, ForegroundColorSpan::class.java)
+        val queryStart = if (colorArgb != null) (safeStart - 1).coerceAtLeast(0) else safeStart
+        val queryEnd = if (colorArgb != null) (safeEnd + 1).coerceAtMost(target.length) else safeEnd
+        val spans = target.getSpans(queryStart, queryEnd, ForegroundColorSpan::class.java)
+
+        var mergedStart = safeStart
+        var mergedEnd = safeEnd
+
         for (span in spans) {
             val sStart = target.getSpanStart(span)
             val sEnd = target.getSpanEnd(span)
             if (sStart < 0 || sEnd <= sStart) continue
-            if (sEnd <= safeStart || sStart >= safeEnd) continue
             val origColor = span.foregroundColor
+
+            val overlaps = sStart < safeEnd && sEnd > safeStart
+            val touchesSameColor = colorArgb != null && origColor == colorArgb && (sEnd == safeStart || sStart == safeEnd)
+            if (!overlaps && !touchesSameColor) continue
+
+            if (colorArgb != null && origColor == colorArgb) {
+                target.removeSpan(span)
+                if (sStart < mergedStart) mergedStart = sStart
+                if (sEnd > mergedEnd) mergedEnd = sEnd
+                continue
+            }
+
+            if (!overlaps) continue
             target.removeSpan(span)
             if (sStart < safeStart) {
                 target.setSpan(ForegroundColorSpan(origColor), sStart, safeStart, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -1706,8 +1750,8 @@ class RichTextState {
         if (colorArgb != null) {
             target.setSpan(
                 ForegroundColorSpan(colorArgb),
-                safeStart,
-                safeEnd,
+                mergedStart,
+                mergedEnd,
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
         }
