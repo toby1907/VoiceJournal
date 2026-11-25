@@ -2,11 +2,13 @@ package com.example.voicejournal.ui.common.richeditor
 
 import android.content.Context
 import android.graphics.Typeface
+import android.os.Build
 import android.text.Editable
 import android.text.InputType
 import android.text.Spannable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.TextPaint
 import android.text.TextWatcher
 import android.text.method.ArrowKeyMovementMethod
 import android.text.method.LinkMovementMethod
@@ -94,6 +96,51 @@ private const val UNORDERED_LIST_PREFIX = "• "
 private const val CHECKLIST_UNCHECKED_PREFIX = "☐ "
 private const val CHECKLIST_CHECKED_PREFIX = "☑ "
 private const val COLOR_NONE_SENTINEL = 0
+
+/**
+ * Custom [StyleSpan] subclass for bold / bold-italic runs that guarantees visible weight contrast
+ * across all Android and Samsung One UI fonts — including when system "Bold font"
+ * (`fontWeightAdjustment`) is enabled or a custom single-weight system font lacks a distinct bold
+ * typeface. Extends [StyleSpan] so `HtmlCompat.toHtml` still serializes cleanly as `<b>...</b>`.
+ */
+internal class BoldStyleSpan(style: Int = Typeface.BOLD) : StyleSpan(style) {
+    override fun updateDrawState(ds: TextPaint) {
+        applyBold(ds)
+    }
+
+    override fun updateMeasureState(paint: TextPaint) {
+        applyBold(paint)
+    }
+
+    private fun applyBold(paint: TextPaint) {
+        val baseTf = paint.typeface ?: Typeface.DEFAULT
+        val wantItalic = baseTf.isItalic || (style and Typeface.ITALIC) != 0
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val baseWeight = baseTf.weight.coerceIn(100, 1000)
+            val targetWeight = if (baseWeight >= 600) 900 else (baseWeight + 300).coerceIn(700, 900)
+            paint.typeface = Typeface.create(baseTf, targetWeight, wantItalic)
+        } else {
+            val wantStyle = baseTf.style or style
+            paint.typeface = Typeface.create(baseTf, wantStyle)
+        }
+        paint.isFakeBoldText = true
+    }
+}
+
+private fun upgradeBoldSpans(spannable: Spannable) {
+    val spans = spannable.getSpans(0, spannable.length, StyleSpan::class.java)
+    for (span in spans) {
+        if (span is BoldStyleSpan) continue
+        if ((span.style and Typeface.BOLD) == 0) continue
+        val sStart = spannable.getSpanStart(span)
+        val sEnd = spannable.getSpanEnd(span)
+        val sStyle = span.style
+        spannable.removeSpan(span)
+        if (sStart in 0 until sEnd && sEnd <= spannable.length) {
+            spannable.setSpan(BoldStyleSpan(sStyle), sStart, sEnd, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+    }
+}
 
 class RichTextState {
     private data class Snapshot(
@@ -272,6 +319,7 @@ class RichTextState {
                 }
             }
 
+            upgradeBoldSpans(parsed)
             editable = parsed
             activeTypingFontSizeSp = null
             activeTypingAlignment = null
@@ -1511,6 +1559,10 @@ class RichTextState {
         syncAfterInPlaceSpanEdit(target, rawStart, rawEnd)
     }
 
+    private fun createTypefaceSpan(style: Int): StyleSpan {
+        return if ((style and Typeface.BOLD) != 0) BoldStyleSpan(style) else StyleSpan(style)
+    }
+
     private fun applyTypefaceStyleSpan(
         target: Spannable,
         start: Int,
@@ -1552,23 +1604,23 @@ class RichTextState {
             if (!overlaps) continue
             target.removeSpan(span)
             if (sStart < safeStart) {
-                target.setSpan(StyleSpan(origStyle), sStart, safeStart, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                target.setSpan(createTypefaceSpan(origStyle), sStart, safeStart, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
             if (sEnd > safeEnd) {
-                target.setSpan(StyleSpan(origStyle), safeEnd, sEnd, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                target.setSpan(createTypefaceSpan(origStyle), safeEnd, sEnd, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
             if (origStyle == Typeface.BOLD_ITALIC) {
                 val overlapStart = maxOf(sStart, safeStart)
                 val overlapEnd = minOf(sEnd, safeEnd)
                 if (overlapStart < overlapEnd) {
-                    target.setSpan(StyleSpan(otherStyle), overlapStart, overlapEnd, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    target.setSpan(createTypefaceSpan(otherStyle), overlapStart, overlapEnd, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
             }
         }
 
         if (enable) {
             target.setSpan(
-                StyleSpan(targetStyle),
+                createTypefaceSpan(targetStyle),
                 mergedStart,
                 mergedEnd,
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -2126,7 +2178,10 @@ fun RichText(
             }
         },
         update = { textView ->
-            textView.text = HtmlCompat.fromHtml(state.toHtml(), HtmlCompat.FROM_HTML_MODE_LEGACY)
+            val previewSpanned = SpannableStringBuilder(
+                HtmlCompat.fromHtml(state.toHtml(), HtmlCompat.FROM_HTML_MODE_LEGACY)
+            ).also { upgradeBoldSpans(it) }
+            textView.text = previewSpanned
             style.color.takeIf { it != Color.Unspecified }?.let { textView.setTextColor(it.toArgb()) }
             textView.textSize = style.fontSize.resolveSpOrFallback(16f)
             textView.maxLines = maxLines

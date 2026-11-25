@@ -888,5 +888,50 @@ class NotebookVisualAndFlowTest {
             "Bold text (ink=$boldInk) must render visibly heavier than regular text (ink=$regularInk)",
             boldInk > regularInk * 1.15
         )
+
+        // 5. Simulate Samsung system "Bold font" enabled (base editor typeface is ALREADY Typeface.DEFAULT_BOLD):
+        // BoldStyleSpan must STILL render visibly heavier than normal text!
+        val samsungBoldEditor = RichEditText(context).apply {
+            setTextColor(Color.BLACK)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            richTextState = renderState
+        }
+        renderState.bindEditor(samsungBoldEditor)
+        renderState.setText("Sample Weight Text\nSample Weight Text")
+        renderState.onEditorContentChanged(samsungBoldEditor.text, line2Start, samsungBoldEditor.text!!.length)
+        renderState.toggleSpanStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+        samsungBoldEditor.layoutParams = android.view.ViewGroup.LayoutParams(width, height)
+        samsungBoldEditor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        samsungBoldEditor.layout(0, 0, width, height)
+        val samsungBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val samsungCanvas = Canvas(samsungBitmap)
+        samsungCanvas.drawColor(Color.WHITE)
+        samsungBoldEditor.draw(samsungCanvas)
+        saveBitmap(samsungBitmap, "bold_samsung_system_bold_visual.png")
+
+        fun countSamsungInk(lineIdx: Int): Int {
+            val l = samsungBoldEditor.layout!!
+            val yTop = (samsungBoldEditor.totalPaddingTop + l.getLineTop(lineIdx)).coerceIn(0, height - 1)
+            val yBot = (samsungBoldEditor.totalPaddingTop + l.getLineBottom(lineIdx)).coerceIn(yTop + 1, height)
+            var count = 0
+            for (y in yTop until yBot) {
+                for (x in 30 until 900) {
+                    val p = samsungBitmap.getPixel(x, y)
+                    if (Color.red(p) < 100 && Color.green(p) < 100 && Color.blue(p) < 100) {
+                        count++
+                    }
+                }
+            }
+            return count
+        }
+        val sysBoldRegularInk = countSamsungInk(0)
+        val sysBoldHeavyInk = countSamsungInk(1)
+        assertTrue(
+            "Even with system Bold font ON, BoldStyleSpan (ink=$sysBoldHeavyInk) must render visibly heavier than base text (ink=$sysBoldRegularInk)",
+            sysBoldHeavyInk > sysBoldRegularInk * 1.10
+        )
     }
 }
