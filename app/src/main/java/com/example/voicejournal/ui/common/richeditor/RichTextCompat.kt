@@ -88,6 +88,11 @@ fun rememberRichTextState(): RichTextState = remember { RichTextState() }
 private const val LEGACY_PAGE_BREAK_LABEL = "────────── Page break ──────────"
 private const val PAGE_BREAK_TOKEN = "\u200B\u2060\u200B"
 private const val PAGE_BREAK_MARKER = "\n$PAGE_BREAK_TOKEN\n\n"
+private const val ALIGN_MARKER_TOKEN = "\u200B"
+private val ORDERED_LIST_LINE_REGEX = Regex("^(\\d+)\\.\\s")
+private const val UNORDERED_LIST_PREFIX = "• "
+private const val CHECKLIST_UNCHECKED_PREFIX = "☐ "
+private const val CHECKLIST_CHECKED_PREFIX = "☑ "
 
 class RichTextState {
     private data class Snapshot(
@@ -109,6 +114,11 @@ class RichTextState {
     var currentSpanStyle by mutableStateOf(SpanStyle())
         private set
 
+    var currentTextAlign by mutableStateOf(TextAlign.Start)
+        private set
+
+    private var pendingParagraphAlignment: android.text.Layout.Alignment? = null
+
     var currentFontSizeSp by mutableIntStateOf(16)
         private set
 
@@ -122,6 +132,9 @@ class RichTextState {
         private set
 
     var isUnorderedList by mutableStateOf(false)
+        private set
+
+    var isChecklist by mutableStateOf(false)
         private set
 
     var canUndo by mutableStateOf(false)
@@ -161,6 +174,20 @@ class RichTextState {
             preprocessed = preprocessed.replace(Regex("<h3>(.*?)</h3>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))) {
                 "<p><a href=\"voicejournal-size:20\"><b>${it.groupValues[1]}</b></a></p>"
             }
+            // Bridge paragraph alignment markers and standard CSS text-align paragraphs
+            preprocessed = preprocessed.replace(
+                Regex("""<span[^>]*data-voicejournal-align="(center|end|right)"[^>]*>.*?</span>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            ) { match ->
+                val align = if (match.groupValues[1].equals("center", ignoreCase = true)) "center" else "end"
+                "<a href=\"voicejournal-align:$align\">$ALIGN_MARKER_TOKEN</a>"
+            }
+            preprocessed = preprocessed.replace(
+                Regex("""<p[^>]*style="[^"]*text-align:\s*(center|right|end)[^"]*"[^>]*>(.*?)</p>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            ) { match ->
+                val align = if (match.groupValues[1].equals("center", ignoreCase = true)) "center" else "end"
+                val inner = match.groupValues[2]
+                "<p><a href=\"voicejournal-align:$align\">$ALIGN_MARKER_TOKEN</a>$inner</p>"
+            }
             // Bridge invisible page break spans and upgrade any legacy visible page break labels
             preprocessed = preprocessed.replace(
                 Regex("""<span[^>]*data-voicejournal-page-break="true"[^>]*>.*?</span>""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)),
@@ -177,7 +204,10 @@ class RichTextState {
 
             val spanned = HtmlCompat.fromHtml(preprocessed, HtmlCompat.FROM_HTML_MODE_LEGACY)
             val parsed = SpannableStringBuilder(spanned)
+            // Strip any legacy BulletSpans that could cause double bullets
+            parsed.getSpans(0, parsed.length, BulletSpan::class.java).forEach { parsed.removeSpan(it) }
 
+            // Pass 1: restore font-size spans and page-break markers first so text lengths are final
             val urlSpans = parsed.getSpans(0, parsed.length, URLSpan::class.java)
             for (span in urlSpans) {
                 val url = span.url
@@ -206,8 +236,33 @@ class RichTextState {
                 }
             }
 
+            // Pass 2: remove zero-width alignment tokens from bottom to top and apply per-line AlignmentSpan
+            val alignUrlSpans = parsed.getSpans(0, parsed.length, URLSpan::class.java)
+                .filter { it.url?.startsWith("voicejournal-align:") == true }
+                .sortedByDescending { parsed.getSpanStart(it) }
+            for (span in alignUrlSpans) {
+                val alignKey = span.url?.removePrefix("voicejournal-align:").orEmpty()
+                val alignment = when (alignKey.lowercase()) {
+                    "center" -> android.text.Layout.Alignment.ALIGN_CENTER
+                    "end", "right" -> android.text.Layout.Alignment.ALIGN_OPPOSITE
+                    else -> android.text.Layout.Alignment.ALIGN_NORMAL
+                }
+                val start = parsed.getSpanStart(span)
+                val end = parsed.getSpanEnd(span)
+                parsed.removeSpan(span)
+                if (start in 0..end && end <= parsed.length) {
+                    parsed.delete(start, end)
+                    if (alignment != android.text.Layout.Alignment.ALIGN_NORMAL) {
+                        val safeOffset = start.coerceIn(0, parsed.length)
+                        val (lineStart, lineEnd) = lineBoundsAt(parsed, safeOffset)
+                        applyAlignmentToLine(parsed, lineStart, lineEnd, alignment)
+                    }
+                }
+            }
+
             editable = parsed
             activeTypingFontSizeSp = null
+            pendingParagraphAlignment = null
             currentFontSizeSp = 16
             clearHistory()
             pushToEditor()
@@ -222,6 +277,36 @@ class RichTextState {
         if (current.isEmpty()) return ""
 
         val temp = SpannableStringBuilder(current)
+        // Strip any legacy BulletSpans before serializing
+        temp.getSpans(0, temp.length, BulletSpan::class.java).forEach { temp.removeSpan(it) }
+
+        // Collect per-line non-normal alignments and replace with zero-width bridge tokens so
+        // AlignmentSpan survives HtmlCompat.toHtml/fromHtml without interfering with other spans
+        val lineAlignMarkers = mutableListOf<Pair<Int, String>>()
+        val alignSpans = temp.getSpans(0, temp.length, AlignmentSpan::class.java)
+        if (alignSpans.isNotEmpty()) {
+            val lineStarts = collectLineRanges(temp)
+            for ((lineStart, lineEnd) in lineStarts) {
+                val lineAlign = alignmentForLine(temp, lineStart, lineEnd)
+                if (lineAlign == android.text.Layout.Alignment.ALIGN_CENTER) {
+                    lineAlignMarkers.add(lineStart to "center")
+                } else if (lineAlign == android.text.Layout.Alignment.ALIGN_OPPOSITE) {
+                    lineAlignMarkers.add(lineStart to "end")
+                }
+            }
+            alignSpans.forEach { temp.removeSpan(it) }
+            // Insert markers from bottom to top so earlier offsets stay valid
+            for ((lineStart, alignKey) in lineAlignMarkers.sortedByDescending { it.first }) {
+                temp.insert(lineStart, ALIGN_MARKER_TOKEN)
+                temp.setSpan(
+                    URLSpan("voicejournal-align:$alignKey"),
+                    lineStart,
+                    lineStart + ALIGN_MARKER_TOKEN.length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+        }
+
         var breakSearchFrom = 0
         while (true) {
             val breakIdx = temp.toString().indexOf(PAGE_BREAK_MARKER, breakSearchFrom)
@@ -259,7 +344,13 @@ class RichTextState {
             val content = match.groupValues[2]
             "<span style=\"font-size:${size}px;\" data-font-size=\"$size\">$content</span>"
         }
-        val withPageBreaks = withFontSizes.replace(
+        val withAlignments = withFontSizes.replace(
+            Regex("""<a href="voicejournal-align:(center|end)"[^>]*>.*?</a>""", RegexOption.DOT_MATCHES_ALL)
+        ) { match ->
+            val align = match.groupValues[1]
+            """<span data-voicejournal-align="$align"></span>"""
+        }
+        val withPageBreaks = withAlignments.replace(
             Regex("""<a href="voicejournal-page-break:1"[^>]*>.*?</a>""", RegexOption.DOT_MATCHES_ALL),
             """<span data-voicejournal-page-break="true"></span>"""
         )
@@ -271,6 +362,7 @@ class RichTextState {
         try {
             editable = SpannableStringBuilder(text)
             activeTypingFontSizeSp = null
+            pendingParagraphAlignment = null
             currentFontSizeSp = 16
             clearHistory()
             pushToEditor()
@@ -326,7 +418,7 @@ class RichTextState {
             TextAlign.End, TextAlign.Right -> android.text.Layout.Alignment.ALIGN_OPPOSITE
             else -> android.text.Layout.Alignment.ALIGN_NORMAL
         }
-        toggleParagraphSpan(AlignmentSpan.Standard(alignment), AlignmentSpan.Standard::class.java)
+        applyParagraphAlignment(alignment)
         refreshStateSnapshot()
     }
 
@@ -355,33 +447,34 @@ class RichTextState {
     }
 
     fun toggleOrderedList() {
-        isOrderedList = !isOrderedList
-        if (isOrderedList) {
-            isUnorderedList = false
-        }
-        applyListMarker()
+        applyListType(ordered = true)
     }
 
     fun toggleUnorderedList() {
-        isUnorderedList = !isUnorderedList
-        if (isUnorderedList) {
-            isOrderedList = false
-        }
-        applyListMarker()
+        applyListType(ordered = false)
     }
 
     fun applyActiveTypingStyle(editable: Editable, start: Int, end: Int) {
         if (start >= end) return
-        val size = activeTypingFontSizeSp ?: return
-        if (size == 16) return
-        val existing = editable.getSpans(start, end, AbsoluteSizeSpan::class.java)
-        existing.forEach { editable.removeSpan(it) }
-        editable.setSpan(
-            AbsoluteSizeSpan(size, true),
-            start,
-            end,
-            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
+        val size = activeTypingFontSizeSp
+        if (size != null && size != 16) {
+            val existing = editable.getSpans(start, end, AbsoluteSizeSpan::class.java)
+            existing.forEach { editable.removeSpan(it) }
+            editable.setSpan(
+                AbsoluteSizeSpan(size, true),
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        val pendingAlign = pendingParagraphAlignment
+        if (pendingAlign != null) {
+            val (lineStart, lineEnd) = lineBoundsAt(editable, start)
+            applyAlignmentToLine(editable, lineStart, lineEnd, pendingAlign)
+            if (editable.subSequence(lineStart, lineEnd).isNotEmpty()) {
+                pendingParagraphAlignment = null
+            }
+        }
     }
 
     fun setFontSize(sizeSp: Int) {
@@ -464,27 +557,128 @@ class RichTextState {
     fun toggleChecklistLine() {
         val content = currentEditable()
         val cursor = selectionEnd.coerceIn(0, content.length)
-        val lineStart = content.toString().lastIndexOf('\n', cursor - 1).let { if (it == -1) 0 else it + 1 }
-        val lineEnd = content.toString().indexOf('\n', cursor).let { if (it == -1) content.length else it }
+        val (lineStart, lineEnd) = lineBoundsAt(content, cursor)
         val lineText = content.subSequence(lineStart, lineEnd).toString()
+        val newCursor: Int
 
-        if (lineText.startsWith("☐ ")) {
-            content.replace(lineStart, lineStart + 2, "☑ ")
-            content.setSpan(
-                StrikethroughSpan(),
-                lineStart + 2,
-                lineEnd,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        } else if (lineText.startsWith("☑ ")) {
+        if (lineText.startsWith(CHECKLIST_UNCHECKED_PREFIX)) {
+            content.replace(lineStart, lineStart + 2, CHECKLIST_CHECKED_PREFIX)
+            if (lineEnd > lineStart + 2) {
+                content.setSpan(
+                    StrikethroughSpan(),
+                    lineStart + 2,
+                    lineEnd,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+            newCursor = cursor.coerceIn(lineStart + 2, content.length)
+        } else if (lineText.startsWith(CHECKLIST_CHECKED_PREFIX)) {
             content.delete(lineStart, lineStart + 2)
             val spans = content.getSpans(lineStart, (lineEnd - 2).coerceAtLeast(lineStart), StrikethroughSpan::class.java)
             spans.forEach { content.removeSpan(it) }
+            newCursor = (cursor - 2).coerceIn(lineStart, content.length)
         } else {
-            content.insert(lineStart, "☐ ")
+            // Strip any existing ordered/bulleted prefix before applying checklist prefix
+            val existingPrefixLen = detectListPrefixLength(lineText)
+            if (existingPrefixLen > 0) {
+                content.delete(lineStart, lineStart + existingPrefixLen)
+            }
+            content.getSpans(lineStart, (lineEnd - existingPrefixLen).coerceAtLeast(lineStart), BulletSpan::class.java)
+                .forEach { content.removeSpan(it) }
+            content.insert(lineStart, CHECKLIST_UNCHECKED_PREFIX)
+            val delta = CHECKLIST_UNCHECKED_PREFIX.length - existingPrefixLen
+            newCursor = if (cursor <= lineStart + existingPrefixLen) {
+                lineStart + CHECKLIST_UNCHECKED_PREFIX.length
+            } else {
+                (cursor + delta).coerceIn(lineStart + CHECKLIST_UNCHECKED_PREFIX.length, content.length)
+            }
         }
-        applyEditableToEditor(content, (cursor + 2).coerceAtMost(content.length))
+        applyEditableToEditor(content, newCursor)
         refreshStateSnapshot()
+    }
+
+    /**
+     * Handles Enter inside an ordered list, bulleted list, or checklist:
+     * - Empty item (prefix only) -> exits list by removing the prefix.
+     * - Non-empty item -> inserts newline + next list marker (and renumbers following ordered items).
+     * Returns true if the Enter key was handled.
+     */
+    internal fun handleListEnter(onPageBoundary: Boolean = false): Boolean {
+        val content = currentEditable()
+        val cursor = selectionEnd.coerceIn(0, content.length)
+        val (lineStart, lineEnd) = lineBoundsAt(content, cursor)
+        val lineText = content.subSequence(lineStart, lineEnd).toString()
+
+        val orderedMatch = ORDERED_LIST_LINE_REGEX.find(lineText)
+        val isBullet = lineText.startsWith(UNORDERED_LIST_PREFIX)
+        val isCheck = lineText.startsWith(CHECKLIST_UNCHECKED_PREFIX) || lineText.startsWith(CHECKLIST_CHECKED_PREFIX)
+        if (orderedMatch == null && !isBullet && !isCheck) return false
+
+        val prefixLen = when {
+            orderedMatch != null -> orderedMatch.value.length
+            else -> 2
+        }
+        val afterPrefix = lineText.substring(prefixLen)
+
+        // Pressing Enter on an empty list item exits list mode cleanly
+        if (afterPrefix.isBlank() && cursor >= lineStart + prefixLen) {
+            content.delete(lineStart, lineEnd)
+            content.getSpans(lineStart, lineStart, StrikethroughSpan::class.java).forEach { content.removeSpan(it) }
+            applyEditableToEditor(content, lineStart)
+            refreshStateSnapshot()
+            return true
+        }
+
+        val nextPrefix = when {
+            orderedMatch != null -> "${(orderedMatch.groupValues[1].toIntOrNull() ?: 1) + 1}. "
+            isBullet -> UNORDERED_LIST_PREFIX
+            else -> CHECKLIST_UNCHECKED_PREFIX
+        }
+
+        val separator = if (onPageBoundary) PAGE_BREAK_MARKER else "\n"
+        val insertion = separator + nextPrefix
+        val selStartSafe = minOf(selectionStart, selectionEnd).coerceIn(0, content.length)
+        val selEndSafe = maxOf(selectionStart, selectionEnd).coerceIn(selStartSafe, content.length)
+        content.replace(selStartSafe, selEndSafe, insertion)
+        val newCursor = selStartSafe + insertion.length
+
+        // Ensure new unchecked checklist line does not inherit strikethrough from a checked item
+        if (isCheck) {
+            val newLineStart = selStartSafe + separator.length
+            val newLineEnd = content.toString().indexOf('\n', newLineStart).let { if (it == -1) content.length else it }
+            content.getSpans(newLineStart, newLineEnd, StrikethroughSpan::class.java).forEach { content.removeSpan(it) }
+        }
+
+        // If inserting in the middle of an ordered list, renumber subsequent consecutive items
+        if (orderedMatch != null && !onPageBoundary) {
+            val nextNum = (orderedMatch.groupValues[1].toIntOrNull() ?: 1) + 2
+            renumberFollowingOrderedItems(content, newCursor, nextNum)
+        }
+
+        applyEditableToEditor(content, newCursor)
+        refreshStateSnapshot()
+        return true
+    }
+
+    /**
+     * Handles Backspace when the cursor sits directly at the end of a list prefix ("1. |", "• |", "☐ |", "☑ |"):
+     * removes the entire list prefix cleanly in one press.
+     */
+    internal fun handleListBackspace(): Boolean {
+        if (selectionStart != selectionEnd) return false
+        val content = currentEditable()
+        val cursor = selectionEnd.coerceIn(0, content.length)
+        val (lineStart, lineEnd) = lineBoundsAt(content, cursor)
+        val lineText = content.subSequence(lineStart, lineEnd).toString()
+        val prefixLen = detectListPrefixLength(lineText)
+        if (prefixLen <= 0 || cursor != lineStart + prefixLen) return false
+
+        content.delete(lineStart, lineStart + prefixLen)
+        content.getSpans(lineStart, (lineEnd - prefixLen).coerceAtLeast(lineStart), StrikethroughSpan::class.java)
+            .forEach { content.removeSpan(it) }
+        applyEditableToEditor(content, lineStart)
+        refreshStateSnapshot()
+        return true
     }
 
     fun toggleChecklistAtOffset(offset: Int): Boolean {
@@ -494,19 +688,21 @@ class RichTextState {
         val lineEnd = content.toString().indexOf('\n', lineStart).let { if (it == -1) content.length else it }
         val lineText = content.subSequence(lineStart, lineEnd).toString()
 
-        if (lineText.startsWith("☐ ")) {
-            content.replace(lineStart, lineStart + 2, "☑ ")
-            content.setSpan(
-                StrikethroughSpan(),
-                lineStart + 2,
-                lineEnd,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
+        if (lineText.startsWith(CHECKLIST_UNCHECKED_PREFIX)) {
+            content.replace(lineStart, lineStart + 2, CHECKLIST_CHECKED_PREFIX)
+            if (lineEnd > lineStart + 2) {
+                content.setSpan(
+                    StrikethroughSpan(),
+                    lineStart + 2,
+                    lineEnd,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
             applyEditableToEditor(content, offset)
             refreshStateSnapshot()
             return true
-        } else if (lineText.startsWith("☑ ")) {
-            content.replace(lineStart, lineStart + 2, "☐ ")
+        } else if (lineText.startsWith(CHECKLIST_CHECKED_PREFIX)) {
+            content.replace(lineStart, lineStart + 2, CHECKLIST_UNCHECKED_PREFIX)
             val spans = content.getSpans(lineStart, lineEnd, StrikethroughSpan::class.java)
             spans.forEach { content.removeSpan(it) }
             applyEditableToEditor(content, offset)
@@ -674,21 +870,94 @@ class RichTextState {
         refreshStateSnapshot()
     }
 
-    private fun applyListMarker() {
+    private fun applyListType(ordered: Boolean) {
         val content = currentEditable()
-        val start = selectionStart.coerceIn(0, content.length)
-        val lineStart = content.toString().lastIndexOf('\n', start - 1).let { if (it == -1) 0 else it + 1 }
-        if (isOrderedList) {
-            if (!content.toString().substring(lineStart).startsWith("1. ")) {
-                content.insert(lineStart, "1. ")
-            }
-        } else if (isUnorderedList) {
-            if (!content.toString().substring(lineStart).startsWith("• ")) {
-                content.insert(lineStart, "• ")
-                content.setSpan(BulletSpan(12), lineStart, content.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        val rawSelStart = minOf(selectionStart, selectionEnd).coerceIn(0, content.length)
+        val rawSelEnd = maxOf(selectionStart, selectionEnd).coerceIn(rawSelStart, content.length)
+        val hasRange = rawSelStart != rawSelEnd
+
+        val affectedLines = collectSelectedLineRanges(content, rawSelStart, rawSelEnd)
+            .filter { (ls, le) -> content.subSequence(ls, le).toString() != PAGE_BREAK_TOKEN }
+        if (affectedLines.isEmpty()) return
+
+        val allAlreadyTarget = affectedLines.all { (ls, le) ->
+            val lineText = content.subSequence(ls, le).toString()
+            if (ordered) ORDERED_LIST_LINE_REGEX.containsMatchIn(lineText)
+            else lineText.startsWith(UNORDERED_LIST_PREFIX)
+        }
+
+        // Determine starting number for ordered list by inspecting the immediately preceding line
+        var nextNumber = 1
+        if (ordered && !allAlreadyTarget) {
+            val firstLineStart = affectedLines.first().first
+            if (firstLineStart > 0) {
+                val prevLineEnd = firstLineStart - 1
+                val (prevStart, _) = lineBoundsAt(content, prevLineEnd)
+                val prevText = content.subSequence(prevStart, prevLineEnd).toString()
+                val prevMatch = ORDERED_LIST_LINE_REGEX.find(prevText)
+                if (prevMatch != null) {
+                    nextNumber = (prevMatch.groupValues[1].toIntOrNull() ?: 0) + 1
+                }
             }
         }
-        applyEditableToEditor(content)
+
+        var newSelStart = rawSelStart
+        var newSelEnd = rawSelEnd
+        var cumulativeDelta = 0
+
+        for ((origLineStart, origLineEnd) in affectedLines) {
+            val lineStart = origLineStart + cumulativeDelta
+            val lineEnd = origLineEnd + cumulativeDelta
+            val lineText = content.subSequence(lineStart, lineEnd).toString()
+            val existingPrefixLen = detectListPrefixLength(lineText)
+
+            // Always remove any legacy BulletSpans on this line so we never render double bullets
+            content.getSpans(lineStart, lineEnd, BulletSpan::class.java).forEach { content.removeSpan(it) }
+            if (lineText.startsWith(CHECKLIST_CHECKED_PREFIX)) {
+                content.getSpans(lineStart, lineEnd, StrikethroughSpan::class.java).forEach { content.removeSpan(it) }
+            }
+
+            val replacement = when {
+                allAlreadyTarget -> ""
+                ordered -> "${nextNumber++}. "
+                else -> UNORDERED_LIST_PREFIX
+            }
+
+            if (existingPrefixLen > 0) {
+                content.replace(lineStart, lineStart + existingPrefixLen, replacement)
+            } else if (replacement.isNotEmpty()) {
+                content.insert(lineStart, replacement)
+            }
+
+            val delta = replacement.length - existingPrefixLen
+            val afterNewPrefix = lineStart + replacement.length
+
+            if (rawSelStart >= origLineStart) {
+                newSelStart = if (rawSelStart <= origLineStart + existingPrefixLen) {
+                    afterNewPrefix
+                } else {
+                    (newSelStart + delta).coerceAtLeast(afterNewPrefix)
+                }
+            }
+            if (rawSelEnd >= origLineStart) {
+                newSelEnd = if (rawSelEnd <= origLineStart + existingPrefixLen) {
+                    afterNewPrefix
+                } else {
+                    (newSelEnd + delta).coerceAtLeast(afterNewPrefix)
+                }
+            }
+            cumulativeDelta += delta
+        }
+
+        // If we turned on/modified an ordered list, renumber any consecutive ordered lines right below
+        if (ordered && !allAlreadyTarget) {
+            val lastLineEnd = affectedLines.last().second + cumulativeDelta
+            renumberFollowingOrderedItems(content, lastLineEnd, nextNumber)
+        }
+
+        val finalStart = newSelStart.coerceIn(0, content.length)
+        val finalEnd = if (hasRange) newSelEnd.coerceIn(finalStart, content.length) else finalStart
+        applyEditableToEditor(content, finalStart, finalEnd)
         refreshStateSnapshot()
     }
 
@@ -717,21 +986,198 @@ class RichTextState {
         refreshStateSnapshot()
     }
 
-    private fun <T> toggleParagraphSpan(span: T, clazz: Class<T>) where T : Any {
+    private fun applyParagraphAlignment(alignment: android.text.Layout.Alignment) {
         val target: Spannable = boundEditor?.text ?: editable
-        val (start, end) = normalizedParagraphSelection(if (target is SpannableStringBuilder) target else SpannableStringBuilder(target)) ?: return
-        val spans = target.getSpans(start, end, clazz)
-        val hasSpan = spans.any {
-            val spanStart = target.getSpanStart(it)
-            val spanEnd = target.getSpanEnd(it)
-            spanStart <= start && spanEnd >= end
+        val rawStart = minOf(selectionStart, selectionEnd).coerceIn(0, target.length)
+        val rawEnd = maxOf(selectionStart, selectionEnd).coerceIn(rawStart, target.length)
+        val selectedLines = collectSelectedLineRanges(target, rawStart, rawEnd)
+        if (selectedLines.isEmpty()) {
+            pendingParagraphAlignment = if (alignment == android.text.Layout.Alignment.ALIGN_NORMAL) null else alignment
+            currentTextAlign = layoutAlignmentToTextAlign(alignment)
+            return
         }
-        spans.forEach { target.removeSpan(it) }
-        if (!hasSpan) {
-            target.setSpan(span, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+        var hasEmptyLine = false
+        for ((lineStart, lineEnd) in selectedLines) {
+            if (target.subSequence(lineStart, lineEnd).toString() == PAGE_BREAK_TOKEN) continue
+            if (lineStart == lineEnd) {
+                hasEmptyLine = true
+            }
+            applyAlignmentToLine(target, lineStart, lineEnd, alignment)
         }
+
+        pendingParagraphAlignment = when {
+            alignment == android.text.Layout.Alignment.ALIGN_NORMAL -> null
+            hasEmptyLine -> alignment
+            else -> null
+        }
+
         editable = SpannableStringBuilder(target)
-        refreshStateSnapshot()
+        boundEditor?.invalidate()
+        boundEditor?.requestLayout()
+    }
+
+    private fun applyAlignmentToLine(
+        target: Spannable,
+        lineStart: Int,
+        lineEnd: Int,
+        alignment: android.text.Layout.Alignment
+    ) {
+        val safeStart = lineStart.coerceIn(0, target.length)
+        val safeEnd = lineEnd.coerceIn(safeStart, target.length)
+        val existingSpans = target.getSpans(safeStart, safeEnd, AlignmentSpan::class.java)
+        for (span in existingSpans) {
+            val sStart = target.getSpanStart(span)
+            val sEnd = target.getSpanEnd(span)
+            // Only modify spans that actually intersect this line's character span
+            if (sEnd < safeStart || sStart > safeEnd) continue
+            if (safeStart < safeEnd && (sEnd == safeStart || sStart == safeEnd)) continue
+            val existingAlign = span.alignment
+            target.removeSpan(span)
+            // Preserve portions of a multi-line span on lines outside [safeStart, safeEnd]
+            if (sStart < safeStart) {
+                val beforeEnd = (safeStart - 1).coerceAtLeast(sStart)
+                if (beforeEnd > sStart || (beforeEnd == sStart && existingAlign != android.text.Layout.Alignment.ALIGN_NORMAL)) {
+                    target.setSpan(
+                        AlignmentSpan.Standard(existingAlign),
+                        sStart,
+                        beforeEnd,
+                        Spannable.SPAN_INCLUSIVE_INCLUSIVE
+                    )
+                }
+            }
+            if (sEnd > safeEnd) {
+                val afterStart = (safeEnd + 1).coerceAtMost(sEnd)
+                if (sEnd > afterStart || (sEnd == afterStart && existingAlign != android.text.Layout.Alignment.ALIGN_NORMAL)) {
+                    target.setSpan(
+                        AlignmentSpan.Standard(existingAlign),
+                        afterStart,
+                        sEnd,
+                        Spannable.SPAN_INCLUSIVE_INCLUSIVE
+                    )
+                }
+            }
+        }
+
+        if (alignment != android.text.Layout.Alignment.ALIGN_NORMAL) {
+            target.setSpan(
+                AlignmentSpan.Standard(alignment),
+                safeStart,
+                safeEnd,
+                Spannable.SPAN_INCLUSIVE_INCLUSIVE
+            )
+        }
+    }
+
+    private fun alignmentForLine(
+        content: Spanned,
+        lineStart: Int,
+        lineEnd: Int
+    ): android.text.Layout.Alignment {
+        val safeStart = lineStart.coerceIn(0, content.length)
+        val safeEnd = lineEnd.coerceIn(safeStart, content.length)
+        val spans = content.getSpans(safeStart, safeEnd, AlignmentSpan::class.java)
+        val matching = spans.lastOrNull { span ->
+            val sStart = content.getSpanStart(span)
+            val sEnd = content.getSpanEnd(span)
+            if (safeStart == safeEnd) {
+                sStart <= safeStart && sEnd >= safeStart
+            } else {
+                sStart < safeEnd && sEnd > safeStart
+            }
+        }
+        return matching?.alignment ?: android.text.Layout.Alignment.ALIGN_NORMAL
+    }
+
+    private fun layoutAlignmentToTextAlign(alignment: android.text.Layout.Alignment): TextAlign {
+        return when (alignment) {
+            android.text.Layout.Alignment.ALIGN_CENTER -> TextAlign.Center
+            android.text.Layout.Alignment.ALIGN_OPPOSITE -> TextAlign.End
+            else -> TextAlign.Start
+        }
+    }
+
+    private fun lineBoundsAt(content: CharSequence, offset: Int): Pair<Int, Int> {
+        val safeOffset = offset.coerceIn(0, content.length)
+        val str = content.toString()
+        val lineStart = if (safeOffset == 0) 0 else str.lastIndexOf('\n', safeOffset - 1).let { if (it == -1) 0 else it + 1 }
+        val lineEnd = str.indexOf('\n', safeOffset).let { if (it == -1) content.length else it }
+        return lineStart to lineEnd
+    }
+
+    private fun collectLineRanges(content: CharSequence): List<Pair<Int, Int>> {
+        val str = content.toString()
+        val ranges = mutableListOf<Pair<Int, Int>>()
+        var start = 0
+        while (start <= str.length) {
+            val nl = str.indexOf('\n', start)
+            if (nl == -1) {
+                ranges.add(start to str.length)
+                break
+            } else {
+                ranges.add(start to nl)
+                start = nl + 1
+            }
+        }
+        return ranges
+    }
+
+    private fun collectSelectedLineRanges(
+        content: CharSequence,
+        selStart: Int,
+        selEnd: Int
+    ): List<Pair<Int, Int>> {
+        val safeStart = selStart.coerceIn(0, content.length)
+        val safeEnd = selEnd.coerceIn(safeStart, content.length)
+        val str = content.toString()
+        val firstLineStart = if (safeStart == 0) 0 else str.lastIndexOf('\n', safeStart - 1).let { if (it == -1) 0 else it + 1 }
+        // If a range selection ends right at the start of the next line (immediately after '\n'), don't include that trailing line
+        val effectiveEnd = if (safeEnd > safeStart && str[safeEnd - 1] == '\n') safeEnd - 1 else safeEnd
+        val lastLineEnd = str.indexOf('\n', effectiveEnd).let { if (it == -1) content.length else it }
+
+        val ranges = mutableListOf<Pair<Int, Int>>()
+        var pos = firstLineStart
+        while (pos <= lastLineEnd) {
+            val nl = str.indexOf('\n', pos)
+            if (nl == -1 || nl >= lastLineEnd) {
+                ranges.add(pos to lastLineEnd)
+                break
+            } else {
+                ranges.add(pos to nl)
+                pos = nl + 1
+            }
+        }
+        return ranges
+    }
+
+    private fun detectListPrefixLength(lineText: String): Int {
+        ORDERED_LIST_LINE_REGEX.find(lineText)?.let { return it.value.length }
+        if (lineText.startsWith(UNORDERED_LIST_PREFIX)) return UNORDERED_LIST_PREFIX.length
+        if (lineText.startsWith(CHECKLIST_UNCHECKED_PREFIX)) return CHECKLIST_UNCHECKED_PREFIX.length
+        if (lineText.startsWith(CHECKLIST_CHECKED_PREFIX)) return CHECKLIST_CHECKED_PREFIX.length
+        return 0
+    }
+
+    private fun renumberFollowingOrderedItems(
+        content: SpannableStringBuilder,
+        fromOffset: Int,
+        startNumber: Int
+    ) {
+        var nextNum = startNumber
+        var pos = content.toString().indexOf('\n', fromOffset.coerceIn(0, content.length))
+        while (pos != -1 && pos + 1 <= content.length) {
+            val lineStart = pos + 1
+            val lineEnd = content.toString().indexOf('\n', lineStart).let { if (it == -1) content.length else it }
+            val lineText = content.subSequence(lineStart, lineEnd).toString()
+            val match = ORDERED_LIST_LINE_REGEX.find(lineText) ?: break
+            val desired = "${nextNum++}. "
+            if (match.value != desired) {
+                content.replace(lineStart, lineStart + match.value.length, desired)
+                pos = content.toString().indexOf('\n', lineStart + desired.length)
+            } else {
+                pos = content.toString().indexOf('\n', lineEnd)
+            }
+        }
     }
 
     private fun <T> toggleSpan(span: T, clazz: Class<T>) where T : Any {
@@ -760,15 +1206,6 @@ class RichTextState {
             existing::class == target::class -> true
             else -> false
         }
-    }
-
-    private fun normalizedParagraphSelection(content: SpannableStringBuilder): Pair<Int, Int>? {
-        if (content.isEmpty()) return null
-        val rawStart = selectionStart.coerceIn(0, content.length)
-        val rawEnd = selectionEnd.coerceIn(rawStart, content.length)
-        val start = content.toString().lastIndexOf('\n', rawStart - 1).let { if (it == -1) 0 else it + 1 }
-        val end = content.toString().indexOf('\n', rawEnd).let { if (it == -1) content.length else it }
-        return start to end
     }
 
     private fun normalizedSelection(max: Int): Pair<Int, Int>? {
@@ -834,6 +1271,23 @@ class RichTextState {
         val content = currentEditable()
         annotatedString = AnnotatedString(content.toString())
         currentSpanStyle = extractCurrentSpanStyle(content)
+
+        // Sync list-type and paragraph alignment flags with the actual line under the cursor
+        val cursor = selectionEnd.coerceIn(0, content.length)
+        val (lineStart, lineEnd) = lineBoundsAt(content, cursor)
+        val lineText = content.subSequence(lineStart, lineEnd).toString()
+        isOrderedList = ORDERED_LIST_LINE_REGEX.containsMatchIn(lineText)
+        isUnorderedList = lineText.startsWith(UNORDERED_LIST_PREFIX)
+        isChecklist = lineText.startsWith(CHECKLIST_UNCHECKED_PREFIX) || lineText.startsWith(CHECKLIST_CHECKED_PREFIX)
+
+        val lineAlign = alignmentForLine(content, lineStart, lineEnd)
+        currentTextAlign = if (lineAlign != android.text.Layout.Alignment.ALIGN_NORMAL) {
+            layoutAlignmentToTextAlign(lineAlign)
+        } else if (lineStart == lineEnd && pendingParagraphAlignment != null) {
+            layoutAlignmentToTextAlign(pendingParagraphAlignment!!)
+        } else {
+            TextAlign.Start
+        }
     }
 
     private fun extractCurrentSpanStyle(content: SpannableStringBuilder): SpanStyle {
@@ -1416,9 +1870,17 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                 return super.commitText(text, newCursorPosition)
             }
 
+            override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
+                if (beforeLength == 1 && afterLength == 0) {
+                    if (handleBackspaceKey()) return true
+                }
+                return super.deleteSurroundingText(beforeLength, afterLength)
+            }
+
             override fun sendKeyEvent(event: KeyEvent?): Boolean {
-                if (event?.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_ENTER) {
-                    if (handleEnterKey()) return true
+                if (event?.action == KeyEvent.ACTION_DOWN) {
+                    if (event.keyCode == KeyEvent.KEYCODE_ENTER && handleEnterKey()) return true
+                    if (event.keyCode == KeyEvent.KEYCODE_DEL && handleBackspaceKey()) return true
                 }
                 return super.sendKeyEvent(event)
             }
@@ -1454,7 +1916,27 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
             pageSub.count { it == '\n' }
         }
 
-        if (lineOnPage >= LINES_PER_PAGE - 1) { // 14 means 15th line (0-indexed)
+        val onPageBoundary = lineOnPage >= LINES_PER_PAGE - 1 // 14 means 15th line (0-indexed)
+        val pagesBefore = st.pageCount()
+        if (st.handleListEnter(onPageBoundary = onPageBoundary)) {
+            requestLayout()
+            invalidate()
+            if (st.pageCount() > pagesBefore) {
+                onPageBreakAutoInserted?.invoke()
+                post {
+                    val nextPageIndex = pageIndex + 1
+                    val nextY = nextPageIndex * (pageHeightPx + pageGapPx)
+                    scrollTo(0, nextY)
+                    ensureCursorVisible()
+                }
+            } else {
+                ensureCursorVisible()
+                post { ensureCursorVisible() }
+            }
+            return true
+        }
+
+        if (onPageBoundary) {
             st.insertPageBreak()
             onPageBreakAutoInserted?.invoke()
             requestLayout()
@@ -1477,6 +1959,11 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         val content = text?.toString() ?: ""
         if (cursor >= marker.length && content.regionMatches(cursor - marker.length, marker, 0, marker.length)) {
             st.removeCurrentPageBreak()
+            requestLayout()
+            invalidate()
+            return true
+        }
+        if (st.handleListBackspace()) {
             requestLayout()
             invalidate()
             return true

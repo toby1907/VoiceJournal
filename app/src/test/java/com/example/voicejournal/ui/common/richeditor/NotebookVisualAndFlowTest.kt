@@ -643,4 +643,103 @@ class NotebookVisualAndFlowTest {
             capturedMaxScroll > 0
         )
     }
+
+    @Test
+    fun alignAndListTypes_renderLeftCenterRightAndLists_outputsPng() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val state = RichTextState()
+        val editor = RichEditText(context).apply {
+            setTextColor(Color.BLACK)
+            richTextState = state
+        }
+        state.bindEditor(editor)
+
+        val lines = listOf(
+            "Left aligned",
+            "Centered",
+            "Right aligned",
+            "First item",
+            "Second item",
+            "Bullet one",
+            "Bullet two",
+            "Checklist task"
+        )
+        state.setText(lines.joinToString("\n"))
+
+        // Align Line 2 Center, Line 3 Right
+        val text0 = editor.text!!.toString()
+        val l2 = text0.indexOf("Centered")
+        state.onEditorContentChanged(editor.text, l2, l2)
+        state.toggleParagraphStyle(androidx.compose.ui.text.ParagraphStyle(textAlign = androidx.compose.ui.text.style.TextAlign.Center))
+
+        val l3 = editor.text!!.toString().indexOf("Right aligned")
+        state.onEditorContentChanged(editor.text, l3, l3)
+        state.toggleParagraphStyle(androidx.compose.ui.text.ParagraphStyle(textAlign = androidx.compose.ui.text.style.TextAlign.End))
+
+        // Numbered list on lines 4-5
+        val l4Start = editor.text!!.toString().indexOf("First item")
+        val l5End = editor.text!!.toString().indexOf("Second item") + "Second item".length
+        state.onEditorContentChanged(editor.text, l4Start, l5End)
+        state.toggleOrderedList()
+
+        // Bulleted list on lines 6-7
+        val l6Start = editor.text!!.toString().indexOf("Bullet one")
+        val l7End = editor.text!!.toString().indexOf("Bullet two") + "Bullet two".length
+        state.onEditorContentChanged(editor.text, l6Start, l7End)
+        state.toggleUnorderedList()
+
+        // Checklist on line 8
+        val l8Start = editor.text!!.toString().indexOf("Checklist task")
+        state.onEditorContentChanged(editor.text, l8Start, l8Start)
+        state.toggleChecklistLine()
+
+        // Confirm zero leaking BulletSpans
+        assertTrue(editor.text!!.getSpans(0, editor.text!!.length, android.text.style.BulletSpan::class.java).isEmpty())
+
+        val width = 1080
+        val height = 1400
+        editor.layoutParams = android.view.ViewGroup.LayoutParams(width, height)
+        editor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        editor.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.WHITE)
+        editor.draw(canvas)
+
+        val outFile = saveBitmap(bitmap, "align_and_lists_visual.png")
+        assertTrue("align_and_lists_visual.png should exist", outFile.exists() && outFile.length() > 0L)
+
+        fun countDarkPixels(lineIndex: Int, xStart: Int, xEnd: Int): Int {
+            val l = editor.layout!!
+            val yTop = (editor.totalPaddingTop + l.getLineTop(lineIndex)).coerceIn(0, height - 1)
+            val yBot = (editor.totalPaddingTop + l.getLineBottom(lineIndex)).coerceIn(yTop + 1, height)
+            var count = 0
+            for (y in yTop until yBot) {
+                for (x in xStart until xEnd) {
+                    val p = bitmap.getPixel(x, y)
+                    if (Color.red(p) < 80 && Color.green(p) < 80 && Color.blue(p) < 80) {
+                        count++
+                    }
+                }
+            }
+            return count
+        }
+
+        // Line 0 ("Left aligned"): dark pixels on left third, none on right third
+        assertTrue("Line 0 should render on left third", countDarkPixels(0, 40, 360) > 80)
+        assertTrue("Line 0 should not render on right third", countDarkPixels(0, 720, 1030) == 0)
+
+        // Line 1 ("Centered"): dark pixels in center third, none on left/right edges
+        assertTrue("Line 1 should render in center third", countDarkPixels(1, 360, 720) > 80)
+        assertTrue("Line 1 should not render on far left", countDarkPixels(1, 40, 260) == 0)
+        assertTrue("Line 1 should not render on far right", countDarkPixels(1, 820, 1030) == 0)
+
+        // Line 2 ("Right aligned"): dark pixels on right third, none on left third
+        assertTrue("Line 2 should render on right third", countDarkPixels(2, 700, 1040) > 80)
+        assertTrue("Line 2 should not render on left third", countDarkPixels(2, 40, 360) == 0)
+    }
 }

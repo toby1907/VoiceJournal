@@ -222,6 +222,181 @@ class RichTextStateTest {
         assertEquals("hello world", state.annotatedString.text)
     }
 
+    @Test
+    fun alignment_switchesCleanlyBetweenLeftCenterRight_withoutTogglingOff() {
+        val (state, editor) = createBoundState("Line 1\nLine 2\nLine 3")
+
+        // Place cursor on Line 2 ("Line 2" starts at offset 7)
+        state.onEditorContentChanged(editor.text, 7, 7)
+        assertEquals(TextAlign.Start, state.currentTextAlign)
+
+        // Apply Center to Line 2
+        state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center))
+        assertEquals(TextAlign.Center, state.currentTextAlign)
+
+        // Switch directly from Center -> Right (must apply ALIGN_OPPOSITE, not drop back to Left)
+        state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.End))
+        assertEquals(TextAlign.End, state.currentTextAlign)
+        val line2Spans = editor.text!!.getSpans(7, 13, AlignmentSpan::class.java)
+        assertTrue(line2Spans.any { it.alignment == Layout.Alignment.ALIGN_OPPOSITE })
+
+        // Verify Line 1 and Line 3 remained Left-aligned
+        state.onEditorContentChanged(editor.text, 0, 0)
+        assertEquals(TextAlign.Start, state.currentTextAlign)
+        state.onEditorContentChanged(editor.text, 14, 14)
+        assertEquals(TextAlign.Start, state.currentTextAlign)
+
+        // Move back to Line 2 -> reports Right, then reset to Left
+        state.onEditorContentChanged(editor.text, 9, 9)
+        assertEquals(TextAlign.End, state.currentTextAlign)
+        state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Start))
+        assertEquals(TextAlign.Start, state.currentTextAlign)
+        assertTrue(editor.text!!.getSpans(7, 13, AlignmentSpan::class.java).isEmpty())
+    }
+
+    @Test
+    fun alignment_onEmptyLine_appliesWhenTypingStarts() {
+        val (state, editor) = createBoundState("")
+        state.onEditorContentChanged(editor.text, 0, 0)
+
+        state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center))
+        assertEquals(TextAlign.Center, state.currentTextAlign)
+
+        editor.text!!.insert(0, "Centered")
+        state.applyActiveTypingStyle(editor.text!!, 0, 8)
+        state.onEditorContentChanged(editor.text, 8, 8)
+
+        assertEquals(TextAlign.Center, state.currentTextAlign)
+        val spans = editor.text!!.getSpans(0, 8, AlignmentSpan::class.java)
+        assertTrue(spans.any { it.alignment == Layout.Alignment.ALIGN_CENTER })
+    }
+
+    @Test
+    fun alignment_roundTripsThroughHtml_perLineWithoutDrift() {
+        val (state, editor) = createBoundState("Left line\nCentered line\nRight line\nBottom left")
+        // Center Line 2
+        val line2Start = "Left line\n".length
+        state.onEditorContentChanged(editor.text, line2Start, line2Start)
+        state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center))
+
+        // Right-align Line 3
+        val line3Start = "Left line\nCentered line\n".length
+        state.onEditorContentChanged(editor.text, line3Start, line3Start)
+        state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.End))
+
+        val html = state.toHtml()
+        assertTrue(html.contains("data-voicejournal-align=\"center\""))
+        assertTrue(html.contains("data-voicejournal-align=\"end\""))
+
+        val (reloaded, reloadedEditor) = createBoundState("")
+        reloaded.setHtml(html)
+
+        val text = reloadedEditor.text!!.toString()
+        val lines = text.trimEnd('\n').split("\n")
+        assertEquals(listOf("Left line", "Centered line", "Right line", "Bottom left"), lines)
+
+        val l1 = 0
+        val l2 = text.indexOf("Centered line")
+        val l3 = text.indexOf("Right line")
+        val l4 = text.indexOf("Bottom left")
+
+        reloaded.onEditorContentChanged(reloadedEditor.text, l1, l1)
+        assertEquals(TextAlign.Start, reloaded.currentTextAlign)
+        reloaded.onEditorContentChanged(reloadedEditor.text, l2, l2)
+        assertEquals(TextAlign.Center, reloaded.currentTextAlign)
+        reloaded.onEditorContentChanged(reloadedEditor.text, l3, l3)
+        assertEquals(TextAlign.End, reloaded.currentTextAlign)
+        reloaded.onEditorContentChanged(reloadedEditor.text, l4, l4)
+        assertEquals(TextAlign.Start, reloaded.currentTextAlign)
+    }
+
+    @Test
+    fun lists_toggleOnOffAndSwitchCleanly_withoutDoubleBulletsOrStackedPrefixes() {
+        val (state, editor) = createBoundState("Apple")
+        state.onEditorContentChanged(editor.text, 0, 0)
+
+        // Toggle ordered ON
+        state.toggleOrderedList()
+        assertEquals("1. Apple", editor.text.toString())
+        assertEquals(3, editor.selectionEnd)
+        assertTrue(state.isOrderedList)
+        assertTrue(!state.isUnorderedList)
+
+        // Switch ordered -> unordered (replaces prefix, zero BulletSpan)
+        state.toggleUnorderedList()
+        assertEquals("• Apple", editor.text.toString())
+        assertEquals(2, editor.selectionEnd)
+        assertTrue(state.isUnorderedList)
+        assertTrue(!state.isOrderedList)
+        assertTrue(editor.text!!.getSpans(0, editor.text!!.length, android.text.style.BulletSpan::class.java).isEmpty())
+
+        // Toggle unordered OFF
+        state.toggleUnorderedList()
+        assertEquals("Apple", editor.text.toString())
+        assertEquals(0, editor.selectionEnd)
+        assertTrue(!state.isUnorderedList)
+        assertTrue(!state.isOrderedList)
+    }
+
+    @Test
+    fun multiLineList_numbersAllSelectedLinesAndSwitchesCleanly() {
+        val (state, editor) = createBoundState("First\nSecond\nThird")
+        state.onEditorContentChanged(editor.text, 0, editor.text!!.length)
+
+        state.toggleOrderedList()
+        assertEquals("1. First\n2. Second\n3. Third", editor.text.toString())
+
+        state.onEditorContentChanged(editor.text, 0, editor.text!!.length)
+        state.toggleUnorderedList()
+        assertEquals("• First\n• Second\n• Third", editor.text.toString())
+
+        state.onEditorContentChanged(editor.text, 0, editor.text!!.length)
+        state.toggleUnorderedList()
+        assertEquals("First\nSecond\nThird", editor.text.toString())
+    }
+
+    @Test
+    fun listEnterAndBackspace_continueRenumberAndExitCleanly() {
+        // 1. Ordered list continuation + exit on empty item
+        val (state, editor) = createBoundState("1. First")
+        state.onEditorContentChanged(editor.text, editor.text!!.length, editor.text!!.length)
+
+        assertTrue(state.handleListEnter())
+        assertEquals("1. First\n2. ", editor.text.toString())
+        assertTrue(state.isOrderedList)
+
+        // Enter on empty "2. " exits list
+        assertTrue(state.handleListEnter())
+        assertEquals("1. First\n", editor.text.toString())
+        assertTrue(!state.isOrderedList)
+
+        // 2. Insert in middle of ordered list renumbers subsequent items
+        state.setText("1. One\n2. Two")
+        val endOfOne = "1. One".length
+        state.onEditorContentChanged(editor.text, endOfOne, endOfOne)
+        assertTrue(state.handleListEnter())
+        assertEquals("1. One\n2. \n3. Two", editor.text.toString())
+
+        // 3. Bulleted list continuation + backspace prefix removal
+        state.setText("• Alpha")
+        state.onEditorContentChanged(editor.text, editor.text!!.length, editor.text!!.length)
+        assertTrue(state.handleListEnter())
+        assertEquals("• Alpha\n• ", editor.text.toString())
+        assertTrue(state.handleListBackspace())
+        assertEquals("• Alpha\n", editor.text.toString())
+        assertTrue(!state.isUnorderedList)
+
+        // 4. Checklist continuation + exit on empty
+        state.setText("☐ Task")
+        state.onEditorContentChanged(editor.text, editor.text!!.length, editor.text!!.length)
+        assertTrue(state.handleListEnter())
+        assertEquals("☐ Task\n☐ ", editor.text.toString())
+        assertTrue(state.isChecklist)
+        assertTrue(state.handleListEnter())
+        assertEquals("☐ Task\n", editor.text.toString())
+        assertTrue(!state.isChecklist)
+    }
+
     private fun createBoundState(initialText: String): Pair<RichTextState, AppCompatEditText> {
         val state = RichTextState()
         val editor = AppCompatEditText(ApplicationProvider.getApplicationContext())

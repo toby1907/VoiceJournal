@@ -347,7 +347,7 @@ fun ControlWrapper2(
             .padding(8.dp)
             .fillMaxWidth()
             .clickable {
-                onChangeClick(selected)
+                onChangeClick(!selected)
                 onClick()
             }
 
