@@ -265,7 +265,8 @@ fun BottomAppPanel(
             ControlWrapper(
                 selected = isBold,
                 onChangeClick = { boldSelected = it },
-                onClick = onBoldClick
+                onClick = onBoldClick,
+                unselectedColor = Color.Transparent
             ) {
                 Icon(
                     imageVector = Icons.Default.FormatBold,
@@ -290,7 +291,7 @@ fun BottomAppPanel(
             }
 
             // 5: Strikethrough
-            val isStrikethrough = currentSpanStyle.textDecoration == TextDecoration.LineThrough
+            val isStrikethrough = currentSpanStyle.textDecoration?.contains(TextDecoration.LineThrough) == true
             ControlWrapper(
                 selected = isStrikethrough,
                 onChangeClick = { strikethroughSelected = it },
@@ -305,7 +306,7 @@ fun BottomAppPanel(
             }
 
             // 6: Underline
-            val isUnderline = currentSpanStyle.textDecoration == TextDecoration.Underline
+            val isUnderline = currentSpanStyle.textDecoration?.contains(TextDecoration.Underline) == true
             ControlWrapper(
                 selected = isUnderline,
                 onChangeClick = { underlineSelected = it },
