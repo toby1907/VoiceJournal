@@ -20,6 +20,7 @@ import com.example.voicejournal.Data.model.NoteBlock
 import com.example.voicejournal.Data.model.NoteBlockFactory
 import com.example.voicejournal.Data.model.NoteBlockOps
 import com.example.voicejournal.Data.model.NoteBlockType
+import com.example.voicejournal.Data.model.NotePaperStyle
 import com.example.voicejournal.Data.model.hashNotePin
 import com.example.voicejournal.Data.model.isNoteLocked
 import com.example.voicejournal.Data.model.encodeDrawingPath
@@ -90,6 +91,7 @@ class AddVoiceNoteViewModel @Inject constructor(
         FavouriteState()
     )
     private val _folderName = mutableStateOf("")
+    private val _paperStyle = mutableStateOf(NotePaperStyle.LINED)
     private val _noteLocked = mutableStateOf(false)
     private val _noteBlocks = mutableStateListOf<NoteBlock>()
     private val _currentBlockPreviewAudioUri = mutableStateOf<String?>(null)
@@ -128,6 +130,7 @@ class AddVoiceNoteViewModel @Inject constructor(
     val tempImageUris: State<UriState> = _tempImageUris
     val favourite: State<FavouriteState> = _favourite
     val folderName: State<String> = _folderName
+    val paperStyle: State<NotePaperStyle> = _paperStyle
     val noteLocked: State<Boolean> = _noteLocked
     val noteBlocks: List<NoteBlock> get() = _noteBlocks
     val currentBlockPreviewAudioUri: State<String?> = _currentBlockPreviewAudioUri
@@ -232,6 +235,7 @@ class AddVoiceNoteViewModel @Inject constructor(
                                 )
                             }
                             _folderName.value = note.folderName.orEmpty()
+                            _paperStyle.value = NotePaperStyle.fromId(note.paperStyle)
                             _noteLocked.value = note.isNoteLocked()
                             notePinHash = note.lockPinHash
 
@@ -396,7 +400,8 @@ class AddVoiceNoteViewModel @Inject constructor(
                             noteBlocks = buildPersistableNoteBlocks(event.note),
                             folderName = _folderName.value.trim().ifBlank { null },
                             isLocked = _noteLocked.value,
-                            lockPinHash = if (_noteLocked.value) notePinHash else null
+                            lockPinHash = if (_noteLocked.value) notePinHash else null,
+                            paperStyle = _paperStyle.value.id
                         )
 
                         val id = voiceJournalRepository.saveAndId(voiceJournal)
@@ -945,6 +950,10 @@ class AddVoiceNoteViewModel @Inject constructor(
         _folderName.value = name
     }
 
+    fun setPaperStyle(style: NotePaperStyle) {
+        _paperStyle.value = style
+    }
+
     private fun setNoteBlocks(blocks: List<NoteBlock>) {
         _noteBlocks.clear()
         _noteBlocks.addAll(
@@ -1071,7 +1080,8 @@ class AddVoiceNoteViewModel @Inject constructor(
                         noteBlocks = buildPersistableNoteBlocks(note),
                         folderName = _folderName.value.trim().ifBlank { null },
                         isLocked = _noteLocked.value,
-                        lockPinHash = if (_noteLocked.value) notePinHash else null
+                        lockPinHash = if (_noteLocked.value) notePinHash else null,
+                        paperStyle = _paperStyle.value.id
                     )
                 )
                 if (savedId > 0L) {

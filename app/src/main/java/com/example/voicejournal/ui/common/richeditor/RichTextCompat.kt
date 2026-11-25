@@ -33,6 +33,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputConnectionWrapper
 import com.example.voicejournal.Data.model.NoteBlock
+import com.example.voicejournal.Data.model.NotePaperStyle
 import com.example.voicejournal.Data.model.decodeDrawingPath
 import com.example.voicejournal.ui.main.AddVoiceNote.components.CanvasDrawingTool
 import kotlin.math.roundToInt
@@ -1999,6 +2000,7 @@ fun RichTextEditor(
     placeholder: (@Composable () -> Unit)? = null,
     colors: RichTextEditorColors = RichTextEditorDefaults.richTextEditorColors(),
     readOnly: Boolean = false,
+    paperStyle: NotePaperStyle = NotePaperStyle.LINED,
     drawingBlocks: List<NoteBlock> = emptyList(),
     drawingEnabled: Boolean = false,
     drawingTool: CanvasDrawingTool = CanvasDrawingTool.PEN,
@@ -2034,6 +2036,7 @@ fun RichTextEditor(
                         state.toggleChecklistAtOffset(offset)
                     }
                     onScrollListener = onScrollChanged
+                    this.paperStyle = paperStyle
                     this.drawingBlocks = drawingBlocks
                     this.drawingEnabled = drawingEnabled
                     this.drawingTool = drawingTool
@@ -2094,6 +2097,7 @@ fun RichTextEditor(
                     state.toggleChecklistAtOffset(offset)
                 }
                 editText.onScrollListener = onScrollChanged
+                editText.paperStyle = paperStyle
                 editText.drawingBlocks = drawingBlocks
                 editText.drawingEnabled = drawingEnabled
                 editText.drawingTool = drawingTool
@@ -2111,7 +2115,9 @@ fun RichTextEditor(
             }
         )
         if (placeholder != null && state.annotatedString.text.isBlank()) {
-            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp)) {
+            val startPad = if (paperStyle == NotePaperStyle.LINED) 48.dp else 18.dp
+            val topPad = if (paperStyle == NotePaperStyle.LINED) 38.dp else 24.dp
+            Box(modifier = Modifier.padding(start = startPad, end = 18.dp, top = topPad)) {
                 placeholder()
             }
         }
@@ -2218,6 +2224,17 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
 
     var richTextState: RichTextState? = null
 
+    var paperStyle: NotePaperStyle = NotePaperStyle.LINED
+        set(value) {
+            if (field == value) return
+            field = value
+            if (viewInitialized) {
+                applyPaperPadding()
+                requestLayout()
+                invalidate()
+            }
+        }
+
     var drawingBlocks: List<NoteBlock> = emptyList()
         set(value) {
             if (field == value) return
@@ -2246,18 +2263,27 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
 
     private val density = context.resources.displayMetrics.density
     val fixedLineHeight: Int = (38f * density).roundToInt()
-    private val topPadPx: Int = (20f * density).roundToInt()
+    private val headerMarginPx: Int = (20f * density).roundToInt()
+    private val topPadPx: Int = headerMarginPx
     private val bottomPadPx: Int = (20f * density).roundToInt()
     val bottomScrollPaddingPx: Int = (180f * density).roundToInt()
     val floatingOverlayClearancePx: Int = (140f * density).roundToInt()
-    private val horizontalPadPx: Int = (16f * density).roundToInt()
-    val pageGapPx: Int = (36f * density).roundToInt()
+    private val plainHorizontalPadPx: Int = (18f * density).roundToInt()
+    private val linedLeftPadPx: Int = (48f * density).roundToInt()
+    private val rightPadPx: Int = (18f * density).roundToInt()
+    private val baselineLiftPx: Int = (4f * density).roundToInt()
+    private var linedTextTopPadPx: Int = headerMarginPx
 
+    // Guarantee exact multi-page stride: pageHeightPx + pageGapPx == PAGE_LINE_STRIDE * fixedLineHeight
     val pageContentHeight: Int = LINES_PER_PAGE * fixedLineHeight
-    val pageHeightPx: Int = pageContentHeight + topPadPx + bottomPadPx
+    val pageHeightPx: Int = pageContentHeight + headerMarginPx + bottomPadPx
+    val pageGapPx: Int = (PAGE_LINE_STRIDE * fixedLineHeight - pageHeightPx).coerceAtLeast((16f * density).roundToInt())
 
     private val cardInsetPx: Float = 8f * density
     private val cardCornerRadiusPx: Float = 8f * density
+    private val marginLineOffsetFromCardPx: Float = 34f * density
+    private val punchHoleOffsetFromCardPx: Float = 17f * density
+    private val punchHoleRadiusPx: Float = 4.2f * density
     private val scrollbarTouchWidthPx: Float = 24f * density
     private val scrollbarBottomClearancePx: Float = 56f * density
     private val scrollbarTopMarginPx: Float = 8f * density
@@ -2359,6 +2385,21 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         style = android.graphics.Paint.Style.STROKE
         strokeWidth = 1f * density
     }
+    private val headerRulePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 1.25f * density
+    }
+    private val marginLinePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 1.25f * density
+    }
+    private val punchHolePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.FILL
+    }
+    private val punchRimPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.STROKE
+        strokeWidth = 0.75f * density
+    }
     private val pageCounterPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         textSize = 10f * density
         textAlign = android.graphics.Paint.Align.RIGHT
@@ -2376,16 +2417,26 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         style = android.graphics.Paint.Style.FILL
     }
 
+    private fun applyPaperPadding() {
+        val leftPad = if (paperStyle == NotePaperStyle.LINED) linedLeftPadPx else plainHorizontalPadPx
+        val topPad = if (paperStyle == NotePaperStyle.LINED) linedTextTopPadPx else headerMarginPx
+        setPadding(leftPad, topPad, rightPadPx, bottomPadPx)
+    }
+
     init {
         isVerticalScrollBarEnabled = false
         isHorizontalScrollBarEnabled = false
+        includeFontPadding = false
         gravity = Gravity.TOP or Gravity.START
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-        setPadding(horizontalPadPx, topPadPx, horizontalPadPx, bottomPadPx)
         val fm = paint.fontMetricsInt
-        val fontHeight = fm.descent - fm.ascent
+        val fontHeight = (fm.descent - fm.ascent).coerceAtLeast(1)
         val extra = (fixedLineHeight - fontHeight).coerceAtLeast(0)
         setLineSpacing(extra.toFloat(), 1.0f)
+        // Position Line 0's baseline exactly baselineLiftPx above Ruled Line 0 so text rests on the line
+        linedTextTopPadPx = (headerMarginPx + fixedLineHeight - baselineLiftPx - (-fm.ascent))
+            .coerceAtLeast(headerMarginPx)
+        applyPaperPadding()
         viewInitialized = true
     }
 
@@ -2862,7 +2913,7 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
                     val totalPages = getTotalPages()
                     val totalAllowedLines = (totalPages - 1) * PAGE_LINE_STRIDE + LINES_PER_PAGE
 
-                    val rawTargetLine = (y / lHeight).toInt().coerceAtLeast(0)
+                    val rawTargetLine = ((event.y + scrollY - headerMarginPx).coerceAtLeast(0f) / lHeight).toInt().coerceAtLeast(0)
                     val targetLine = rawTargetLine.coerceIn(0, totalAllowedLines - 1)
 
                     if (l != null && !text.isNullOrEmpty() && y <= l.height) {
@@ -2940,20 +2991,28 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
         val totalPages = getTotalPages()
         val contentWidth = (width - paddingLeft - paddingRight).toFloat().coerceAtLeast(1f)
         val padL = paddingLeft.toFloat()
-        val padR = (width - paddingRight).toFloat()
 
-        // Theme-aware backdrop & page card colors
+        val isLined = paperStyle == NotePaperStyle.LINED
+        // Theme-aware backdrop & physical notebook paper colors
         val isDark = ((currentTextColor and 0x00FFFFFF) > 0x888888)
-        val backdropColor = if (isDark) 0xFF232323.toInt() else 0xFFEBE8E6.toInt()
+        val backdropColor = if (isDark) 0xFF222226.toInt() else 0xFFE8E4DE.toInt()
         if (isDark) {
-            pageCardPaint.color = 0xFF141414.toInt()
+            pageCardPaint.color = 0xFF161618.toInt()
             pageCardBorderPaint.color = 0x33FFFFFF
-            ruledLinePaint.color = 0x22FFFFFF
+            ruledLinePaint.color = 0x26A8C7FA
+            headerRulePaint.color = 0x38A8C7FA
+            marginLinePaint.color = 0x3CE57373
+            punchHolePaint.color = backdropColor
+            punchRimPaint.color = 0x33FFFFFF
             pageCounterPaint.color = 0x66FFFFFF
         } else {
-            pageCardPaint.color = 0xFFFFFFFF.toInt()
-            pageCardBorderPaint.color = 0x22000000
-            ruledLinePaint.color = 0x1A000000
+            pageCardPaint.color = if (isLined) 0xFFFFFDF7.toInt() else 0xFFFFFFFF.toInt()
+            pageCardBorderPaint.color = 0x24000000
+            ruledLinePaint.color = 0x335C85B8
+            headerRulePaint.color = 0x455C85B8
+            marginLinePaint.color = 0x4AD9534F
+            punchHolePaint.color = backdropColor
+            punchRimPaint.color = 0x26000000
             pageCounterPaint.color = 0x55000000
         }
 
@@ -2962,8 +3021,12 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
 
         val cardLeft = cardInsetPx
         val cardRight = (width - cardInsetPx).coerceAtLeast(cardLeft + 1f)
+        val marginLineX = cardLeft + marginLineOffsetFromCardPx
+        val punchX = cardLeft + punchHoleOffsetFromCardPx
+        val textLayout = layout
+        val currentStr = text?.toString().orEmpty()
 
-        // 2. Render each page card: fill -> clip -> ruled lines -> paper-layer strokes -> counter -> restore -> border
+        // 2. Render each page card: fill -> clip -> ruled lines & margin -> paper-layer strokes -> counter -> restore -> border
         for (p in 0 until totalPages) {
             val pageTop = p * (pageHeightPx + pageGapPx).toFloat()
             val pageBottom = pageTop + pageHeightPx.toFloat()
@@ -2977,10 +3040,58 @@ internal class RichEditText(context: Context) : AppCompatEditText(context) {
             canvas.save()
             canvas.clipPath(cardPath)
 
-            // 15 ruled lines for this page
-            for (line in 0 until LINES_PER_PAGE) {
-                val lineY = pageTop + topPadPx + (line + 1) * fixedLineHeight.toFloat()
-                canvas.drawLine(padL, lineY, padR, lineY, ruledLinePaint)
+            if (isLined) {
+                val ruledTop = pageTop + headerMarginPx
+                val ruledBottom = pageBottom - bottomPadPx + baselineLiftPx
+
+                // Top header rule separating notebook header band from ruled body
+                canvas.drawLine(cardLeft, ruledTop, cardRight, ruledTop, headerRulePaint)
+
+                // Collect baseline-snapped horizontal lines for any real text lines on this page
+                // so normal text AND larger headings sit flush on their ruled line without slicing.
+                val drawnLineYs = mutableListOf<Float>()
+                if (textLayout != null && textLayout.lineCount > 0) {
+                    val minRuleY = ruledTop + (12f * density)
+                    val maxRuleY = ruledBottom + (2f * density)
+                    for (i in 0 until textLayout.lineCount) {
+                        val lineStart = textLayout.getLineStart(i).coerceIn(0, currentStr.length)
+                        val lineEnd = textLayout.getLineEnd(i).coerceIn(lineStart, currentStr.length)
+                        if (currentStr.substring(lineStart, lineEnd).trim() == PAGE_BREAK_TOKEN) continue
+                        val ruleY = totalPaddingTop + textLayout.getLineBaseline(i).toFloat() + baselineLiftPx
+                        if (ruleY in minRuleY..maxRuleY) {
+                            if (drawnLineYs.isEmpty() || ruleY - drawnLineYs.last() >= (14f * density)) {
+                                drawnLineYs.add(ruleY)
+                            }
+                        }
+                    }
+                }
+
+                // Fill any remaining blank lines on this page at exact fixedLineHeight intervals
+                var nextY = if (drawnLineYs.isNotEmpty()) {
+                    drawnLineYs.last() + fixedLineHeight.toFloat()
+                } else {
+                    ruledTop + fixedLineHeight.toFloat()
+                }
+                val pageMaxGridY = ruledTop + LINES_PER_PAGE * fixedLineHeight.toFloat() + 1f
+                while (nextY <= pageMaxGridY && drawnLineYs.size < LINES_PER_PAGE) {
+                    drawnLineYs.add(nextY)
+                    nextY += fixedLineHeight.toFloat()
+                }
+
+                for (lineY in drawnLineYs) {
+                    canvas.drawLine(cardLeft, lineY, cardRight, lineY, ruledLinePaint)
+                }
+
+                // Classic vertical notebook left margin line
+                canvas.drawLine(marginLineX, pageTop, marginLineX, pageBottom, marginLinePaint)
+
+                // Subtle physical notebook binder punch holes in the left margin strip
+                val holeFractions = floatArrayOf(0.16f, 0.50f, 0.84f)
+                for (frac in holeFractions) {
+                    val cy = pageTop + pageHeightPx * frac
+                    canvas.drawCircle(punchX, cy, punchHoleRadiusPx, punchHolePaint)
+                    canvas.drawCircle(punchX, cy, punchHoleRadiusPx, punchRimPaint)
+                }
             }
 
             // Paper-layer drawing strokes behind text (highlighter -> pen -> active stroke)

@@ -30,7 +30,8 @@ data class VoiceJournal(
     @ColumnInfo(name = "noteBlocks") var noteBlocks: List<NoteBlock>? = null,
     @ColumnInfo(name = "folderName") var folderName: String? = null,
     @ColumnInfo(name = "isLocked") var isLocked: Boolean? = false,
-    @ColumnInfo(name = "lockPinHash") var lockPinHash: String? = null
+    @ColumnInfo(name = "lockPinHash") var lockPinHash: String? = null,
+    @ColumnInfo(name = "paperStyle") var paperStyle: String? = NotePaperStyle.LINED.id
 )
 {
     companion object {

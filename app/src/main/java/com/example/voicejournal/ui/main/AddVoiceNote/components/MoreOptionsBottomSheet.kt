@@ -42,6 +42,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.voicejournal.Data.model.NotePaperStyle
 import com.example.voicejournal.R
 import com.example.voicejournal.ui.theme.Variables
 
@@ -57,6 +58,8 @@ fun MoreOptionsBottomSheet(
     onPageBreakClick: () -> Unit,
     onRemovePageBreakClick: () -> Unit,
     canRemovePageBreak: Boolean,
+    selectedPaperStyle: NotePaperStyle = NotePaperStyle.LINED,
+    onSelectPaperStyle: (NotePaperStyle) -> Unit = {},
     onTemplateClick: () -> Unit,
     onFolderClick: () -> Unit,
     folderName: String,
@@ -85,6 +88,27 @@ fun MoreOptionsBottomSheet(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 )
+            }
+
+            // Paper Style Picker (Lined Notebook vs Plain Paper)
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Paper Template",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    PaperStylePickerRow(
+                        selectedPaperStyle = selectedPaperStyle,
+                        onSelectPaperStyle = onSelectPaperStyle
+                    )
+                }
             }
 
             // Pages Card
@@ -192,7 +216,7 @@ fun MoreOptionsBottomSheet(
                 ) {
                     OptionRow(
                         title = "Templates",
-                        subtitle = "Apply journal template",
+                        subtitle = "Paper style & journal templates",
                         icon = painterResource(id = R.drawable.note),
                         onClick = onTemplateClick
                     )

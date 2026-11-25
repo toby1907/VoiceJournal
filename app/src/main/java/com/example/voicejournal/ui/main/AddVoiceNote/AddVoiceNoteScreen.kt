@@ -514,6 +514,8 @@ fun AddVoiceNoteScreen(
 
     val folderName = addVoiceNoteViewModel.folderName.value
 
+    val paperStyle = addVoiceNoteViewModel.paperStyle.value
+
     val playingBlockAudioUri = addVoiceNoteViewModel.currentBlockPreviewAudioUri.value
 
     var drawingEnabled by rememberSaveable { mutableStateOf(false) }
@@ -1270,6 +1272,8 @@ fun AddVoiceNoteScreen(
 
                             state = state,
 
+                            paperStyle = paperStyle,
+
                             colors = RichTextEditorDefaults.richTextEditorColors(
 
                                 containerColor = Color.Transparent,
@@ -1513,6 +1517,10 @@ fun AddVoiceNoteScreen(
         if (templateDialogVisible) {
 
             NoteTemplateDialog(
+
+                selectedPaperStyle = paperStyle,
+
+                onSelectPaperStyle = { addVoiceNoteViewModel.setPaperStyle(it) },
 
                 onDismiss = { templateDialogVisible = false },
 
@@ -1865,6 +1873,10 @@ fun AddVoiceNoteScreen(
                 },
 
                 canRemovePageBreak = state.pageBreakCount() > 0,
+
+                selectedPaperStyle = paperStyle,
+
+                onSelectPaperStyle = { addVoiceNoteViewModel.setPaperStyle(it) },
 
                 onTemplateClick = {
 

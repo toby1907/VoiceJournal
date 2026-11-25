@@ -28,10 +28,12 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import com.example.voicejournal.Data.model.NoteBlock
 import com.example.voicejournal.Data.model.NoteBlockType
+import com.example.voicejournal.Data.model.NotePaperStyle
 import com.example.voicejournal.Data.model.encodeDrawingPath
 import com.example.voicejournal.ui.main.AddVoiceNote.components.BottomAppPanel
 import com.example.voicejournal.ui.main.AddVoiceNote.components.CanvasDrawingTool
 import com.example.voicejournal.ui.main.AddVoiceNote.components.DrawingToolbar
+import com.example.voicejournal.ui.main.AddVoiceNote.components.NoteTemplateDialog
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -933,5 +935,134 @@ class NotebookVisualAndFlowTest {
             "Even with system Bold font ON, BoldStyleSpan (ink=$sysBoldHeavyInk) must render visibly heavier than base text (ink=$sysBoldRegularInk)",
             sysBoldHeavyInk > sysBoldRegularInk * 1.10
         )
+    }
+
+    @Test
+    fun physicalNotebookLines_alignWithTextBaselines_andSwitchCleanlyToPlain_outputsPngs() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val density = context.resources.displayMetrics.density
+        val state = RichTextState()
+        val editor = RichEditText(context).apply {
+            setTextColor(Color.BLACK)
+            richTextState = state
+        }
+        state.bindEditor(editor)
+
+        val content = listOf(
+            "Monday Journal Entry",
+            "The quick brown fox jumps gently over lazy dogs.",
+            "Every baseline should rest neatly on its ruled line.",
+            "Centered note",
+            "• Buy groceries & notebook",
+            "☐ Review weekly goals"
+        ).joinToString("\n")
+        state.setText(content)
+
+        // Make Line 0 a 22sp bold heading and center Line 3
+        state.onEditorContentChanged(editor.text, 0, "Monday Journal Entry".length)
+        state.setFontSize(22)
+        state.toggleSpanStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+
+        val centeredStart = editor.text!!.toString().indexOf("Centered note")
+        state.onEditorContentChanged(editor.text, centeredStart, centeredStart + "Centered note".length)
+        state.toggleParagraphStyle(androidx.compose.ui.text.ParagraphStyle(textAlign = androidx.compose.ui.text.style.TextAlign.Center))
+
+        val width = 1080
+        val height = 1600
+        editor.layoutParams = android.view.ViewGroup.LayoutParams(width, height)
+
+        // 1. Render LINED physical notebook style
+        editor.paperStyle = NotePaperStyle.LINED
+        val linedLeftPad = editor.paddingLeft
+        editor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        editor.layout(0, 0, width, height)
+
+        val linedBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val linedCanvas = Canvas(linedBitmap)
+        linedCanvas.drawColor(Color.WHITE)
+        editor.draw(linedCanvas)
+        val linedOut = saveBitmap(linedBitmap, "physical_notebook_lined.png")
+        assertTrue("physical_notebook_lined.png should exist", linedOut.exists() && linedOut.length() > 0L)
+
+        // Verify red vertical margin line exists in LINED mode (at cardLeft + 34dp = 42dp)
+        val marginX = ((8f + 34f) * density).toInt()
+        var redMarginPixels = 0
+        for (y in 200 until 1200) {
+            for (x in (marginX - 3)..(marginX + 3)) {
+                val p = linedBitmap.getPixel(x, y)
+                if (Color.red(p) > Color.blue(p) + 12 && Color.red(p) > Color.green(p) + 10) {
+                    redMarginPixels++
+                }
+            }
+        }
+        assertTrue("Expected visible vertical red notebook margin line in LINED mode (found $redMarginPixels)", redMarginPixels > 200)
+
+        // Verify blue ruled line sits immediately below Line 1's actual baseline (baseline + 4dp)
+        val layout = editor.layout!!
+        val line1RuleY = (editor.totalPaddingTop + layout.getLineBaseline(1) + (4f * density)).toInt()
+        var blueRulePixelsAtBaseline = 0
+        for (y in (line1RuleY - 2)..(line1RuleY + 2)) {
+            for (x in 650 until 1000) {
+                val p = linedBitmap.getPixel(x, y)
+                if (Color.blue(p) > Color.red(p) + 5) {
+                    blueRulePixelsAtBaseline++
+                }
+            }
+        }
+        assertTrue(
+            "Expected blue ruled line directly below Line 1 baseline at y=$line1RuleY (found $blueRulePixelsAtBaseline)",
+            blueRulePixelsAtBaseline > 100
+        )
+
+        // 2. Switch to PLAIN paper template -> no ruled lines, no red margin, smaller left padding
+        editor.paperStyle = NotePaperStyle.PLAIN
+        val plainLeftPad = editor.paddingLeft
+        assertTrue("PLAIN left padding ($plainLeftPad) should be smaller than LINED margin padding ($linedLeftPad)", plainLeftPad < linedLeftPad)
+        editor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        editor.layout(0, 0, width, height)
+
+        val plainBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val plainCanvas = Canvas(plainBitmap)
+        plainCanvas.drawColor(Color.WHITE)
+        editor.draw(plainCanvas)
+        val plainOut = saveBitmap(plainBitmap, "physical_notebook_plain.png")
+        assertTrue("physical_notebook_plain.png should exist", plainOut.exists() && plainOut.length() > 0L)
+
+        var plainMarginPixels = 0
+        for (y in 200 until 1200) {
+            for (x in (marginX - 3)..(marginX + 3)) {
+                val p = plainBitmap.getPixel(x, y)
+                if (Color.red(p) > Color.blue(p) + 12 && Color.red(p) > Color.green(p) + 10) {
+                    plainMarginPixels++
+                }
+            }
+        }
+        assertTrue("Expected 0 red margin pixels in PLAIN mode (found $plainMarginPixels)", plainMarginPixels == 0)
+
+        // 3. Verify NoteTemplateDialog switches between Lined Notebook and Plain Paper cleanly
+        var selectedStyle by mutableStateOf(NotePaperStyle.LINED)
+        composeRule.setContent {
+            MaterialTheme {
+                NoteTemplateDialog(
+                    selectedPaperStyle = selectedStyle,
+                    onSelectPaperStyle = { selectedStyle = it },
+                    onDismiss = {},
+                    onApply = {}
+                )
+            }
+        }
+        composeRule.onNodeWithText("Plain Paper").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        assertTrue("Selecting Plain Paper should update paperStyle to PLAIN", selectedStyle == NotePaperStyle.PLAIN)
+
+        composeRule.onNodeWithText("Lined Notebook").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        assertTrue("Selecting Lined Notebook should update paperStyle to LINED", selectedStyle == NotePaperStyle.LINED)
     }
 }

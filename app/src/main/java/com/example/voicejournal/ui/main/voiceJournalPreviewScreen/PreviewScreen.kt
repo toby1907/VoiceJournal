@@ -89,6 +89,7 @@ import com.example.voicejournal.Screen
 import com.example.voicejournal.ui.main.AddVoiceNote.components.NotePinDialog
 import androidx.compose.foundation.layout.heightIn
 import com.example.voicejournal.Data.model.NoteBlockType
+import com.example.voicejournal.Data.model.NotePaperStyle
 import com.example.voicejournal.ui.main.AddVoiceNote.components.CanvasDrawingTool
 import com.example.voicejournal.ui.main.AddVoiceNote.components.DrawingCanvasOverlay
 import com.example.voicejournal.ui.main.AddVoiceNote.components.FloatingTextBoxOverlay
@@ -488,6 +489,7 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
                                             unfocusedIndicatorColor = Color.Transparent,
                                         ),
                                         readOnly = true,
+                                        paperStyle = NotePaperStyle.fromId(currentNote.paperStyle),
                                         drawingBlocks = drawingBlocks
                                     )
 
