@@ -742,4 +742,151 @@ class NotebookVisualAndFlowTest {
         assertTrue("Line 2 should render on right third", countDarkPixels(2, 700, 1040) > 80)
         assertTrue("Line 2 should not render on left third", countDarkPixels(2, 40, 360) == 0)
     }
+
+    @Test
+    fun bold_endToEndComposeAndImeFlow_andPixelRendering_outputsPng() {
+        val state = RichTextState()
+        composeRule.setContent {
+            MaterialTheme {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    RichTextEditor(
+                        state = state,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    )
+                    BottomAppPanel(
+                        cardVisibleState = {},
+                        imageUri = emptyList(),
+                        imageSheetVisibleState = {},
+                        tagVisiblestate = {},
+                        onBoldClick = {
+                            state.toggleSpanStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+                        },
+                        onItalicClick = {
+                            state.toggleSpanStyle(androidx.compose.ui.text.SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
+                        },
+                        onStrikethroughClick = {
+                            state.toggleSpanStyle(androidx.compose.ui.text.SpanStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough))
+                        },
+                        onUnderlineClick = {
+                            state.toggleSpanStyle(androidx.compose.ui.text.SpanStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline))
+                        },
+                        state = state,
+                        alignStyleSheetVisiblity = {}
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        // Access the real bound RichEditText inside RichTextEditor
+        val editorField = RichTextState::class.java.getDeclaredField("boundEditor").apply { isAccessible = true }
+        val realEditor = editorField.get(state) as RichEditText
+
+        // 1. Tap Bold BEFORE focusing editor, then focus & place cursor at 0, then type via IME setComposingText
+        composeRule.onNodeWithContentDescription("Bold Control").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertTrue("Bold button state should be armed before typing", state.currentSpanStyle.fontWeight == androidx.compose.ui.text.font.FontWeight.Bold)
+
+        composeRule.runOnIdle {
+            realEditor.requestFocus()
+            realEditor.setSelection(0)
+            val ic = realEditor.onCreateInputConnection(android.view.inputmethod.EditorInfo())!!
+            ic.setComposingText("B", 1)
+            ic.setComposingText("Bo", 1)
+            ic.setComposingText("Bol", 1)
+            ic.setComposingText("Bold", 1)
+            ic.finishComposingText()
+        }
+        composeRule.waitForIdle()
+
+        assertTrue("Typed word 'Bold' should be bold", state.toHtml().lowercase().contains("<b>bold</b>"))
+        val leakedUnderlines = realEditor.text!!.getSpans(0, realEditor.text!!.length, android.text.style.UnderlineSpan::class.java)
+            .filter { (realEditor.text!!.getSpanFlags(it) and android.text.Spanned.SPAN_COMPOSING) == 0 }
+        assertTrue("Composing underline must not leak into permanent UnderlineSpan", leakedUnderlines.isEmpty())
+
+        // 2. Toggle Bold OFF via toolbar button, type " plain" via IME -> only "Bold" stays bold
+        composeRule.onNodeWithContentDescription("Bold Control").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertTrue("Bold state should be OFF after toggling", state.currentSpanStyle.fontWeight == null)
+
+        composeRule.runOnIdle {
+            val ic = realEditor.onCreateInputConnection(android.view.inputmethod.EditorInfo())!!
+            ic.commitText(" ", 1)
+            ic.setComposingText("plain", 1)
+            ic.finishComposingText()
+        }
+        composeRule.waitForIdle()
+
+        val htmlAfterUnbold = state.toHtml().lowercase()
+        assertTrue("Expected '<b>bold</b> plain' in HTML, got: $htmlAfterUnbold", htmlAfterUnbold.contains("<b>bold</b> plain"))
+
+        // 3. Highlight "plain" (5..10) in real RichEditText, tap Bold button -> bolds in-place and preserves highlight
+        composeRule.runOnIdle {
+            realEditor.setSelection(5, 10)
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("Bold Control").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertTrue("Highlighted 'plain' should now be bold", state.currentSpanStyle.fontWeight == androidx.compose.ui.text.font.FontWeight.Bold)
+        assertTrue("Selection should stay preserved at 5..10 after in-place bold", realEditor.selectionStart == 5 && realEditor.selectionEnd == 10)
+        val plainSpans = realEditor.text!!.getSpans(5, 10, android.text.style.StyleSpan::class.java)
+            .filter { it.style == android.graphics.Typeface.BOLD }
+        assertTrue("Expected BOLD StyleSpan covering 5..10", plainSpans.any { realEditor.text!!.getSpanStart(it) <= 5 && realEditor.text!!.getSpanEnd(it) >= 10 })
+
+        // 4. Visual pixel verification: compare plain vs bold identical text rendered by RichEditText
+        val context: Context = ApplicationProvider.getApplicationContext()
+        val renderState = RichTextState()
+        val renderEditor = RichEditText(context).apply {
+            setTextColor(Color.BLACK)
+            richTextState = renderState
+        }
+        renderState.bindEditor(renderEditor)
+        renderState.setText("Sample Weight Text\nSample Weight Text")
+        val line2Start = "Sample Weight Text\n".length
+        renderState.onEditorContentChanged(renderEditor.text, line2Start, renderEditor.text!!.length)
+        renderState.toggleSpanStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+
+        val width = 1080
+        val height = 500
+        renderEditor.layoutParams = android.view.ViewGroup.LayoutParams(width, height)
+        renderEditor.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        renderEditor.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.WHITE)
+        renderEditor.draw(canvas)
+
+        val outFile = saveBitmap(bitmap, "bold_visual.png")
+        assertTrue("bold_visual.png should exist", outFile.exists() && outFile.length() > 0L)
+
+        fun countInkPixels(lineIdx: Int): Int {
+            val l = renderEditor.layout!!
+            val yTop = (renderEditor.totalPaddingTop + l.getLineTop(lineIdx)).coerceIn(0, height - 1)
+            val yBot = (renderEditor.totalPaddingTop + l.getLineBottom(lineIdx)).coerceIn(yTop + 1, height)
+            var count = 0
+            for (y in yTop until yBot) {
+                for (x in 30 until 900) {
+                    val p = bitmap.getPixel(x, y)
+                    if (Color.red(p) < 100 && Color.green(p) < 100 && Color.blue(p) < 100) {
+                        count++
+                    }
+                }
+            }
+            return count
+        }
+
+        val regularInk = countInkPixels(0)
+        val boldInk = countInkPixels(1)
+        assertTrue(
+            "Bold text (ink=$boldInk) must render visibly heavier than regular text (ink=$regularInk)",
+            boldInk > regularInk * 1.15
+        )
+    }
 }

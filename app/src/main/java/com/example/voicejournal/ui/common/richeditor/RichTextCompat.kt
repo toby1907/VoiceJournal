@@ -120,6 +120,7 @@ class RichTextState {
 
     private var activeTypingAlignment: android.text.Layout.Alignment? = null
     private var activeTypingAlignAnchor: Int = -1
+    private var activeTypingAlignArmedUnfocused: Boolean = false
 
     private var activeTypingBold: Boolean? = null
     private var activeTypingItalic: Boolean? = null
@@ -127,6 +128,8 @@ class RichTextState {
     private var activeTypingStrikethrough: Boolean? = null
     private var activeTypingColorArgb: Int? = null
     private var activeTypingStyleAnchor: Int = -1
+    private var activeTypingStyleStart: Int = -1
+    private var activeTypingStyleArmedUnfocused: Boolean = false
 
     var currentFontSizeSp by mutableIntStateOf(16)
         private set
@@ -273,6 +276,7 @@ class RichTextState {
             activeTypingFontSizeSp = null
             activeTypingAlignment = null
             activeTypingAlignAnchor = -1
+            activeTypingAlignArmedUnfocused = false
             clearActiveTypingSpanStyles()
             currentFontSizeSp = 16
             clearHistory()
@@ -375,6 +379,7 @@ class RichTextState {
             activeTypingFontSizeSp = null
             activeTypingAlignment = null
             activeTypingAlignAnchor = -1
+            activeTypingAlignArmedUnfocused = false
             clearActiveTypingSpanStyles()
             currentFontSizeSp = 16
             clearHistory()
@@ -471,10 +476,14 @@ class RichTextState {
         if (start >= end) return
         val insertedText = editable.subSequence(start, end).toString()
 
-        // If user just typed a plain newline, keep active typing styles/alignment armed for the next line
-        if (insertedText == "\n") {
+        // If user just typed newline(s) (or tapped a lower empty line), keep active typing styles/alignment armed
+        if (insertedText.all { it == '\n' }) {
             if (activeTypingAlignment != null) activeTypingAlignAnchor = end
-            if (hasAnyActiveTypingSpanStyle()) activeTypingStyleAnchor = end
+            if (hasAnyActiveTypingSpanStyle()) {
+                activeTypingStyleAnchor = end
+                activeTypingStyleStart = end
+                activeTypingStyleArmedUnfocused = false
+            }
             return
         }
 
@@ -490,50 +499,59 @@ class RichTextState {
             )
         }
 
-        // Apply active typing character styles (or inherit contiguous style from immediately preceding char on same line)
-        val canInheritFromPrev = start > 0 && editable[start - 1] != '\n'
+        // Apply active typing character styles (or inherit contiguous style from immediately preceding char on same line).
+        // When an IME replaces a composing word starting before where the user toggled Bold/etc.,
+        // only style the newly typed suffix starting at activeTypingStyleStart.
+        val styleStart = if (hasAnyActiveTypingSpanStyle() && activeTypingStyleStart in (start + 1) until end) {
+            activeTypingStyleStart
+        } else {
+            start
+        }
+        val canInheritFromPrev = styleStart > 0 && editable[styleStart - 1] != '\n'
         val targetBold = activeTypingBold ?: if (canInheritFromPrev) {
-            isTypefaceStyleActiveAtCursor(editable, start, Typeface.BOLD)
+            isTypefaceStyleActiveAtCursor(editable, styleStart, Typeface.BOLD)
         } else null
         if (targetBold != null) {
-            applyTypefaceStyleSpan(editable, start, end, Typeface.BOLD, targetBold)
+            applyTypefaceStyleSpan(editable, styleStart, end, Typeface.BOLD, targetBold)
         }
 
         val targetItalic = activeTypingItalic ?: if (canInheritFromPrev) {
-            isTypefaceStyleActiveAtCursor(editable, start, Typeface.ITALIC)
+            isTypefaceStyleActiveAtCursor(editable, styleStart, Typeface.ITALIC)
         } else null
         if (targetItalic != null) {
-            applyTypefaceStyleSpan(editable, start, end, Typeface.ITALIC, targetItalic)
+            applyTypefaceStyleSpan(editable, styleStart, end, Typeface.ITALIC, targetItalic)
         }
 
         val targetUnderline = activeTypingUnderline ?: if (canInheritFromPrev) {
-            isMarkerSpanActiveAtCursor(editable, start, UnderlineSpan::class.java)
+            isMarkerSpanActiveAtCursor(editable, styleStart, UnderlineSpan::class.java)
         } else null
         if (targetUnderline != null) {
-            applyMarkerSpan(editable, start, end, UnderlineSpan::class.java, targetUnderline) { UnderlineSpan() }
+            applyMarkerSpan(editable, styleStart, end, UnderlineSpan::class.java, targetUnderline) { UnderlineSpan() }
         }
 
         val targetStrike = activeTypingStrikethrough ?: if (canInheritFromPrev) {
-            isMarkerSpanActiveAtCursor(editable, start, StrikethroughSpan::class.java)
+            isMarkerSpanActiveAtCursor(editable, styleStart, StrikethroughSpan::class.java)
         } else null
         if (targetStrike != null) {
-            applyMarkerSpan(editable, start, end, StrikethroughSpan::class.java, targetStrike) { StrikethroughSpan() }
+            applyMarkerSpan(editable, styleStart, end, StrikethroughSpan::class.java, targetStrike) { StrikethroughSpan() }
         }
 
         val targetColor = activeTypingColorArgb ?: if (canInheritFromPrev) {
-            colorAtCursor(editable, start)
+            colorAtCursor(editable, styleStart)
         } else null
         if (targetColor != null) {
             if (targetColor == COLOR_NONE_SENTINEL) {
-                applyColorSpan(editable, start, end, null)
+                applyColorSpan(editable, styleStart, end, null)
             } else {
-                applyColorSpan(editable, start, end, targetColor)
+                applyColorSpan(editable, styleStart, end, targetColor)
             }
         }
 
         if (hasAnyActiveTypingSpanStyle()) {
             activeTypingStyleAnchor = end
+            activeTypingStyleArmedUnfocused = false
         }
+        boundEditor?.invalidate()
 
         val activeAlign = activeTypingAlignment ?: return
 
@@ -656,6 +674,8 @@ class RichTextState {
         activeTypingFontSizeSp = heading.sizeSp
         activeTypingBold = heading.isBold
         activeTypingStyleAnchor = maxOf(selStart, selEnd)
+        activeTypingStyleStart = maxOf(selStart, selEnd)
+        activeTypingStyleArmedUnfocused = !hasHighlight && boundEditor != null && !boundEditor!!.hasFocus()
         editable = SpannableStringBuilder(target)
         refreshStateSnapshot()
     }
@@ -975,14 +995,24 @@ class RichTextState {
             if (activeTypingAlignment != null) {
                 if (contentChanged) {
                     activeTypingAlignAnchor = safeEnd
+                    activeTypingAlignArmedUnfocused = false
+                } else if (safeStart == safeEnd && activeTypingAlignArmedUnfocused) {
+                    activeTypingAlignAnchor = safeEnd
+                    activeTypingAlignArmedUnfocused = false
                 } else if (safeStart != safeEnd || safeEnd != activeTypingAlignAnchor) {
                     activeTypingAlignment = null
                     activeTypingAlignAnchor = -1
+                    activeTypingAlignArmedUnfocused = false
                 }
             }
             if (hasAnyActiveTypingSpanStyle()) {
                 if (contentChanged) {
                     activeTypingStyleAnchor = safeEnd
+                    activeTypingStyleArmedUnfocused = false
+                } else if (safeStart == safeEnd && activeTypingStyleArmedUnfocused) {
+                    activeTypingStyleAnchor = safeEnd
+                    activeTypingStyleStart = safeEnd
+                    activeTypingStyleArmedUnfocused = false
                 } else if (safeStart != safeEnd || safeEnd != activeTypingStyleAnchor) {
                     clearActiveTypingSpanStyles()
                 }
@@ -1084,35 +1114,38 @@ class RichTextState {
 
     private fun toggleForegroundColor(color: Color) {
         val colorArgb = color.toArgb()
-        val content = currentEditable()
-        val rawStart = minOf(selectionStart, selectionEnd).coerceIn(0, content.length)
-        val rawEnd = maxOf(selectionStart, selectionEnd).coerceIn(rawStart, content.length)
+        val editor = boundEditor
+        val target: Spannable = editor?.text ?: editable
+        val (rawStart, rawEnd) = liveSelection(target.length)
         val hasHighlight = rawStart != rawEnd
 
         if (!hasHighlight) {
             val currentColor = activeTypingColorArgb?.takeUnless { it == COLOR_NONE_SENTINEL }
-                ?: if (activeTypingColorArgb == COLOR_NONE_SENTINEL) null else colorAtCursor(content, rawEnd)
+                ?: if (activeTypingColorArgb == COLOR_NONE_SENTINEL) null else colorAtCursor(target, rawEnd)
             activeTypingColorArgb = if (currentColor == colorArgb) COLOR_NONE_SENTINEL else colorArgb
             activeTypingStyleAnchor = rawEnd
+            activeTypingStyleStart = rawEnd
+            activeTypingStyleArmedUnfocused = editor != null && !editor.hasFocus()
             return
         }
 
-        val matchingIntervals = content.getSpans(rawStart, rawEnd, ForegroundColorSpan::class.java)
+        val matchingIntervals = target.getSpans(rawStart, rawEnd, ForegroundColorSpan::class.java)
             .filter { it.foregroundColor == colorArgb }
-            .map { content.getSpanStart(it) to content.getSpanEnd(it) }
+            .map { target.getSpanStart(it) to target.getSpanEnd(it) }
         val isFullyColored = isRangeCoveredByRanges(rawStart, rawEnd, matchingIntervals)
         val nextColor = if (isFullyColored) null else colorArgb
-        applyColorSpan(content, rawStart, rawEnd, nextColor)
+        recordInlineStyleUndoSnapshot()
+        applyColorSpan(target, rawStart, rawEnd, nextColor)
         activeTypingColorArgb = nextColor ?: COLOR_NONE_SENTINEL
         activeTypingStyleAnchor = rawEnd
-        applyEditableToEditor(content, rawStart, rawEnd)
-        boundEditor?.invalidate()
+        activeTypingStyleStart = rawEnd
+        activeTypingStyleArmedUnfocused = false
+        syncAfterInPlaceSpanEdit(target, rawStart, rawEnd)
     }
 
     private fun applyParagraphAlignment(alignment: android.text.Layout.Alignment) {
         val content = currentEditable()
-        var rawStart = minOf(selectionStart, selectionEnd).coerceIn(0, content.length)
-        var rawEnd = maxOf(selectionStart, selectionEnd).coerceIn(rawStart, content.length)
+        var (rawStart, rawEnd) = liveSelection(content.length)
         val hasHighlight = rawStart != rawEnd
 
         activeTypingAlignment = alignment
@@ -1120,9 +1153,11 @@ class RichTextState {
         if (!hasHighlight) {
             // Do NOT retroactively align existing text; arm alignment for subsequent typed words
             activeTypingAlignAnchor = rawEnd
+            activeTypingAlignArmedUnfocused = boundEditor != null && !boundEditor!!.hasFocus()
             currentTextAlign = layoutAlignmentToTextAlign(alignment)
             return
         }
+        activeTypingAlignArmedUnfocused = false
 
         // Apply ONLY to the highlighted words/lines. If the highlight starts or ends mid-line
         // on a line whose alignment differs from the target, isolate the highlighted words onto
@@ -1344,19 +1379,74 @@ class RichTextState {
         activeTypingStrikethrough = null
         activeTypingColorArgb = null
         activeTypingStyleAnchor = -1
+        activeTypingStyleStart = -1
+        activeTypingStyleArmedUnfocused = false
+    }
+
+    private fun liveSelection(maxLen: Int): Pair<Int, Int> {
+        val stateStart = selectionStart.coerceIn(0, maxLen)
+        val stateEnd = selectionEnd.coerceIn(0, maxLen)
+        if (stateStart != stateEnd) {
+            return minOf(stateStart, stateEnd) to maxOf(stateStart, stateEnd)
+        }
+        val editor = boundEditor
+        if (editor != null && editor.selectionStart >= 0 && editor.selectionEnd >= 0 &&
+            editor.selectionStart != editor.selectionEnd
+        ) {
+            val es = editor.selectionStart.coerceIn(0, maxLen)
+            val ee = editor.selectionEnd.coerceIn(0, maxLen)
+            return minOf(es, ee) to maxOf(es, ee)
+        }
+        return stateStart to stateEnd
+    }
+
+    private fun recordInlineStyleUndoSnapshot() {
+        if (isHistoryMuted) return
+        undoStack.addLast(captureSnapshot())
+        if (undoStack.size > 100) {
+            undoStack.removeFirst()
+        }
+        redoStack.clear()
+        updateHistoryFlags()
+    }
+
+    private fun syncAfterInPlaceSpanEdit(target: Spannable, rawStart: Int, rawEnd: Int) {
+        isProgrammaticChange = true
+        try {
+            val editor = boundEditor
+            if (editor != null) {
+                val textLen = editor.text?.length ?: 0
+                val safeStart = rawStart.coerceIn(0, textLen)
+                val safeEnd = rawEnd.coerceIn(safeStart, textLen)
+                editor.setSelection(safeStart, safeEnd)
+                editable = SpannableStringBuilder(editor.text ?: target)
+                selectionStart = safeStart
+                selectionEnd = safeEnd
+                editor.invalidate()
+                editor.requestLayout()
+            } else {
+                editable = SpannableStringBuilder(target)
+                val safeStart = rawStart.coerceIn(0, editable.length)
+                val safeEnd = rawEnd.coerceIn(safeStart, editable.length)
+                selectionStart = safeStart
+                selectionEnd = safeEnd
+            }
+        } finally {
+            isProgrammaticChange = false
+        }
     }
 
     private fun toggleTypefaceStyle(targetStyle: Int) {
-        val content = currentEditable()
-        val rawStart = minOf(selectionStart, selectionEnd).coerceIn(0, content.length)
-        val rawEnd = maxOf(selectionStart, selectionEnd).coerceIn(rawStart, content.length)
+        val editor = boundEditor
+        val target: Spannable = editor?.text ?: editable
+        val (rawStart, rawEnd) = liveSelection(target.length)
         val hasHighlight = rawStart != rawEnd
 
         if (!hasHighlight) {
             // Do NOT alter or select existing characters; toggle armed style for subsequent typed text
             val currentlyActive = when (targetStyle) {
-                Typeface.BOLD -> activeTypingBold ?: isTypefaceStyleActiveAtCursor(content, rawEnd, Typeface.BOLD)
-                Typeface.ITALIC -> activeTypingItalic ?: isTypefaceStyleActiveAtCursor(content, rawEnd, Typeface.ITALIC)
+                Typeface.BOLD -> activeTypingBold ?: isTypefaceStyleActiveAtCursor(target, rawEnd, Typeface.BOLD)
+                Typeface.ITALIC -> activeTypingItalic ?: isTypefaceStyleActiveAtCursor(target, rawEnd, Typeface.ITALIC)
                 else -> false
             }
             val nextEnabled = !currentlyActive
@@ -1365,31 +1455,35 @@ class RichTextState {
                 Typeface.ITALIC -> activeTypingItalic = nextEnabled
             }
             activeTypingStyleAnchor = rawEnd
+            activeTypingStyleStart = rawEnd
+            activeTypingStyleArmedUnfocused = editor != null && !editor.hasFocus()
             return
         }
 
-        val isFullyActive = isRangeCoveredByTypefaceStyle(content, rawStart, rawEnd, targetStyle)
+        val isFullyActive = isRangeCoveredByTypefaceStyle(target, rawStart, rawEnd, targetStyle)
         val nextEnabled = !isFullyActive
-        applyTypefaceStyleSpan(content, rawStart, rawEnd, targetStyle, nextEnabled)
+        recordInlineStyleUndoSnapshot()
+        applyTypefaceStyleSpan(target, rawStart, rawEnd, targetStyle, nextEnabled)
         when (targetStyle) {
             Typeface.BOLD -> activeTypingBold = nextEnabled
             Typeface.ITALIC -> activeTypingItalic = nextEnabled
         }
         activeTypingStyleAnchor = rawEnd
-        applyEditableToEditor(content, rawStart, rawEnd)
-        boundEditor?.invalidate()
+        activeTypingStyleStart = rawEnd
+        activeTypingStyleArmedUnfocused = false
+        syncAfterInPlaceSpanEdit(target, rawStart, rawEnd)
     }
 
     private fun <T : Any> toggleMarkerSpan(clazz: Class<T>, factory: () -> T) {
-        val content = currentEditable()
-        val rawStart = minOf(selectionStart, selectionEnd).coerceIn(0, content.length)
-        val rawEnd = maxOf(selectionStart, selectionEnd).coerceIn(rawStart, content.length)
+        val editor = boundEditor
+        val target: Spannable = editor?.text ?: editable
+        val (rawStart, rawEnd) = liveSelection(target.length)
         val hasHighlight = rawStart != rawEnd
 
         if (!hasHighlight) {
             val currentlyActive = when (clazz) {
-                UnderlineSpan::class.java -> activeTypingUnderline ?: isMarkerSpanActiveAtCursor(content, rawEnd, clazz)
-                StrikethroughSpan::class.java -> activeTypingStrikethrough ?: isMarkerSpanActiveAtCursor(content, rawEnd, clazz)
+                UnderlineSpan::class.java -> activeTypingUnderline ?: isMarkerSpanActiveAtCursor(target, rawEnd, clazz)
+                StrikethroughSpan::class.java -> activeTypingStrikethrough ?: isMarkerSpanActiveAtCursor(target, rawEnd, clazz)
                 else -> false
             }
             val nextEnabled = !currentlyActive
@@ -1398,19 +1492,23 @@ class RichTextState {
                 StrikethroughSpan::class.java -> activeTypingStrikethrough = nextEnabled
             }
             activeTypingStyleAnchor = rawEnd
+            activeTypingStyleStart = rawEnd
+            activeTypingStyleArmedUnfocused = editor != null && !editor.hasFocus()
             return
         }
 
-        val isFullyActive = isRangeCoveredBySpan(content, rawStart, rawEnd, clazz)
+        val isFullyActive = isRangeCoveredBySpan(target, rawStart, rawEnd, clazz)
         val nextEnabled = !isFullyActive
-        applyMarkerSpan(content, rawStart, rawEnd, clazz, nextEnabled, factory)
+        recordInlineStyleUndoSnapshot()
+        applyMarkerSpan(target, rawStart, rawEnd, clazz, nextEnabled, factory)
         when (clazz) {
             UnderlineSpan::class.java -> activeTypingUnderline = nextEnabled
             StrikethroughSpan::class.java -> activeTypingStrikethrough = nextEnabled
         }
         activeTypingStyleAnchor = rawEnd
-        applyEditableToEditor(content, rawStart, rawEnd)
-        boundEditor?.invalidate()
+        activeTypingStyleStart = rawEnd
+        activeTypingStyleArmedUnfocused = false
+        syncAfterInPlaceSpanEdit(target, rawStart, rawEnd)
     }
 
     private fun applyTypefaceStyleSpan(
@@ -1498,6 +1596,7 @@ class RichTextState {
         var mergedEnd = safeEnd
 
         for (span in spans) {
+            if ((target.getSpanFlags(span) and Spanned.SPAN_COMPOSING) != 0) continue
             val sStart = target.getSpanStart(span)
             val sEnd = target.getSpanEnd(span)
             if (sStart < 0 || sEnd <= sStart) continue
@@ -1570,6 +1669,7 @@ class RichTextState {
 
     private fun <T : Any> isRangeCoveredBySpan(content: Spanned, start: Int, end: Int, clazz: Class<T>): Boolean {
         val intervals = content.getSpans(start, end, clazz)
+            .filter { (content.getSpanFlags(it) and Spanned.SPAN_COMPOSING) == 0 }
             .map { content.getSpanStart(it) to content.getSpanEnd(it) }
         return isRangeCoveredByRanges(start, end, intervals)
     }
@@ -1605,6 +1705,7 @@ class RichTextState {
         if (content[cursor - 1] == '\n') return false
         val idx = cursor - 1
         return content.getSpans(idx, cursor, clazz).any { span ->
+            if ((content.getSpanFlags(span) and Spanned.SPAN_COMPOSING) != 0) return@any false
             val sStart = content.getSpanStart(span)
             val sEnd = content.getSpanEnd(span)
             sStart <= idx && sEnd >= cursor
@@ -1796,6 +1897,7 @@ class RichTextState {
         isHistoryMuted = true
         activeTypingAlignment = null
         activeTypingAlignAnchor = -1
+        activeTypingAlignArmedUnfocused = false
         clearActiveTypingSpanStyles()
         applyEditableToEditor(snapshot.content, snapshot.selectionStart, snapshot.selectionEnd)
         selectionStart = snapshot.selectionStart
@@ -1893,11 +1995,11 @@ fun RichTextEditor(
                         private var insertStart = 0
                         private var insertCount = 0
 
-                        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+                        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                             insertStart = start
-                            insertCount = after
+                            insertCount = count
                         }
-                        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
                         override fun afterTextChanged(s: Editable?) {
                             if (s != null && insertCount > 0 && !state.isProgrammaticChange) {
                                 val end = (insertStart + insertCount).coerceAtMost(s.length)
