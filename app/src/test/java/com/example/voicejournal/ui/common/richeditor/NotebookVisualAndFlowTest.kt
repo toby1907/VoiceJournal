@@ -666,14 +666,14 @@ class NotebookVisualAndFlowTest {
         )
         state.setText(lines.joinToString("\n"))
 
-        // Align Line 2 Center, Line 3 Right
+        // Highlight & align Line 2 Center, Line 3 Right
         val text0 = editor.text!!.toString()
         val l2 = text0.indexOf("Centered")
-        state.onEditorContentChanged(editor.text, l2, l2)
+        state.onEditorContentChanged(editor.text, l2, l2 + "Centered".length)
         state.toggleParagraphStyle(androidx.compose.ui.text.ParagraphStyle(textAlign = androidx.compose.ui.text.style.TextAlign.Center))
 
         val l3 = editor.text!!.toString().indexOf("Right aligned")
-        state.onEditorContentChanged(editor.text, l3, l3)
+        state.onEditorContentChanged(editor.text, l3, l3 + "Right aligned".length)
         state.toggleParagraphStyle(androidx.compose.ui.text.ParagraphStyle(textAlign = androidx.compose.ui.text.style.TextAlign.End))
 
         // Numbered list on lines 4-5

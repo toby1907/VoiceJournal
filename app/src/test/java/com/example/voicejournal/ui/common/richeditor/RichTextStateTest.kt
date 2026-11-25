@@ -226,11 +226,11 @@ class RichTextStateTest {
     fun alignment_switchesCleanlyBetweenLeftCenterRight_withoutTogglingOff() {
         val (state, editor) = createBoundState("Line 1\nLine 2\nLine 3")
 
-        // Place cursor on Line 2 ("Line 2" starts at offset 7)
-        state.onEditorContentChanged(editor.text, 7, 7)
+        // Highlight Line 2 ("Line 2" is 7..13)
+        state.onEditorContentChanged(editor.text, 7, 13)
         assertEquals(TextAlign.Start, state.currentTextAlign)
 
-        // Apply Center to Line 2
+        // Apply Center to highlighted Line 2
         state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center))
         assertEquals(TextAlign.Center, state.currentTextAlign)
 
@@ -246,12 +246,89 @@ class RichTextStateTest {
         state.onEditorContentChanged(editor.text, 14, 14)
         assertEquals(TextAlign.Start, state.currentTextAlign)
 
-        // Move back to Line 2 -> reports Right, then reset to Left
-        state.onEditorContentChanged(editor.text, 9, 9)
+        // Highlight Line 2 again -> reports Right, then reset to Left
+        state.onEditorContentChanged(editor.text, 7, 13)
         assertEquals(TextAlign.End, state.currentTextAlign)
         state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Start))
         assertEquals(TextAlign.Start, state.currentTextAlign)
         assertTrue(editor.text!!.getSpans(7, 13, AlignmentSpan::class.java).isEmpty())
+    }
+
+    @Test
+    fun alignment_onlyAppliesToHighlightedWordsInMiddleOfLine() {
+        val (state, editor) = createBoundState("Hello world today")
+
+        // Highlight only "world" (6..11) and apply Center
+        state.onEditorContentChanged(editor.text, 6, 11)
+        state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center))
+
+        val lines = editor.text.toString().split("\n")
+        assertEquals(listOf("Hello ", "world", " today"), lines)
+
+        val worldStart = editor.text.toString().indexOf("world")
+        val worldEnd = worldStart + "world".length
+        // Only "world" is centered; "Hello " and " today" remain Left
+        assertTrue(editor.text!!.getSpans(0, 6, AlignmentSpan::class.java).isEmpty())
+        val worldSpans = editor.text!!.getSpans(worldStart, worldEnd, AlignmentSpan::class.java)
+        assertTrue(worldSpans.any { it.alignment == Layout.Alignment.ALIGN_CENTER })
+        val todayStart = editor.text.toString().indexOf(" today")
+        assertTrue(editor.text!!.getSpans(todayStart, editor.text!!.length, AlignmentSpan::class.java).isEmpty())
+
+        // Switching the still-highlighted "world" from Center -> Right must not add extra newlines
+        state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.End))
+        assertEquals(listOf("Hello ", "world", " today"), editor.text.toString().split("\n"))
+        val updatedSpans = editor.text!!.getSpans(worldStart, worldEnd, AlignmentSpan::class.java)
+        assertTrue(updatedSpans.any { it.alignment == Layout.Alignment.ALIGN_OPPOSITE })
+    }
+
+    @Test
+    fun alignment_noHighlight_doesNotAlignExistingText_onlySubsequentTypedWords() {
+        val (state, editor) = createBoundState("First line")
+
+        // Collapsed cursor at end of "First line"
+        state.onEditorContentChanged(editor.text, 10, 10)
+        state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center))
+
+        // Toolbar reflects armed Center alignment, but existing "First line" stays Left (no spans)
+        assertEquals(TextAlign.Center, state.currentTextAlign)
+        assertEquals("First line", editor.text.toString())
+        assertTrue(editor.text!!.getSpans(0, editor.text!!.length, AlignmentSpan::class.java).isEmpty())
+
+        // Type 'N' then "ext" as subsequent typed words
+        val insertPos1 = editor.text!!.length
+        editor.text!!.insert(insertPos1, "N")
+        state.applyActiveTypingStyle(editor.text!!, insertPos1, insertPos1 + 1)
+        state.onEditorContentChanged(editor.text, editor.selectionStart, editor.selectionEnd)
+
+        val insertPos2 = editor.text!!.length
+        editor.text!!.insert(insertPos2, "ext")
+        state.applyActiveTypingStyle(editor.text!!, insertPos2, insertPos2 + 3)
+        state.onEditorContentChanged(editor.text, editor.text!!.length, editor.text!!.length)
+
+        // "First line" remains Left on line 1; "Next" is Centered on line 2
+        assertEquals("First line\nNext", editor.text.toString())
+        assertTrue(editor.text!!.getSpans(0, "First line".length, AlignmentSpan::class.java).isEmpty())
+        val nextStart = editor.text.toString().indexOf("Next")
+        val nextSpans = editor.text!!.getSpans(nextStart, nextStart + 4, AlignmentSpan::class.java)
+        assertTrue(nextSpans.any { it.alignment == Layout.Alignment.ALIGN_CENTER })
+
+        // Switch alignment to Left without highlight and type "Back" -> "Next" stays Centered, "Back" is Left
+        state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Start))
+        assertEquals(TextAlign.Start, state.currentTextAlign)
+        val insertPos3 = editor.text!!.length
+        editor.text!!.insert(insertPos3, "Back")
+        state.applyActiveTypingStyle(editor.text!!, insertPos3, insertPos3 + 4)
+        state.onEditorContentChanged(editor.text, editor.selectionStart, editor.selectionEnd)
+
+        assertEquals("First line\nNext\nBack", editor.text.toString())
+        val nextSpansAfter = editor.text!!.getSpans(nextStart, nextStart + 4, AlignmentSpan::class.java)
+        assertTrue(nextSpansAfter.any { it.alignment == Layout.Alignment.ALIGN_CENTER })
+        val backStart = editor.text.toString().indexOf("Back")
+        assertTrue(editor.text!!.getSpans(backStart, backStart + 4, AlignmentSpan::class.java).isEmpty())
+
+        // Tapping back onto "First line" disarms any pending typing alignment and reports Start
+        state.onEditorContentChanged(editor.text, 2, 2)
+        assertEquals(TextAlign.Start, state.currentTextAlign)
     }
 
     @Test
@@ -274,14 +351,14 @@ class RichTextStateTest {
     @Test
     fun alignment_roundTripsThroughHtml_perLineWithoutDrift() {
         val (state, editor) = createBoundState("Left line\nCentered line\nRight line\nBottom left")
-        // Center Line 2
+        // Highlight & Center Line 2
         val line2Start = "Left line\n".length
-        state.onEditorContentChanged(editor.text, line2Start, line2Start)
+        state.onEditorContentChanged(editor.text, line2Start, line2Start + "Centered line".length)
         state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.Center))
 
-        // Right-align Line 3
+        // Highlight & Right-align Line 3
         val line3Start = "Left line\nCentered line\n".length
-        state.onEditorContentChanged(editor.text, line3Start, line3Start)
+        state.onEditorContentChanged(editor.text, line3Start, line3Start + "Right line".length)
         state.toggleParagraphStyle(ParagraphStyle(textAlign = TextAlign.End))
 
         val html = state.toHtml()

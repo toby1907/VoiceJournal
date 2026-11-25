@@ -117,7 +117,8 @@ class RichTextState {
     var currentTextAlign by mutableStateOf(TextAlign.Start)
         private set
 
-    private var pendingParagraphAlignment: android.text.Layout.Alignment? = null
+    private var activeTypingAlignment: android.text.Layout.Alignment? = null
+    private var activeTypingAlignAnchor: Int = -1
 
     var currentFontSizeSp by mutableIntStateOf(16)
         private set
@@ -262,7 +263,8 @@ class RichTextState {
 
             editable = parsed
             activeTypingFontSizeSp = null
-            pendingParagraphAlignment = null
+            activeTypingAlignment = null
+            activeTypingAlignAnchor = -1
             currentFontSizeSp = 16
             clearHistory()
             pushToEditor()
@@ -362,7 +364,8 @@ class RichTextState {
         try {
             editable = SpannableStringBuilder(text)
             activeTypingFontSizeSp = null
-            pendingParagraphAlignment = null
+            activeTypingAlignment = null
+            activeTypingAlignAnchor = -1
             currentFontSizeSp = 16
             clearHistory()
             pushToEditor()
@@ -467,14 +470,66 @@ class RichTextState {
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
         }
-        val pendingAlign = pendingParagraphAlignment
-        if (pendingAlign != null) {
-            val (lineStart, lineEnd) = lineBoundsAt(editable, start)
-            applyAlignmentToLine(editable, lineStart, lineEnd, pendingAlign)
-            if (editable.subSequence(lineStart, lineEnd).isNotEmpty()) {
-                pendingParagraphAlignment = null
-            }
+
+        val activeAlign = activeTypingAlignment ?: return
+        val insertedText = editable.subSequence(start, end).toString()
+        // If user just typed a newline, keep activeTypingAlignment armed for the next line
+        if (insertedText == "\n") {
+            activeTypingAlignAnchor = end
+            return
         }
+
+        val (lineStart, _) = lineBoundsAt(editable, start)
+        val (_, endLineEnd) = lineBoundsAt(editable, (end - 1).coerceAtLeast(start))
+        val hasPrefix = start > lineStart
+        val hasSuffix = end < endLineEnd
+        val prefixAlign = if (hasPrefix) alignmentForLine(editable, lineStart, start) else activeAlign
+        val suffixAlign = if (hasSuffix) alignmentForLine(editable, end, endLineEnd) else activeAlign
+        val needPrefixSplit = hasPrefix && prefixAlign != activeAlign
+        val needSuffixSplit = hasSuffix && suffixAlign != activeAlign
+
+        if (needPrefixSplit || needSuffixSplit) {
+            isProgrammaticChange = true
+            try {
+                var alignedStart = start
+                var alignedEnd = end
+
+                if (needSuffixSplit) {
+                    editable.insert(alignedEnd, "\n")
+                    applyAlignmentToLine(editable, alignedEnd + 1, endLineEnd + 1, suffixAlign)
+                }
+                if (needPrefixSplit) {
+                    editable.insert(alignedStart, "\n")
+                    applyAlignmentToLine(editable, lineStart, alignedStart, prefixAlign)
+                    alignedStart += 1
+                    alignedEnd += 1
+                }
+
+                for ((ls, le) in collectSelectedLineRanges(editable, alignedStart, alignedEnd)) {
+                    if (editable.subSequence(ls, le).toString() == PAGE_BREAK_TOKEN) continue
+                    applyAlignmentToLine(editable, ls, le, activeAlign)
+                }
+                val newCursor = alignedEnd.coerceAtMost(editable.length)
+                activeTypingAlignAnchor = newCursor
+                selectionStart = newCursor
+                selectionEnd = newCursor
+                boundEditor?.setSelection(newCursor)
+            } finally {
+                isProgrammaticChange = false
+            }
+            boundEditor?.invalidate()
+            boundEditor?.requestLayout()
+            return
+        }
+
+        // Line was empty or already matches activeAlign: ensure inserted line(s) carry activeAlign
+        for ((ls, le) in collectSelectedLineRanges(editable, start, end)) {
+            if (editable.subSequence(ls, le).toString() == PAGE_BREAK_TOKEN) continue
+            applyAlignmentToLine(editable, ls, le, activeAlign)
+        }
+        activeTypingAlignAnchor = end
+        boundEditor?.invalidate()
+        boundEditor?.requestLayout()
     }
 
     fun setFontSize(sizeSp: Int) {
@@ -844,18 +899,14 @@ class RichTextState {
 
     internal fun onEditorContentChanged(text: Editable?, start: Int, end: Int) {
         val newContent = SpannableStringBuilder(text ?: "")
+        val contentChanged = !isContentEquivalent(editable, newContent)
         if (!isHistoryMuted) {
             val previous = Snapshot(
                 content = SpannableStringBuilder(editable),
                 selectionStart = selectionStart,
                 selectionEnd = selectionEnd
             )
-            val next = Snapshot(
-                content = newContent,
-                selectionStart = start.coerceAtLeast(0),
-                selectionEnd = end.coerceAtLeast(0)
-            )
-            if (!isContentEquivalent(previous.content, next.content)) {
+            if (contentChanged) {
                 undoStack.addLast(previous)
                 if (undoStack.size > 100) {
                     undoStack.removeFirst()
@@ -865,8 +916,18 @@ class RichTextState {
             updateHistoryFlags()
         }
         editable = newContent
-        selectionStart = start.coerceAtLeast(0)
-        selectionEnd = end.coerceAtLeast(0)
+        val safeStart = start.coerceAtLeast(0)
+        val safeEnd = end.coerceAtLeast(0)
+        selectionStart = safeStart
+        selectionEnd = safeEnd
+        if (!isProgrammaticChange && activeTypingAlignment != null) {
+            if (contentChanged) {
+                activeTypingAlignAnchor = safeEnd
+            } else if (safeStart != safeEnd || safeEnd != activeTypingAlignAnchor) {
+                activeTypingAlignment = null
+                activeTypingAlignAnchor = -1
+            }
+        }
         refreshStateSnapshot()
     }
 
@@ -987,32 +1048,60 @@ class RichTextState {
     }
 
     private fun applyParagraphAlignment(alignment: android.text.Layout.Alignment) {
-        val target: Spannable = boundEditor?.text ?: editable
-        val rawStart = minOf(selectionStart, selectionEnd).coerceIn(0, target.length)
-        val rawEnd = maxOf(selectionStart, selectionEnd).coerceIn(rawStart, target.length)
-        val selectedLines = collectSelectedLineRanges(target, rawStart, rawEnd)
-        if (selectedLines.isEmpty()) {
-            pendingParagraphAlignment = if (alignment == android.text.Layout.Alignment.ALIGN_NORMAL) null else alignment
+        val content = currentEditable()
+        var rawStart = minOf(selectionStart, selectionEnd).coerceIn(0, content.length)
+        var rawEnd = maxOf(selectionStart, selectionEnd).coerceIn(rawStart, content.length)
+        val hasHighlight = rawStart != rawEnd
+
+        activeTypingAlignment = alignment
+
+        if (!hasHighlight) {
+            // Do NOT retroactively align existing text; arm alignment for subsequent typed words
+            activeTypingAlignAnchor = rawEnd
             currentTextAlign = layoutAlignmentToTextAlign(alignment)
             return
         }
 
-        var hasEmptyLine = false
+        // Apply ONLY to the highlighted words/lines. If the highlight starts or ends mid-line
+        // on a line whose alignment differs from the target, isolate the highlighted words onto
+        // their own line(s) so unhighlighted prefix/suffix words keep their original alignment.
+        val (firstLineStart, _) = lineBoundsAt(content, rawStart)
+        val effectiveEnd = if (rawEnd > rawStart && content[rawEnd - 1] == '\n') rawEnd - 1 else rawEnd
+        val (_, initialLastLineEnd) = lineBoundsAt(content, effectiveEnd)
+        var lastLineEnd = initialLastLineEnd
+
+        val origFirstAlign = if (rawStart > firstLineStart) {
+            alignmentForLine(content, firstLineStart, rawStart)
+        } else {
+            alignment
+        }
+        val origLastAlign = if (rawEnd < lastLineEnd) {
+            alignmentForLine(content, rawEnd, lastLineEnd)
+        } else {
+            alignment
+        }
+
+        if (rawStart > firstLineStart && origFirstAlign != alignment) {
+            content.insert(rawStart, "\n")
+            applyAlignmentToLine(content, firstLineStart, rawStart, origFirstAlign)
+            rawStart += 1
+            rawEnd += 1
+            lastLineEnd += 1
+        }
+
+        if (rawEnd < lastLineEnd && content[rawEnd] != '\n' && origLastAlign != alignment) {
+            content.insert(rawEnd, "\n")
+            applyAlignmentToLine(content, rawEnd + 1, lastLineEnd + 1, origLastAlign)
+        }
+
+        val selectedLines = collectSelectedLineRanges(content, rawStart, rawEnd)
         for ((lineStart, lineEnd) in selectedLines) {
-            if (target.subSequence(lineStart, lineEnd).toString() == PAGE_BREAK_TOKEN) continue
-            if (lineStart == lineEnd) {
-                hasEmptyLine = true
-            }
-            applyAlignmentToLine(target, lineStart, lineEnd, alignment)
+            if (content.subSequence(lineStart, lineEnd).toString() == PAGE_BREAK_TOKEN) continue
+            applyAlignmentToLine(content, lineStart, lineEnd, alignment)
         }
 
-        pendingParagraphAlignment = when {
-            alignment == android.text.Layout.Alignment.ALIGN_NORMAL -> null
-            hasEmptyLine -> alignment
-            else -> null
-        }
-
-        editable = SpannableStringBuilder(target)
+        activeTypingAlignAnchor = rawEnd
+        applyEditableToEditor(content, rawStart, rawEnd)
         boundEditor?.invalidate()
         boundEditor?.requestLayout()
     }
@@ -1034,37 +1123,37 @@ class RichTextState {
             if (safeStart < safeEnd && (sEnd == safeStart || sStart == safeEnd)) continue
             val existingAlign = span.alignment
             target.removeSpan(span)
-            // Preserve portions of a multi-line span on lines outside [safeStart, safeEnd]
+            // Preserve non-empty portions of a multi-line span on lines outside [safeStart, safeEnd]
             if (sStart < safeStart) {
                 val beforeEnd = (safeStart - 1).coerceAtLeast(sStart)
-                if (beforeEnd > sStart || (beforeEnd == sStart && existingAlign != android.text.Layout.Alignment.ALIGN_NORMAL)) {
+                if (beforeEnd > sStart && existingAlign != android.text.Layout.Alignment.ALIGN_NORMAL) {
                     target.setSpan(
                         AlignmentSpan.Standard(existingAlign),
                         sStart,
                         beforeEnd,
-                        Spannable.SPAN_INCLUSIVE_INCLUSIVE
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                     )
                 }
             }
             if (sEnd > safeEnd) {
                 val afterStart = (safeEnd + 1).coerceAtMost(sEnd)
-                if (sEnd > afterStart || (sEnd == afterStart && existingAlign != android.text.Layout.Alignment.ALIGN_NORMAL)) {
+                if (sEnd > afterStart && existingAlign != android.text.Layout.Alignment.ALIGN_NORMAL) {
                     target.setSpan(
                         AlignmentSpan.Standard(existingAlign),
                         afterStart,
                         sEnd,
-                        Spannable.SPAN_INCLUSIVE_INCLUSIVE
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                     )
                 }
             }
         }
 
-        if (alignment != android.text.Layout.Alignment.ALIGN_NORMAL) {
+        if (alignment != android.text.Layout.Alignment.ALIGN_NORMAL && safeStart < safeEnd) {
             target.setSpan(
                 AlignmentSpan.Standard(alignment),
                 safeStart,
                 safeEnd,
-                Spannable.SPAN_INCLUSIVE_INCLUSIVE
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
         }
     }
@@ -1076,15 +1165,14 @@ class RichTextState {
     ): android.text.Layout.Alignment {
         val safeStart = lineStart.coerceIn(0, content.length)
         val safeEnd = lineEnd.coerceIn(safeStart, content.length)
+        if (safeStart == safeEnd) {
+            return android.text.Layout.Alignment.ALIGN_NORMAL
+        }
         val spans = content.getSpans(safeStart, safeEnd, AlignmentSpan::class.java)
         val matching = spans.lastOrNull { span ->
             val sStart = content.getSpanStart(span)
             val sEnd = content.getSpanEnd(span)
-            if (safeStart == safeEnd) {
-                sStart <= safeStart && sEnd >= safeStart
-            } else {
-                sStart < safeEnd && sEnd > safeStart
-            }
+            sStart < safeEnd && sEnd > safeStart
         }
         return matching?.alignment ?: android.text.Layout.Alignment.ALIGN_NORMAL
     }
@@ -1252,6 +1340,7 @@ class RichTextState {
                 val minPos = minOf(safeStart, safeEnd)
                 val maxPos = maxOf(safeStart, safeEnd)
                 editor.setSelection(minPos, maxPos)
+                editable = SpannableStringBuilder(editor.text ?: content)
                 selectionStart = minPos
                 selectionEnd = maxPos
                 return
@@ -1273,7 +1362,11 @@ class RichTextState {
         currentSpanStyle = extractCurrentSpanStyle(content)
 
         // Sync list-type and paragraph alignment flags with the actual line under the cursor
-        val cursor = selectionEnd.coerceIn(0, content.length)
+        val cursor = if (selectionStart != selectionEnd && selectionEnd > 0 && selectionEnd <= content.length && content[selectionEnd - 1] == '\n') {
+            (selectionEnd - 1).coerceIn(0, content.length)
+        } else {
+            selectionEnd.coerceIn(0, content.length)
+        }
         val (lineStart, lineEnd) = lineBoundsAt(content, cursor)
         val lineText = content.subSequence(lineStart, lineEnd).toString()
         isOrderedList = ORDERED_LIST_LINE_REGEX.containsMatchIn(lineText)
@@ -1281,12 +1374,10 @@ class RichTextState {
         isChecklist = lineText.startsWith(CHECKLIST_UNCHECKED_PREFIX) || lineText.startsWith(CHECKLIST_CHECKED_PREFIX)
 
         val lineAlign = alignmentForLine(content, lineStart, lineEnd)
-        currentTextAlign = if (lineAlign != android.text.Layout.Alignment.ALIGN_NORMAL) {
-            layoutAlignmentToTextAlign(lineAlign)
-        } else if (lineStart == lineEnd && pendingParagraphAlignment != null) {
-            layoutAlignmentToTextAlign(pendingParagraphAlignment!!)
+        currentTextAlign = if (activeTypingAlignment != null && selectionStart == selectionEnd) {
+            layoutAlignmentToTextAlign(activeTypingAlignment!!)
         } else {
-            TextAlign.Start
+            layoutAlignmentToTextAlign(lineAlign)
         }
     }
 
