@@ -175,26 +175,34 @@ class AddVoiceNoteViewModel @Inject constructor(
     val eventFlow = _eventFlow.asSharedFlow()
 
     private var currentNoteId: Int? = null
+    private var currentActivePageIndex: Int = 0
+    private var waitingForNoteHydration: Boolean = false
+    private var hasHydratedInitialNote: Boolean = false
+    private val pendingSelectedImageUris = mutableListOf<String>()
 
 
     init {
         savedStateHandle.get<Int>("noteId")?.let { noteId ->
             if (noteId != -1) {
+                waitingForNoteHydration = true
                 //_playNoteState.value = true
                 viewModelScope.launch {
                     Log.d("NoteId", noteId.toString())
                     voiceJournalRepository.getNote(noteId).collect { note ->
                         _noteState.value = noteState.value.copy(voiceJournal = note)
-                        if (note != null) {
+                        if (note != null && !hasHydratedInitialNote) {
+                            hasHydratedInitialNote = true
                             migrateLegacyNoteBlocksIfNeeded(note)
-                        }
-                        if (note != null) {
                             currentNoteId = note.id
                             val hydratedTitle = note.primaryRichTitleHtml()
                             val hydratedContent = note.primaryBodyPreviewText()
                             val hydratedAudioPath = note.primaryAudioPath()
                             val hydratedImageUris = note.imageUrisFromBlocks()
-                            setNoteBlocks(note.resolvedNoteBlocks())
+                            val hydratedBlocks = NoteBlockOps.syncImageBlocks(
+                                note.resolvedNoteBlocks(),
+                                hydratedImageUris
+                            )
+                            setNoteBlocks(hydratedBlocks)
 
                             _noteTitle.value =
                                 _noteTitle.value.copy(text = hydratedTitle, isHintVisible = false)
@@ -217,11 +225,8 @@ class AddVoiceNoteViewModel @Inject constructor(
                                 text = tempFileName
                             )
 
+                            syncTempImageUrisFromBlocks()
                             if (hydratedImageUris.isNotEmpty()) {
-                                tempUris = hydratedImageUris
-                                _tempImageUris.value = _tempImageUris.value.copy(
-                                    imageFileUris = hydratedImageUris
-                                )
                                 Log.d("Image from file", "$hydratedImageUris")
                             }
 
@@ -239,6 +244,11 @@ class AddVoiceNoteViewModel @Inject constructor(
                             _noteLocked.value = note.isNoteLocked()
                             notePinHash = note.lockPinHash
 
+                            if (pendingSelectedImageUris.isNotEmpty()) {
+                                val toAttach = pendingSelectedImageUris.toList()
+                                pendingSelectedImageUris.clear()
+                                attachImageUris(toAttach)
+                            }
                         }
 
                     }
@@ -372,7 +382,7 @@ class AddVoiceNoteViewModel @Inject constructor(
 
             is AddEditNoteEvent.SaveNoteBeforeNav -> {
                 viewModelScope.launch {
-                    if (event.note.trim().isEmpty()  ) {
+                    if (event.note.trim().isEmpty() && !hasPersistableAttachments()) {
                         // Set title to "Untitled" if it's also empty or blank
                         if (_noteContent.value.text?.isBlank() == true) {
                             _noteContent.value = _noteContent.value.copy(text = "Untitled")
@@ -389,7 +399,7 @@ class AddVoiceNoteViewModel @Inject constructor(
                     try {
                         val voiceJournal = VoiceJournal(
                             title = event.note,
-                            content = noteContent.value.text ?:"Untitled",
+                            content = noteContent.value.text?.trim()?.takeIf { it.isNotBlank() } ?: "Untitled",
                             created = created.value.created,
                             fileName = noteFileName.value.text,
                             id = currentNoteId,
@@ -405,6 +415,9 @@ class AddVoiceNoteViewModel @Inject constructor(
                         )
 
                         val id = voiceJournalRepository.saveAndId(voiceJournal)
+                        if (id > 0L) {
+                            currentNoteId = id.toInt()
+                        }
                         val voiceJournalId = voiceJournal.copy(id = id.toInt())
                         event.value.invoke(voiceJournalId)
 
@@ -417,10 +430,6 @@ class AddVoiceNoteViewModel @Inject constructor(
                         )
                     }
                 }
-                removeSelectedImageUris()
-
-
-
             }
 
             is AddEditNoteEvent.SaveNoteOnly -> {
@@ -667,39 +676,85 @@ class AddVoiceNoteViewModel @Inject constructor(
         timerJob2?.cancel()
     }
 
+    fun setActivePageIndex(pageIndex: Int) {
+        currentActivePageIndex = pageIndex.coerceAtLeast(0)
+    }
+
+    fun hasPersistableAttachments(): Boolean {
+        return _noteBlocks.any {
+            it.type == NoteBlockType.DRAWING.name ||
+                it.type == NoteBlockType.IMAGE.name ||
+                it.type == NoteBlockType.FLOATING_TEXT.name
+        } || tempImageUris.value.imageFileUris.orEmpty().any { it.isNotBlank() }
+    }
+
+    fun attachImageUris(uris: List<String>, pageIndex: Int = currentActivePageIndex) {
+        val cleanUris = uris.map { it.trim() }.filter { it.isNotBlank() }
+        if (cleanUris.isEmpty()) return
+
+        val targetPage = pageIndex.coerceAtLeast(0)
+        val existingImageCountOnPage = _noteBlocks.count {
+            it.type == NoteBlockType.IMAGE.name && (it.canvasPageIndex ?: 0) == targetPage
+        }
+
+        val newImageBlocks = cleanUris.mapIndexed { offset, uri ->
+            val slot = existingImageCountOnPage + offset
+            val x = (DEFAULT_IMAGE_X_DP + (slot % 3) * 20f).coerceAtMost(140f)
+            val y = DEFAULT_IMAGE_Y_DP + (slot % 5) * 32f
+            NoteBlock(
+                id = java.util.UUID.randomUUID().toString(),
+                order = _noteBlocks.size + offset,
+                type = NoteBlockType.IMAGE.name,
+                mediaUri = uri,
+                canvasPageIndex = targetPage,
+                canvasX = x,
+                canvasY = y,
+                canvasWidth = DEFAULT_IMAGE_WIDTH_DP,
+                canvasHeight = DEFAULT_IMAGE_HEIGHT_DP
+            )
+        }
+
+        setNoteBlocks(NoteBlockOps.normalized(_noteBlocks + newImageBlocks))
+        syncTempImageUrisFromBlocks()
+    }
+
+    private fun syncTempImageUrisFromBlocks() {
+        val urisFromBlocks = _noteBlocks
+            .filter { it.type == NoteBlockType.IMAGE.name }
+            .mapNotNull { it.mediaUri?.takeIf { uri -> uri.isNotBlank() } }
+        tempUris = urisFromBlocks
+        _tempImageUris.value = _tempImageUris.value.copy(
+            imageFileUris = urisFromBlocks
+        )
+    }
+
     fun getSelectedImageUris() {
         viewModelScope.launch {
             settingsRepository.getSelectedUris()
-                .collect {
-                    if (it.isNotEmpty()) {
-                        // Add the new URIs to the existing list
-
-                        _tempImageUris.value = _tempImageUris.value.copy(
-                            imageFileUris = _tempImageUris.value.imageFileUris?.plus(it.toList())
-                        )
+                .collect { selectedSet ->
+                    val incoming = selectedSet.map { it.trim() }.filter { it.isNotBlank() }
+                    if (incoming.isNotEmpty()) {
+                        settingsRepository.removeSelectedUris()
+                        if (waitingForNoteHydration && !hasHydratedInitialNote) {
+                            pendingSelectedImageUris.addAll(incoming)
+                        } else {
+                            attachImageUris(incoming)
+                        }
                         Log.d("Temp fr get", "$tempUris")
                     }
                 }
         }
-
-
     }
 
     fun removeSelectedImageUris() {
         viewModelScope.launch {
             settingsRepository.removeSelectedUris()
-            _tempImageUris.value = _tempImageUris.value.copy(
-                imageFileUris = tempUris
-            )
             Log.d("Temp fr remove", "$tempUris")
         }
-
     }
 
     fun saveSelectedUris(selectedUris: List<String>) {
-        viewModelScope.launch {
-            settingsRepository.saveSelectedUris(selectedUris)
-        }
+        attachImageUris(selectedUris)
     }
 
     private fun migrateLegacyNoteBlocksIfNeeded(note: VoiceJournal) {
@@ -818,15 +873,8 @@ class AddVoiceNoteViewModel @Inject constructor(
     fun addImageBlocksFromCurrentUris() {
         val uris = tempImageUris.value.imageFileUris.orEmpty().filter { it.isNotBlank() }
         if (uris.isEmpty()) return
-        val blocksToAdd = uris.mapIndexed { index, uri ->
-            NoteBlock(
-                id = java.util.UUID.randomUUID().toString(),
-                order = _noteBlocks.size + index,
-                type = NoteBlockType.IMAGE.name,
-                mediaUri = uri
-            )
-        }
-        setNoteBlocks(NoteBlockOps.normalized(_noteBlocks + blocksToAdd))
+        setNoteBlocks(NoteBlockOps.syncImageBlocks(_noteBlocks, uris))
+        syncTempImageUrisFromBlocks()
     }
 
     fun moveBlockUp(blockId: String) {
@@ -838,7 +886,11 @@ class AddVoiceNoteViewModel @Inject constructor(
     }
 
     fun removeBlock(blockId: String) {
+        val removed = _noteBlocks.firstOrNull { it.id == blockId }
         setNoteBlocks(NoteBlockOps.remove(_noteBlocks, blockId))
+        if (removed?.type == NoteBlockType.IMAGE.name) {
+            syncTempImageUrisFromBlocks()
+        }
     }
 
     fun updateBlockCanvasLayout(
@@ -1047,9 +1099,9 @@ class AddVoiceNoteViewModel @Inject constructor(
 
     private fun saveNote(navigate: Boolean, note: String) {
         viewModelScope.launch {
-            val hasDrawing = _noteBlocks.any { it.type == NoteBlockType.DRAWING.name }
-            // Check if content is empty and there are no drawings
-            if (note.trim().isEmpty() && !hasDrawing) {
+            val hasAttachments = hasPersistableAttachments()
+            // Check if content is empty and there are no drawings/images/floating text
+            if (note.trim().isEmpty() && !hasAttachments) {
                 // Set title to "Untitled" if it's also empty or blank
                 if (_noteContent.value.text?.isBlank() == true) {
                     _noteContent.value = noteContent.value.copy(text = "Untitled")
@@ -1087,6 +1139,7 @@ class AddVoiceNoteViewModel @Inject constructor(
                 if (savedId > 0L) {
                     currentNoteId = savedId.toInt()
                 }
+                settingsRepository.removeSelectedUris()
                 if (navigate) {
                     _eventFlow.emit(UiEvent.SaveNote)
                 }
@@ -1099,8 +1152,12 @@ class AddVoiceNoteViewModel @Inject constructor(
                 )
             }
         }
-        removeSelectedImageUris()
     }
 
-
+    companion object {
+        const val DEFAULT_IMAGE_X_DP = 44f
+        const val DEFAULT_IMAGE_Y_DP = 56f
+        const val DEFAULT_IMAGE_WIDTH_DP = 220f
+        const val DEFAULT_IMAGE_HEIGHT_DP = 180f
+    }
 }

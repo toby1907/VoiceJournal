@@ -25,6 +25,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import com.example.voicejournal.Data.model.NoteBlock
 import com.example.voicejournal.Data.model.NoteBlockType
@@ -1193,5 +1194,188 @@ class NotebookVisualAndFlowTest {
         assertTrue("Line 0 should render crisp red pixels (found $redPixels)", redPixels > 100)
         assertTrue("Line 1 should render crisp green pixels (found $greenPixels)", greenPixels > 100)
         assertTrue("Line 2 should render crisp blue pixels (found $bluePixels)", bluePixels > 100)
+    }
+
+    @Test
+    fun floatingImageBox_dragResizeAndRemove_updatesPositionSizeAndDeletesCleanly() {
+        var latestBlocks by mutableStateOf(
+            listOf(
+                NoteBlock(
+                    id = "img-1",
+                    order = 0,
+                    type = NoteBlockType.IMAGE.name,
+                    mediaUri = "content://test/photo1.jpg",
+                    canvasPageIndex = 0,
+                    canvasX = 32f,
+                    canvasY = 48f,
+                    canvasWidth = 180f,
+                    canvasHeight = 140f
+                )
+            )
+        )
+        var positionCallbackFired = false
+        var resizeCallbackFired = false
+        var broughtToFront = false
+
+        composeRule.setContent {
+            MaterialTheme {
+                val state = rememberRichTextState()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    RichTextEditor(
+                        modifier = Modifier.fillMaxSize(),
+                        state = state
+                    )
+                    com.example.voicejournal.ui.main.AddVoiceNote.components.FloatingImageBoxOverlay(
+                        blocks = latestBlocks,
+                        drawingEnabled = false,
+                        modifier = Modifier.matchParentSize(),
+                        pageCount = 1,
+                        onPositionChange = { blockId, pageIndex, x, y, w, h ->
+                            positionCallbackFired = true
+                            latestBlocks = latestBlocks.map {
+                                if (it.id == blockId) {
+                                    it.copy(
+                                        canvasPageIndex = pageIndex,
+                                        canvasX = x,
+                                        canvasY = y,
+                                        canvasWidth = w,
+                                        canvasHeight = h
+                                    )
+                                } else it
+                            }
+                        },
+                        onResize = { blockId, w, h ->
+                            resizeCallbackFired = true
+                            latestBlocks = latestBlocks.map {
+                                if (it.id == blockId) it.copy(canvasWidth = w, canvasHeight = h) else it
+                            }
+                        },
+                        onBringToFront = {
+                            broughtToFront = true
+                        },
+                        onDelete = { blockId ->
+                            latestBlocks = latestBlocks.filterNot { it.id == blockId }
+                        }
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        val imageBox = composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_box_img-1"))
+        imageBox.assertIsDisplayed()
+        val initialBounds = imageBox.fetchSemanticsNode().boundsInRoot
+
+        // 1. Drag the image box body right and down
+        imageBox.performTouchInput {
+            down(center)
+            moveBy(androidx.compose.ui.geometry.Offset(120f, 150f))
+            up()
+        }
+        composeRule.waitForIdle()
+
+        assertTrue("Dragging image box should fire onPositionChange", positionCallbackFired)
+        assertTrue("Dragging image box should call onBringToFront", broughtToFront)
+        val draggedBlock = latestBlocks.first()
+        assertTrue(
+            "canvasX should increase after dragging right (was 32, now ${draggedBlock.canvasX})",
+            (draggedBlock.canvasX ?: 0f) > 50f
+        )
+        assertTrue(
+            "canvasY should increase after dragging down (was 48, now ${draggedBlock.canvasY})",
+            (draggedBlock.canvasY ?: 0f) > 70f
+        )
+        val draggedBounds = imageBox.fetchSemanticsNode().boundsInRoot
+        assertTrue("Rendered left bound should shift right", draggedBounds.left > initialBounds.left + 20f)
+        assertTrue("Rendered top bound should shift down", draggedBounds.top > initialBounds.top + 20f)
+
+        // 2. Drag the bottom-right resize handle to grow the image box
+        val resizeHandle = composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_resize_img-1"))
+        resizeHandle.assertIsDisplayed()
+        val preResizeBounds = imageBox.fetchSemanticsNode().boundsInRoot
+
+        resizeHandle.performTouchInput {
+            down(center)
+            moveBy(androidx.compose.ui.geometry.Offset(90f, 110f))
+            up()
+        }
+        composeRule.waitForIdle()
+
+        assertTrue("Dragging resize handle should fire onResize", resizeCallbackFired)
+        val resizedBlock = latestBlocks.first()
+        assertTrue(
+            "canvasWidth should grow after dragging resize handle (was 180, now ${resizedBlock.canvasWidth})",
+            (resizedBlock.canvasWidth ?: 0f) > 195f
+        )
+        assertTrue(
+            "canvasHeight should grow after dragging resize handle (was 140, now ${resizedBlock.canvasHeight})",
+            (resizedBlock.canvasHeight ?: 0f) > 155f
+        )
+        val resizedBounds = imageBox.fetchSemanticsNode().boundsInRoot
+        assertTrue("Rendered width should increase", resizedBounds.width > preResizeBounds.width + 15f)
+        assertTrue("Rendered height should increase", resizedBounds.height > preResizeBounds.height + 15f)
+
+        // 3. Tap the remove button to delete the image box
+        val removeButton = composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_remove_img-1"))
+        removeButton.assertIsDisplayed()
+        removeButton.performClick()
+        composeRule.waitForIdle()
+
+        assertTrue("Image block list should be empty after clicking Remove Image", latestBlocks.isEmpty())
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_box_img-1")).assertDoesNotExist()
+    }
+
+    @Test
+    fun floatingImageBox_readOnlyPreviewInsideVerticalScroll_rendersWithoutEditHandles() {
+        val previewBlocks = listOf(
+            NoteBlock(
+                id = "img-preview",
+                order = 0,
+                type = NoteBlockType.IMAGE.name,
+                mediaUri = "content://test/preview.jpg",
+                canvasPageIndex = 0,
+                canvasX = 48f,
+                canvasY = 72f,
+                canvasWidth = 210f,
+                canvasHeight = 160f
+            )
+        )
+
+        composeRule.setContent {
+            MaterialTheme {
+                val scrollState = rememberScrollState()
+                val state = rememberRichTextState()
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        RichTextEditor(
+                            modifier = Modifier.fillMaxWidth(),
+                            state = state,
+                            readOnly = true
+                        )
+                        com.example.voicejournal.ui.main.AddVoiceNote.components.FloatingImageBoxOverlay(
+                            blocks = previewBlocks,
+                            drawingEnabled = false,
+                            modifier = Modifier.matchParentSize(),
+                            pageCount = state.pageCount(),
+                            readOnly = true
+                        )
+                    }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        val imageBox = composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_box_img-preview"))
+        imageBox.assertIsDisplayed()
+        val bounds = imageBox.fetchSemanticsNode().boundsInRoot
+        assertTrue("Preview image box should have positive width (${bounds.width})", bounds.width > 100f)
+        assertTrue("Preview image box should have positive height (${bounds.height})", bounds.height > 100f)
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_remove_img-preview")).assertDoesNotExist()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_resize_img-preview")).assertDoesNotExist()
     }
 }

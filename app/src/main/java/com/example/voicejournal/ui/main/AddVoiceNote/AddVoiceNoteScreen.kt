@@ -52,6 +52,7 @@ import androidx.compose.foundation.layout.size
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 
+import com.example.voicejournal.ui.main.AddVoiceNote.components.FloatingImageBoxOverlay
 import com.example.voicejournal.ui.main.AddVoiceNote.components.FloatingTextBoxOverlay
 
 import androidx.compose.material3.BottomSheetDefaults
@@ -437,19 +438,19 @@ fun AddVoiceNoteScreen(
 
     val lifecycle = lifecycleOwner.lifecycle
 
+    LaunchedEffect(state.currentPageIndex()) {
+        addVoiceNoteViewModel.setActivePageIndex(state.currentPageIndex())
+    }
+
     DisposableEffect(lifecycle) {
 
         val observer = LifecycleEventObserver { _, event ->
 
             if (event == Lifecycle.Event.ON_PAUSE) {
 
-                if (!onSave.value && state.annotatedString.text.trim().isNotEmpty()) { currentOnSaveNote() }
+                if (!onSave.value && (state.annotatedString.text.trim().isNotEmpty() || addVoiceNoteViewModel.hasPersistableAttachments())) { currentOnSaveNote() }
 
                 currentOnStopPlay()
-
-                addVoiceNoteViewModel.removeSelectedImageUris()
-
-
 
             }      }
 
@@ -1359,6 +1360,46 @@ fun AddVoiceNoteScreen(
 
 
 
+                        // Floating Image Boxes Overlay (draggable, resizable, removable)
+
+                        FloatingImageBoxOverlay(
+
+                            blocks = noteBlocks,
+
+                            drawingEnabled = drawingEnabled,
+
+                            modifier = Modifier.matchParentSize(),
+
+                            scrollY = editorScrollY,
+
+                            pageCount = state.pageCount(),
+
+                            onPositionChange = { blockId, pageIndex, x, y, width, height ->
+
+                                addVoiceNoteViewModel.updateBlockCanvasLayout(blockId, pageIndex, x, y, width, height)
+
+                            },
+
+                            onResize = { blockId, width, height ->
+
+                                addVoiceNoteViewModel.resizeBlockCanvas(blockId, width, height)
+
+                            },
+
+                            onBringToFront = { blockId ->
+
+                                addVoiceNoteViewModel.bringBlockToFront(blockId)
+
+                            },
+
+                            onDelete = { blockId ->
+
+                                addVoiceNoteViewModel.removeBlock(blockId)
+
+                            }
+
+                        )
+
                         // Floating Text Boxes Overlay (Samsung Notes style)
 
                         FloatingTextBoxOverlay(
@@ -1658,8 +1699,7 @@ fun AddVoiceNoteScreen(
                 },
 
                 onImageClick = {
-
-
+                    openBottomSheet = false
 
                     if (note.voiceJournal?.id != null) {
 
@@ -1687,13 +1727,11 @@ fun AddVoiceNoteScreen(
 
                         )
 
+                    } else if (state.annotatedString.text.trim().isEmpty() && !addVoiceNoteViewModel.hasPersistableAttachments()) {
 
-
-
+                        navController.navigate("gallery?noteId=-1&noteColor=${noteColor}&note=")
 
                     } else {
-
-
 
                         addVoiceNoteViewModel.onEvent(
 
@@ -1718,8 +1756,6 @@ fun AddVoiceNoteScreen(
                             )
 
                         )
-
-
 
                     }
 

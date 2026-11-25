@@ -82,6 +82,7 @@ import com.example.voicejournal.Data.model.isNoteLocked
 import com.example.voicejournal.Data.model.primaryAudioPath
 import com.example.voicejournal.Data.model.primaryBodyPreviewText
 import com.example.voicejournal.Data.model.primaryRichTitleHtml
+import com.example.voicejournal.Data.model.resolvedNoteBlocks
 import com.example.voicejournal.Data.model.shareText
 import com.example.voicejournal.Data.model.verifyPin
 import com.example.voicejournal.R
@@ -92,6 +93,7 @@ import com.example.voicejournal.Data.model.NoteBlockType
 import com.example.voicejournal.Data.model.NotePaperStyle
 import com.example.voicejournal.ui.main.AddVoiceNote.components.CanvasDrawingTool
 import com.example.voicejournal.ui.main.AddVoiceNote.components.DrawingCanvasOverlay
+import com.example.voicejournal.ui.main.AddVoiceNote.components.FloatingImageBoxOverlay
 import com.example.voicejournal.ui.main.AddVoiceNote.components.FloatingTextBoxOverlay
 import com.example.voicejournal.ui.main.AddVoiceNote.components.NotePinDialogMode
 import com.example.voicejournal.ui.main.mainScreen.DynamicDateRow
@@ -425,18 +427,6 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
                                 .fillMaxSize()
                                 .verticalScroll(scrollState)
                         ) {
-                            val filteredList = imageUris.filter { it.isNotEmpty() }
-
-                            if (filteredList.isNotEmpty()) {
-                                Image(
-                                    painter = rememberAsyncImagePainter(filteredList.first()),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .aspectRatio(1f)
-                                )
-                            }
-
                             Spacer(modifier = Modifier.padding(8.dp))
                             Row {
                                 DynamicDateRow(created = currentNote.created)
@@ -469,7 +459,7 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
                             }
 
                             if (isUnlocked) {
-                                val noteBlocks = currentNote.noteBlocks.orEmpty()
+                                val noteBlocks = currentNote.resolvedNoteBlocks()
                                 val drawingBlocks = noteBlocks.filter {
                                     it.type == NoteBlockType.DRAWING.name
                                 }
@@ -491,6 +481,15 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
                                         readOnly = true,
                                         paperStyle = NotePaperStyle.fromId(currentNote.paperStyle),
                                         drawingBlocks = drawingBlocks
+                                    )
+
+                                    // Positioned image boxes overlay (read-only)
+                                    FloatingImageBoxOverlay(
+                                        blocks = noteBlocks,
+                                        drawingEnabled = false,
+                                        modifier = Modifier.matchParentSize(),
+                                        pageCount = pageRichState.pageCount(),
+                                        readOnly = true
                                     )
 
                                     // Floating text boxes overlay

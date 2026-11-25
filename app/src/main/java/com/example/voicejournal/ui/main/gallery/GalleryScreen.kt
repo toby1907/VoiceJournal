@@ -98,19 +98,23 @@ fun GalleryScreen(
                               }*/
                           //    navController.navigateUp()
 
-                              val encodedString = Uri.encode(galleryScreenViewModel.noteState.value.voiceJournal?.title
-                                  ?: "")
-                              Log.d("previewhtmlString", galleryScreenViewModel.noteState.value.voiceJournal?.title?:"")
-                              navController.navigate(
-                                  Screen.AddEditNoteScreen.route +
-                                          "?noteId=${galleryScreenViewModel.noteState.value.voiceJournal?.id}&noteColor=${galleryScreenViewModel.noteState.value.voiceJournal?.color}&note=${encodedString}",
-                                  navOptions = navOptions {
-                                      popUpTo("gallery") {
-                                          inclusive = true
+                              val targetNote = galleryScreenViewModel.noteState.value.voiceJournal
+                              if (targetNote?.id != null) {
+                                  val encodedString = Uri.encode(targetNote.title)
+                                  Log.d("previewhtmlString", targetNote.title)
+                                  navController.navigate(
+                                      Screen.AddEditNoteScreen.route +
+                                              "?noteId=${targetNote.id}&noteColor=${targetNote.color}&note=${encodedString}",
+                                      navOptions = navOptions {
+                                          popUpTo("gallery") {
+                                              inclusive = true
+                                          }
                                       }
-                                  }
 
-                              )
+                                  )
+                              } else {
+                                  navController.popBackStack()
+                              }
                           }
 
                       )

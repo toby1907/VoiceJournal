@@ -219,4 +219,168 @@ class NoteSavePersistenceTest {
             collectJob.cancel()
         }
     }
+
+    @Test
+    fun attachImage_dragResizePersistAndReload_preservesExactCanvasLayout() = runBlocking {
+        val viewModel = createViewModel()
+        val events = mutableListOf<AddVoiceNoteViewModel.UiEvent>()
+        val collectJob = launch(Dispatchers.Unconfined) {
+            viewModel.eventFlow.collect { events.add(it) }
+        }
+
+        try {
+            viewModel.setActivePageIndex(0)
+            viewModel.attachImageUris(listOf("content://media/external/images/media/42"))
+
+            val attached = viewModel.noteBlocks.firstOrNull { it.type == NoteBlockType.IMAGE.name }
+            assertTrue("Attaching an image should immediately create an IMAGE NoteBlock", attached != null)
+            assertEquals(
+                listOf("content://media/external/images/media/42"),
+                viewModel.tempImageUris.value.imageFileUris
+            )
+
+            // Drag image to new position and resize it
+            viewModel.updateBlockCanvasLayout(
+                blockId = attached!!.id,
+                pageIndex = 0,
+                x = 96f,
+                y = 210f,
+                width = attached.canvasWidth,
+                height = attached.canvasHeight
+            )
+            viewModel.resizeBlockCanvas(
+                blockId = attached.id,
+                width = 275f,
+                height = 230f
+            )
+
+            // Image-only note (empty text) must save cleanly
+            viewModel.onEvent(AddEditNoteEvent.SaveNote(""))
+            waitUntil {
+                events.any { it is AddVoiceNoteViewModel.UiEvent.SaveNote }
+            }
+
+            val savedNotes = db.voiceJournalDao().getAllLetters().first()
+            assertEquals(1, savedNotes.size)
+            val saved = savedNotes.first()
+            assertEquals("Untitled", saved.content)
+
+            // Reopen the note in a fresh ViewModel and verify exact coordinates/size reload
+            val reopenedVm = AddVoiceNoteViewModel(
+                savedStateHandle = SavedStateHandle(mapOf("noteId" to saved.id!!)),
+                voiceJournalRepository = repository,
+                settingsRepository = settingsRepository,
+                context = context,
+                audioRecorder = FakeAudioRecorder(),
+                audioPlayer = FakeAudioPlayer()
+            )
+            waitUntil {
+                reopenedVm.noteBlocks.any { it.type == NoteBlockType.IMAGE.name }
+            }
+
+            val reloadedImage = reopenedVm.noteBlocks.first { it.type == NoteBlockType.IMAGE.name }
+            assertEquals("content://media/external/images/media/42", reloadedImage.mediaUri)
+            assertEquals(0, reloadedImage.canvasPageIndex)
+            assertEquals(96f, reloadedImage.canvasX)
+            assertEquals(210f, reloadedImage.canvasY)
+            assertEquals(275f, reloadedImage.canvasWidth)
+            assertEquals(230f, reloadedImage.canvasHeight)
+        } finally {
+            collectJob.cancel()
+        }
+    }
+
+    @Test
+    fun removeImageBlock_deletesBlockAndUri_andDoesNotReappearOnSave() = runBlocking {
+        val viewModel = createViewModel()
+        val events = mutableListOf<AddVoiceNoteViewModel.UiEvent>()
+        val collectJob = launch(Dispatchers.Unconfined) {
+            viewModel.eventFlow.collect { events.add(it) }
+        }
+
+        try {
+            viewModel.attachImageUris(listOf("content://img/first", "content://img/second"))
+            val images = viewModel.noteBlocks.filter { it.type == NoteBlockType.IMAGE.name }
+            assertEquals(2, images.size)
+
+            val first = images[0]
+            val second = images[1]
+            viewModel.updateBlockCanvasLayout(second.id, 0, 115f, 185f, 240f, 195f)
+
+            // Remove the first image box
+            viewModel.removeBlock(first.id)
+
+            assertEquals(
+                listOf("content://img/second"),
+                viewModel.noteBlocks.filter { it.type == NoteBlockType.IMAGE.name }.map { it.mediaUri }
+            )
+            assertEquals(
+                listOf("content://img/second"),
+                viewModel.tempImageUris.value.imageFileUris
+            )
+
+            viewModel.onEvent(AddEditNoteEvent.SaveNote("<p>Kept second photo</p>"))
+            waitUntil {
+                events.any { it is AddVoiceNoteViewModel.UiEvent.SaveNote }
+            }
+
+            val saved = db.voiceJournalDao().getAllLetters().first().first()
+            val savedImages = saved.noteBlocks.orEmpty().filter { it.type == NoteBlockType.IMAGE.name }
+            assertEquals(1, savedImages.size)
+            assertEquals("content://img/second", savedImages.first().mediaUri)
+            assertEquals(115f, savedImages.first().canvasX)
+            assertEquals(185f, savedImages.first().canvasY)
+            assertEquals(listOf("content://img/second"), saved.imageUris)
+        } finally {
+            collectJob.cancel()
+        }
+    }
+
+    @Test
+    fun gallerySelectionDuringExistingNoteHydration_appendsNewImageWithoutClobberingExisting() = runBlocking {
+        val initialVm = createViewModel()
+        val events = mutableListOf<AddVoiceNoteViewModel.UiEvent>()
+        val collectJob = launch(Dispatchers.Unconfined) {
+            initialVm.eventFlow.collect { events.add(it) }
+        }
+
+        val savedNoteId: Int
+        try {
+            initialVm.attachImageUris(listOf("content://img/existing"))
+            val existingBlock = initialVm.noteBlocks.first { it.type == NoteBlockType.IMAGE.name }
+            initialVm.updateBlockCanvasLayout(existingBlock.id, 0, 88f, 144f, 210f, 165f)
+            initialVm.onEvent(AddEditNoteEvent.SaveNote("<p>Existing note</p>"))
+            waitUntil { events.any { it is AddVoiceNoteViewModel.UiEvent.SaveNote } }
+            savedNoteId = db.voiceJournalDao().getAllLetters().first().first().id!!
+        } finally {
+            collectJob.cancel()
+        }
+
+        // Simulate GalleryScreen writing a newly selected image into SettingsRepository before returning
+        settingsRepository.saveSelectedUris(listOf("content://img/from_gallery"))
+
+        val returningVm = AddVoiceNoteViewModel(
+            savedStateHandle = SavedStateHandle(mapOf("noteId" to savedNoteId)),
+            voiceJournalRepository = repository,
+            settingsRepository = settingsRepository,
+            context = context,
+            audioRecorder = FakeAudioRecorder(),
+            audioPlayer = FakeAudioPlayer()
+        )
+
+        waitUntil {
+            returningVm.noteBlocks.count { it.type == NoteBlockType.IMAGE.name } == 2
+        }
+
+        val images = returningVm.noteBlocks.filter { it.type == NoteBlockType.IMAGE.name }
+        val keptExisting = images.first { it.mediaUri == "content://img/existing" }
+        val newlyAdded = images.first { it.mediaUri == "content://img/from_gallery" }
+
+        assertEquals(88f, keptExisting.canvasX)
+        assertEquals(144f, keptExisting.canvasY)
+        assertEquals(210f, keptExisting.canvasWidth)
+        assertEquals(165f, keptExisting.canvasHeight)
+        assertTrue(newlyAdded.canvasWidth != null && newlyAdded.canvasWidth!! > 0f)
+        assertEquals(2, returningVm.tempImageUris.value.imageFileUris?.size)
+    }
 }
