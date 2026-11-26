@@ -116,16 +116,9 @@ fun MyAppNavHost(
             )
             ) { entry ->
             val color = entry.arguments?.getInt("noteColor") ?: -1
-            GalleryScreen(navController = navController,
-                onClick = {
-                navController.navigate(Screen.AddEditNoteScreen.route){
-                    popUpTo("gallery") {
-                        inclusive = true
-                    }
-                }
-                          },
+            GalleryScreen(
+                navController = navController,
                 noteColor = color
-
             )
         }
         composable("camera") {

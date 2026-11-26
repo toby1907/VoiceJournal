@@ -65,66 +65,66 @@ fun BottomSheet(
 
         ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFCFCFC)),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
-                    // Use a fixed size modifier with 375 x 291
-                    .size(width = 375.dp, height = 291.dp)
                     .align(Alignment.CenterHorizontally)
             ) {
-                Spacer(modifier = Modifier.padding(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(
-                    modifier = Modifier.padding(start = 16.dp)
-                ) { Text(text = " Media") }
+                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                ) { Text(text = "Attach Media") }
+
+                val icons = listOf(
+                    R.drawable.image_icon,
+                    R.drawable.media_file,
+                    R.drawable.photo_camera
+                )
+                val texts = listOf(
+                    "Select From Gallery",
+                    "Select From File",
+                    "Take a Photo",
+                )
+                val colors = listOf(
+                    Color(0xFF1EBE71),
+                    Color(0xFFF5D941),
+                    Color(0xFF1E98BE),
+                )
 
                 LazyColumn {
-
                     items(3) { index ->
-                        // A list of icons and texts for each item
-                        val icons = listOf(
-                            R.drawable.image_icon,
-                            R.drawable.media_file,
-                            R.drawable.photo_camera
-                        )
-                        val texts = listOf(
-                            "Select From Gallery",
-                            "Select From File",
-                            "Take a Photo",
-                        )
-                        val colors = listOf(
-                            Color(0xFF1EBE71),
-                            Color(0xFFF5D941),
-                            Color(0xFF1E98BE),
-                            )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Start,
                             modifier = Modifier
-                                .padding(8.dp)
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .clip(RoundedCornerShape(12.dp))
                                 .clickable {
-                                    if (index == 0) {
-                                        onImageClick()
-                                    }
-                                    if (index == 1) {
-                                        showFileChooser()
-                                    }
-                                    if (index == 2) {
-                                        onCameraClick()
-                                        onClick()
+                                    when (index) {
+                                        0 -> onImageClick()
+                                        1 -> showFileChooser()
+                                        2 -> {
+                                            onCameraClick()
+                                            onClick()
+                                        }
                                     }
                                 }
+                                .padding(6.dp)
+                                .width(320.dp)
                         ) {
-                            IconButton(
+                            Box(
                                 modifier = Modifier
-                                    .size(56.dp)
+                                    .size(52.dp)
                                     .background(shape = CircleShape, color = colors[index]),
-                                onClick = {
-
-                                }) {
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Icon(
                                     modifier = Modifier
                                         .padding(4.dp)
@@ -134,11 +134,12 @@ fun BottomSheet(
                                     contentDescription = texts[index]
                                 )
                             }
-                            Spacer(modifier = Modifier.padding(8.dp))
-                            Text(texts[index], Modifier.padding(top = 4.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(texts[index])
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }

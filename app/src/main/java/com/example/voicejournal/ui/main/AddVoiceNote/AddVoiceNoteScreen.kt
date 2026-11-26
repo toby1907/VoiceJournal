@@ -1700,65 +1700,9 @@ fun AddVoiceNoteScreen(
 
                 onImageClick = {
                     openBottomSheet = false
-
-                    if (note.voiceJournal?.id != null) {
-
-                        val encodedString = Uri.encode(note.voiceJournal.title)
-
-                        addVoiceNoteViewModel.onEvent(
-
-                            AddEditNoteEvent.SaveNoteBeforeNav(
-
-                                value = {
-
-                                    navController.navigate(
-
-                                        "gallery" +
-
-                                                "?noteId=${note.voiceJournal.id}&noteColor=${noteColor}&note=${encodedString}"
-
-                                    )
-
-                                },
-
-                                note = state.toHtml()
-
-                            )
-
-                        )
-
-                    } else if (state.annotatedString.text.trim().isEmpty() && !addVoiceNoteViewModel.hasPersistableAttachments()) {
-
-                        navController.navigate("gallery?noteId=-1&noteColor=${noteColor}&note=")
-
-                    } else {
-
-                        addVoiceNoteViewModel.onEvent(
-
-                            AddEditNoteEvent.SaveNoteBeforeNav(
-
-                                value = { voiceJournal ->
-
-                                    val encodedString = Uri.encode(voiceJournal.title)
-
-                                    navController.navigate(
-
-                                        "gallery" +
-
-                                                "?noteId=${voiceJournal.id}&noteColor=${voiceJournal.color}&note=${encodedString}"
-
-                                    )
-
-                                },
-
-                                note = state.toHtml()
-
-                            )
-
-                        )
-
-                    }
-
+                    navController.navigate(
+                        "gallery?noteId=${note.voiceJournal?.id ?: -1}&noteColor=${noteColor}&note="
+                    )
                 },
 
                 showFileChooser = {
