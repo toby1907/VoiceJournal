@@ -346,8 +346,8 @@ fun NoteListContent(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(22.dp),
                         color = Variables.SchemesSurface.copy(alpha = 0.96f),
-                        tonalElevation = 1.dp,
-                        shadowElevation = 2.dp,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
                         border = BorderStroke(1.dp, Variables.SchemesPrimaryContainer)
                     ) {
                         Column(
@@ -394,7 +394,8 @@ private fun HomeFilterChip(
             width = 1.dp,
             color = if (selected) Variables.SchemesPrimary else Variables.SchemesPrimaryContainer
         ),
-        shadowElevation = if (selected) 2.dp else 0.dp
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
@@ -448,7 +449,8 @@ private fun HomeEmptyStateCard(
         shape = RoundedCornerShape(24.dp),
         color = Variables.SchemesSurface.copy(alpha = 0.96f),
         border = BorderStroke(1.dp, Variables.SchemesPrimaryContainer),
-        shadowElevation = 2.dp
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier

@@ -779,8 +779,8 @@ fun CalendarAgendaNoteCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         color = Variables.SchemesSurface.copy(alpha = 0.96f),
-        tonalElevation = 1.dp,
-        shadowElevation = 1.dp,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
         border = BorderStroke(1.dp, Variables.SchemesPrimaryContainer)
     ) {
         Row(
