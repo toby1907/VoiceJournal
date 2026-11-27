@@ -814,30 +814,9 @@ fun CalendarAgendaNoteCard(
                         )
                     }
                     if (audioPath.isNotBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(999.dp),
-                            color = Variables.SchemesPrimaryContainer
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.GraphicEq,
-                                    contentDescription = "Voice recording",
-                                    tint = Variables.SchemesPrimary,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Text(
-                                    text = "Voice",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = Variables.SchemesOnPrimaryContainer,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                )
-                            }
-                        }
+                        com.example.voicejournal.ui.main.mainScreen.AudioFileDurationBadge(
+                            audioPath = audioPath
+                        )
                     }
                     if (isLocked) {
                         Icon(

@@ -1,35 +1,36 @@
 package com.example.voicejournal.ui.main.mainScreen
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -41,223 +42,222 @@ import com.example.voicejournal.Data.model.VoiceJournal
 import com.example.voicejournal.Data.model.imageUrisFromBlocks
 import com.example.voicejournal.Data.model.isNoteLocked
 import com.example.voicejournal.Data.model.primaryAudioPath
-import com.example.voicejournal.Data.model.primaryBodyPreviewText
-import com.example.voicejournal.Data.model.primaryRichTitleHtml
 import com.example.voicejournal.R
+import com.example.voicejournal.ui.main.calendar.extractCalendarCardText
 import com.example.voicejournal.ui.theme.Variables
-import com.example.voicejournal.ui.common.richeditor.RichText
-import com.example.voicejournal.ui.common.richeditor.rememberRichTextState
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+@Composable
+fun AudioFileDurationBadge(
+    audioPath: String,
+    modifier: Modifier = Modifier,
+    durationMsOverride: Long? = null,
+) {
+    val resolvedDurationMs = durationMsOverride ?: rememberAudioDurationMs(audioPath)
+    val durationLabel = remember(resolvedDurationMs) {
+        formatAudioDurationLabel(resolvedDurationMs)
+    }
+
+    Surface(
+        modifier = modifier.testTag("note_audio_duration_badge"),
+        shape = RoundedCornerShape(999.dp),
+        color = Variables.SchemesPrimaryContainer,
+        border = BorderStroke(0.75.dp, Variables.SchemesPrimary.copy(alpha = 0.25f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.audio_file),
+                contentDescription = "Audio file",
+                tint = Variables.SchemesPrimary,
+                modifier = Modifier.size(13.dp)
+            )
+            Text(
+                text = durationLabel.ifBlank { "Audio" },
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = Variables.SchemesOnPrimaryContainer,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp
+                ),
+                maxLines = 1
+            )
+        }
+    }
+}
 
 @Composable
 fun NewJournalItem(
     modifier: Modifier = Modifier,
     voiceJournal: VoiceJournal,
-
+    audioDurationMsOverride: Long? = null,
 ) {
     val isLocked = voiceJournal.isNoteLocked()
-    val displayTitleHtml = voiceJournal.primaryRichTitleHtml(revealLockedContent = !isLocked)
-    val bodyPreview = voiceJournal.primaryBodyPreviewText(revealLockedContent = !isLocked)
-    val audioPath = voiceJournal.primaryAudioPath(revealLockedContent = !isLocked)
-    val imageUris = voiceJournal.imageUrisFromBlocks(revealLockedContent = !isLocked)
-
-    val titleState = androidx.compose.runtime.remember(displayTitleHtml) {
-        com.example.voicejournal.ui.common.richeditor.RichTextState().apply {
-            setHtml(displayTitleHtml)
-        }
+    val (headline, snippet) = remember(voiceJournal) {
+        extractCalendarCardText(voiceJournal)
     }
-    val iconState = androidx.compose.runtime.remember(displayTitleHtml) {
-        com.example.voicejournal.ui.common.richeditor.RichTextState().apply {
-            setHtml(displayTitleHtml)
-            val initial = annotatedString.text.trim().firstOrNull()?.uppercase(Locale.getDefault()) ?: ""
-            setText(initial)
-        }
+    val audioPath = remember(voiceJournal, isLocked) {
+        voiceJournal.primaryAudioPath(revealLockedContent = !isLocked)
+    }
+    val imageUris = remember(voiceJournal, isLocked) {
+        voiceJournal.imageUrisFromBlocks(revealLockedContent = !isLocked).filter { it.isNotBlank() }
+    }
+    val journalTime = remember(voiceJournal.created) {
+        SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(voiceJournal.created))
+    }
+    val visibleTags = remember(voiceJournal.tags, isLocked) {
+        if (isLocked) emptyList()
+        else voiceJournal.tags.orEmpty()
+            .filter { it.isChecked && it.name.isNotBlank() }
+            .take(2)
     }
 
-    Column {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start,
-            modifier = modifier
-                .background(color = Color.Transparent)
-                .fillMaxWidth()
-                .padding(8.dp),
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .background(color = Color.Transparent)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = Alignment.Start,
         ) {
-
-
-            Column(
-
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.Start,
-                
+            // Top metadata row: timestamp, folder pill, audio duration pill, favorite & lock icons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Spacer(modifier = Modifier.padding(4.dp))
-                Row(modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
-                    val formatTime = SimpleDateFormat("hh:mm a", Locale.getDefault())
-
-                    val journalTime = formatTime.format(voiceJournal.created)
-                  /*  val simpleDate = SimpleDateFormat("d/MMM/yy", Locale.getDefault())
-                    val journalDate = simpleDate.format(voiceJournal.created)*/
                     Text(
                         text = journalTime,
-                        style = TextStyle(
+                        style = MaterialTheme.typography.labelMedium.copy(
                             fontSize = 12.sp,
-                            fontWeight = FontWeight(400),
-                            color = Variables.SchemesOnSurface
-                        )
+                            fontWeight = FontWeight.SemiBold,
+                            color = Variables.SchemesPrimary
+                        ),
+                        maxLines = 1
                     )
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.End
-                    ) {
-
-                       if(voiceJournal.favourite!=false) {
-                            Icon(
-                                tint = Variables.SchemesError,
-                                modifier = Modifier
-                                    .padding(1.dp)
-                                    .width(12.dp)
-                                    .height(12.dp),
-                                painter = painterResource(id = R.drawable.favorite_fill),
-                                contentDescription = "Favorite"
-                            )
-                        }
-                        if (isLocked) {
-                            Icon(
-                                tint = Variables.SchemesOnSurface,
-                                modifier = Modifier
-                                    .padding(1.dp)
-                                    .width(12.dp)
-                                    .height(12.dp),
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Locked note"
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .size(4.dp)
-                                .clip(CircleShape)
-                                .background(Variables.SchemesSecondary)
-                        )
-                        Icon(tint = Variables.SchemesOnSurface,
-                            modifier= Modifier
-                                .padding(1.dp)
-                                .width(12.dp)
-                                .height(12.dp),
-                            painter = painterResource(id = R.drawable.cloud_off),
-                            contentDescription = "Cloud Upload state"
-                        )
-                        if (audioPath.isNotBlank()) {
-                            Box(
-                                modifier = Modifier
-                                    .size(4.dp)
-                                    .clip(CircleShape)
-                                    .background(Variables.SchemesSecondary)
-                            )
-                            Icon(
-                                modifier = Modifier
-                                    .padding(1.dp)
-                                    .width(12.dp)
-                                    .height(12.dp),
-                                painter = painterResource(id = R.drawable.audio_file),
-                                contentDescription = ""
-                            )
+                    voiceJournal.folderName?.takeIf { it.isNotBlank() }?.let { folder ->
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = Variables.SchemesPrimaryContainer.copy(alpha = 0.55f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Folder,
+                                    contentDescription = null,
+                                    tint = Variables.SchemesOnPrimaryContainer,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Text(
+                                    text = folder,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Variables.SchemesOnPrimaryContainer
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
-                voiceJournal.folderName?.takeIf { it.isNotBlank() }?.let { folder ->
-                    Text(
-                        text = "Folder: $folder",
-                        style = TextStyle(
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight(500),
-                            color = Variables.SchemesOnSurfaceVariant
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
 
-
-
-                Row(horizontalArrangement = Arrangement.SpaceBetween,
+                Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                )  {
-                    Column(verticalArrangement = Arrangement.SpaceBetween,
-                        horizontalAlignment = Alignment.Start,
-                        modifier = Modifier.fillMaxHeight()
-                    ) {
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (audioPath.isNotBlank()) {
+                        AudioFileDurationBadge(
+                            audioPath = audioPath,
+                            durationMsOverride = audioDurationMsOverride
+                        )
+                    }
+                    if (voiceJournal.favourite == true) {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = "Favorite",
+                            tint = Variables.SchemesError,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                    if (isLocked) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Locked note",
+                            tint = Variables.SchemesOnSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
 
-                        bodyPreview.takeIf { it.isNotBlank() }?.let {
+            // Headline
+            Text(
+                text = headline,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Variables.SchemesOnSurface
+                )
+            )
+
+            // Optional secondary snippet
+            if (snippet.isNotBlank()) {
+                Text(
+                    text = snippet,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        color = Variables.SchemesOnSurfaceVariant
+                    )
+                )
+            }
+
+            // Optional tag chips
+            if (visibleTags.isNotEmpty()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    visibleTags.forEach { tag ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Variables.SchemesSurface,
+                            border = BorderStroke(1.dp, Variables.SchemesPrimaryContainer)
+                        ) {
                             Text(
-                                text = it,
+                                text = "#${tag.name}",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    color = Variables.SchemesOnSurfaceVariant,
+                                    fontWeight = FontWeight.Medium
+                                ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                style = TextStyle(
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight(300),
-                                    color = Variables.SchemesOnSurface,
-                                )
-                            )
-                            Spacer(modifier = Modifier.size(16.dp))
-                        }
-
-                        RichText(
-
-                            state = titleState,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight(500),
-                                color = Variables.SchemesOnSurface,
-                            ),
-                           modifier = modifier.size(width = 200.dp, height = 48.dp),
-                        )
-                    }
-                    Spacer(modifier = Modifier.padding(4.dp))
-                    val filterImages = imageUris.filter { it.isNotEmpty() }
-                    if (filterImages?.isNotEmpty()==true) {
-                        Image(
-                            painter = rememberAsyncImagePainter(filterImages.last()),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(90.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(color = Variables.SchemesSurface),
-
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .background(color = Variables.SchemesPrimary, shape = CircleShape)
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .border(
-                                    width = 3.dp,
-                                    color = Color.Transparent,
-                                    shape = CircleShape
-                                )
-
-                        ) {
-                            RichText(
-                                state = iconState,
-                                style = TextStyle(
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight(500),
-                                    color = Variables.SchemesOnPrimary,
-                                )
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                             )
                         }
                     }
@@ -265,9 +265,75 @@ fun NewJournalItem(
             }
         }
 
+        // Right-side visual preview: photo thumbnail or balanced monogram/media circle
+        if (imageUris.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .size(68.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Variables.SchemesPrimaryContainer)
+            ) {
+                Image(
+                    painter = rememberAsyncImagePainter(imageUris.last()),
+                    contentDescription = "Note image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                if (imageUris.size > 1) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(4.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color.Black.copy(alpha = 0.62f))
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = "+${imageUris.size - 1}",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        )
+                    }
+                }
+            }
+        } else {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(
+                        color = if (isLocked) Variables.SchemesPrimaryContainer else Variables.SchemesPrimaryContainer
+                    )
+            ) {
+                when {
+                    isLocked -> Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = Variables.SchemesPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    audioPath.isNotBlank() -> Icon(
+                        imageVector = Icons.Default.GraphicEq,
+                        contentDescription = null,
+                        tint = Variables.SchemesPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    else -> Text(
+                        text = headline.firstOrNull()?.uppercaseChar()?.toString() ?: "J",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Variables.SchemesPrimary
+                        )
+                    )
+                }
+            }
+        }
     }
-
-
 }
 
 @Composable

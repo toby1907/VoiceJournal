@@ -10,8 +10,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ScaffoldState
 import androidx.compose.material.TopAppBar
@@ -37,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -134,66 +137,49 @@ fun ContentMain(
             floatingActionButton = {
                 FloatingActionButton(
                     modifier = Modifier.shadow(
-                        0.dp,
-                        spotColor = Color(0xFF000000),
-                        ambientColor = Color(0xFF000000)
+                        elevation = 6.dp,
+                        shape = RoundedCornerShape(size = 18.dp),
+                        spotColor = Variables.SchemesPrimary.copy(alpha = 0.45f),
+                        ambientColor = Variables.SchemesPrimary.copy(alpha = 0.25f)
                     ),
-                    shape = RoundedCornerShape(size = 100.dp),
-                    containerColor = Variables.SchemesOnPrimaryContainer,
-                    contentColor = Color(0xFFffffff),
+                    shape = RoundedCornerShape(size = 18.dp),
+                    containerColor = Variables.SchemesPrimary,
+                    contentColor = Variables.SchemesOnPrimary,
                     onClick = onNavigateToAddVoice
-                )
-                {
+                ) {
                     Icon(
                         painter = painterResource(id = R.drawable.add_36),
                         contentDescription = "Add Note"
                     )
                 }
             },
-            content = { it ->
-                /*  LazyColumn(
-                      modifier = Modifier.consumedWindowInsets(innerPadding),
-                      contentPadding = innerPadding
-                  ){
-                      items(voiceNotes.notes){note->
-                        JournalItem(
-                            voiceJournal = note,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    navController.navigate(
-                                        Screen.AddEditNoteScreen.route +
-                                                "?noteId=${note.id}&noteColor=${note.color}"
-                                    )
-                                }
-                        )
-
-                      }
-                  }*/
-
+            content = { innerPadding ->
                 NavHost(
-                    modifier = Modifier.padding(it),
+                    modifier = Modifier.padding(innerPadding),
                     navController = navController2,
                     startDestination = "home"
                 ) {
                     composable("home") {
-                     NoteListScreen(navController =navController , notes =filteredHomeNotes )
+                        NoteListScreen(
+                            navController = navController,
+                            notes = filteredHomeNotes,
+                            allNotes = voiceNotesList,
+                            selectedFolder = selectedFolder,
+                            onClearFolder = { selectedFolder = null },
+                            onCreateNote = onNavigateToAddVoice
+                        )
                     }
                     composable("favourite") {
                         FavouriteScreenMain(navController = navController)
                     }
-                    /*composable("favourite") {
-                        FavouriteScreenMain()
-                    }*/
                     composable("calendar") {
-                        //CalendarScreen()
-                        Example8Page(horizontal = true, journals = voiceNotesList, navController = navController )
+                        Example8Page(horizontal = true, journals = voiceNotesList, navController = navController)
                     }
                     composable("media") {
-                       MediaScreen(navController)
+                        MediaScreen(navController)
                     }
-                    }
-                    },
+                }
+            },
             containerColor = Color.Transparent,
             bottomBar = {
                 BottomNavPanel(navController2)
@@ -329,11 +315,21 @@ fun ContentMain(
 
 }
 @Composable
-fun NoteListScreen(navController:NavController,notes:List<VoiceJournal>){
-    Spacer(modifier = Modifier.padding(32.dp))
+fun NoteListScreen(
+    navController: NavController,
+    notes: List<VoiceJournal>,
+    allNotes: List<VoiceJournal> = notes,
+    selectedFolder: String? = null,
+    onClearFolder: (() -> Unit)? = null,
+    onCreateNote: (() -> Unit)? = null,
+) {
     NoteList(
-        journals =notes,
+        journals = notes,
         navController = navController,
+        allNotes = allNotes,
+        selectedFolder = selectedFolder,
+        onClearFolder = onClearFolder,
+        onCreateNote = onCreateNote,
     )
 }
 
@@ -342,8 +338,7 @@ fun JournalTopAppBar(
     navController: NavController,
     selectedFolder: String?,
     onFolderFilterClick: () -> Unit
-){
-
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -355,41 +350,42 @@ fun JournalTopAppBar(
                 Text(
                     text = "Jorie",
                     style = TextStyle(
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight(900),
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.5).sp,
                         color = Variables.SchemesOnPrimary,
                     )
                 )
             },
             actions = {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(0.dp, Alignment.Start),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = { /*TODO*/ }) {
-                        Icon(tint = Variables.SchemesOnPrimary,
-                            painter = painterResource(id = R.drawable.cloud_icon), contentDescription = "Upload Status")
-                    }
-                    IconButton(onClick = { navController.navigate("search")}) {
+                    IconButton(onClick = { navController.navigate("search") }) {
                         Icon(
                             tint = Variables.SchemesOnPrimary,
-                            painter = painterResource(id = R.drawable.search_bar), contentDescription = "Search Icon")
-
+                            painter = painterResource(id = R.drawable.search_bar),
+                            contentDescription = "Search Icon"
+                        )
                     }
                     IconButton(onClick = onFolderFilterClick) {
-                        Icon(tint = Variables.SchemesOnPrimary,
-                            painter = painterResource(id = R.drawable.menu_vertical), contentDescription = "Folder Filter")
-
-                    }
-                    if (!selectedFolder.isNullOrBlank()) {
-                        Text(
-                            text = selectedFolder,
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight(500),
-                                color = Variables.SchemesOnPrimary
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                tint = Variables.SchemesOnPrimary,
+                                painter = painterResource(id = R.drawable.menu_vertical),
+                                contentDescription = "Folder Filter"
                             )
-                        )
+                            if (!selectedFolder.isNullOrBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(Variables.SchemesPrimaryContainer)
+                                )
+                            }
+                        }
                     }
                 }
             },
