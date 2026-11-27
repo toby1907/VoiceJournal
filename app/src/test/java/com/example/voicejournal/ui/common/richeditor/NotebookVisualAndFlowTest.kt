@@ -1601,4 +1601,77 @@ class NotebookVisualAndFlowTest {
         indicator.assertIsDisplayed()
         assertTrue(!removed)
     }
+
+    @Test
+    fun previewMediaPanel_readOnlyExtension_hidesDeleteAndControlsWork() {
+        var isExpanded by mutableStateOf(false)
+        var isPlaying by mutableStateOf(false)
+        var positionMs by mutableStateOf(10_000)
+        var speed by mutableStateOf(1f)
+
+        composeRule.setContent {
+            MaterialTheme {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    androidx.compose.material3.Surface(
+                        color = com.example.voicejournal.ui.theme.Variables.SchemesPrimary,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(
+                            bottomStart = if (isExpanded) 20.dp else 0.dp,
+                            bottomEnd = if (isExpanded) 20.dp else 0.dp
+                        )
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxWidth()) {
+                                androidx.compose.material3.IconButton(
+                                    onClick = { isExpanded = !isExpanded },
+                                    modifier = Modifier.testTag("preview_topbar_voice_indicator")
+                                ) {
+                                    androidx.compose.material3.Icon(
+                                        imageVector = Icons.Default.GraphicEq,
+                                        contentDescription = "Show Voice Player"
+                                    )
+                                }
+                            }
+                            androidx.compose.animation.AnimatedVisibility(visible = isExpanded) {
+                                com.example.voicejournal.ui.main.AddVoiceNote.components.PlayRecordPanel(
+                                    currentPositionMs = positionMs,
+                                    durationMs = 50_000,
+                                    isPlaying = isPlaying,
+                                    isPaused = !isPlaying && positionMs > 0,
+                                    playbackSpeed = speed,
+                                    onPlayPause = { isPlaying = !isPlaying },
+                                    onStop = { isPlaying = false; positionMs = 0 },
+                                    onSeekTo = { positionMs = it },
+                                    onSeekBy = { positionMs = (positionMs + it).coerceIn(0, 50_000) },
+                                    onCycleSpeed = { speed = if (speed == 1f) 1.25f else 1f },
+                                    onCollapse = { isExpanded = false },
+                                    showDeleteButton = false,
+                                    containerColor = com.example.voicejournal.ui.theme.Variables.SchemesPrimary,
+                                    contentColor = com.example.voicejournal.ui.theme.Variables.SchemesOnPrimary,
+                                    accentColor = com.example.voicejournal.ui.theme.Variables.SchemesPrimaryContainer,
+                                    onAccentColor = com.example.voicejournal.ui.theme.Variables.SchemesOnPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("preview_topbar_voice_indicator")).performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("voice_media_panel")).assertIsDisplayed()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("media_panel_delete")).assertDoesNotExist()
+        composeRule.onNodeWithText("00:10 / 00:50").assertIsDisplayed()
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("media_panel_play_pause")).performClick()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("media_panel_forward")).performClick()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("media_panel_speed")).performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Playing Voice Note").assertIsDisplayed()
+        composeRule.onNodeWithText("00:15 / 00:50").assertIsDisplayed()
+        composeRule.onNodeWithText("1.25x").assertIsDisplayed()
+    }
 }

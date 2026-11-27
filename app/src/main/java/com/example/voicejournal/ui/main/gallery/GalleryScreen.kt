@@ -112,8 +112,11 @@ fun GalleryScreenContent(
     val selectedCount = uiState.selectedCount
     val visibleImages = uiState.visibleImages
 
+    com.example.voicejournal.ui.main.AddVoiceNote.components.SetStatusBarContentColor(true)
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = com.example.voicejournal.ui.theme.Variables.SchemesSurface,
         topBar = {
             TopAppBar(
                 title = {
@@ -124,7 +127,8 @@ fun GalleryScreenContent(
                             "Select Photos"
                         },
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = com.example.voicejournal.ui.theme.Variables.SchemesOnPrimaryContainer
                     )
                 },
                 navigationIcon = {
@@ -134,7 +138,8 @@ fun GalleryScreenContent(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close Gallery"
+                            contentDescription = "Close Gallery",
+                            tint = com.example.voicejournal.ui.theme.Variables.SchemesOnPrimaryContainer
                         )
                     }
                 },
@@ -144,12 +149,15 @@ fun GalleryScreenContent(
                             onClick = onClearSelection,
                             modifier = Modifier.testTag("gallery_clear_button")
                         ) {
-                            Text("Clear")
+                            Text(
+                                text = "Clear",
+                                color = com.example.voicejournal.ui.theme.Variables.SchemesPrimary
+                            )
                         }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = com.example.voicejournal.ui.theme.Variables.SchemesPrimaryContainer
                 )
             )
         },

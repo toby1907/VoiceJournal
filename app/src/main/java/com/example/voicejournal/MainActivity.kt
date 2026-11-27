@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Button
@@ -53,7 +54,12 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            )
+        )
         setContent {
             VoiceJournalTheme {
                 val snackbarHostState = remember {
@@ -105,12 +111,12 @@ class MainActivity : ComponentActivity() {
                                 hostState = snackbarHostState
                             )
                         },
+                        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets.navigationBars,
                         modifier = Modifier.fillMaxSize()
                     ) { innerPadding ->
 
                         MyAppNavHost(
-                         //   Modifier.safeDrawingPadding()
-                                Modifier.padding(innerPadding),
+                            Modifier.padding(bottom = innerPadding.calculateBottomPadding()),
                         )
                     }
 

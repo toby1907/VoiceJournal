@@ -64,8 +64,8 @@ fun VoiceJournalTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            (view.context as Activity).window.statusBarColor = colorScheme.primary.toArgb()
-            ViewCompat.getWindowInsetsController(view)?.isAppearanceLightStatusBars = darkTheme
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
         }
     }
 

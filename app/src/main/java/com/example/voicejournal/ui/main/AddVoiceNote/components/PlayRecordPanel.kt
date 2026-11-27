@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -60,8 +61,13 @@ fun PlayRecordPanel(
     onSeekTo: (Int) -> Unit,
     onSeekBy: (Int) -> Unit,
     onCycleSpeed: () -> Unit,
-    onRemove: () -> Unit,
+    onRemove: () -> Unit = {},
     onCollapse: () -> Unit,
+    showDeleteButton: Boolean = true,
+    containerColor: Color = Variables.SchemesPrimaryContainer,
+    contentColor: Color = Variables.SchemesOnPrimaryContainer,
+    accentColor: Color = Variables.SchemesPrimary,
+    onAccentColor: Color = Variables.SchemesOnPrimary,
     modifier: Modifier = Modifier
 ) {
     val openDeleteDialog = remember { mutableStateOf(false) }
@@ -90,19 +96,18 @@ fun PlayRecordPanel(
     }
     val speedLabel = formatSpeedLabel(playbackSpeed)
     val canStop = isPlaying || isPaused || safePosition > 0
-    val onContainer = Variables.SchemesOnPrimaryContainer
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Variables.SchemesPrimaryContainer)
+            .background(containerColor)
             .testTag("voice_media_panel")
     ) {
         // Subtle hairline divider separating TopAppBar header from extended media controls
         HorizontalDivider(
             modifier = Modifier.padding(horizontal = 16.dp),
             thickness = 0.75.dp,
-            color = onContainer.copy(alpha = 0.14f)
+            color = contentColor.copy(alpha = 0.16f)
         )
 
         Column(
@@ -110,7 +115,7 @@ fun PlayRecordPanel(
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 10.dp)
         ) {
-            // Compact Status & Time Row + Delete + Collapse
+            // Compact Status & Time Row + optional Delete + Collapse
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -120,9 +125,9 @@ fun PlayRecordPanel(
                         .size(28.dp)
                         .background(
                             color = if (isPlaying) {
-                                Variables.SchemesPrimary
+                                accentColor
                             } else {
-                                onContainer.copy(alpha = 0.12f)
+                                contentColor.copy(alpha = 0.14f)
                             },
                             shape = CircleShape
                         ),
@@ -132,9 +137,9 @@ fun PlayRecordPanel(
                         imageVector = Icons.Default.GraphicEq,
                         contentDescription = null,
                         tint = if (isPlaying) {
-                            Variables.SchemesOnPrimary
+                            onAccentColor
                         } else {
-                            onContainer
+                            contentColor
                         },
                         modifier = Modifier.size(16.dp)
                     )
@@ -147,28 +152,30 @@ fun PlayRecordPanel(
                         text = statusText,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = onContainer
+                        color = contentColor
                     )
                     Text(
                         text = "${formatDurationMs(displayedPositionMs)} / ${formatDurationMs(safeDuration)}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = onContainer.copy(alpha = 0.75f),
+                        color = contentColor.copy(alpha = 0.78f),
                         modifier = Modifier.testTag("media_panel_time")
                     )
                 }
 
-                IconButton(
-                    onClick = { openDeleteDialog.value = true },
-                    modifier = Modifier
-                        .size(32.dp)
-                        .testTag("media_panel_delete")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "Delete Recording",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.9f),
-                        modifier = Modifier.size(20.dp)
-                    )
+                if (showDeleteButton) {
+                    IconButton(
+                        onClick = { openDeleteDialog.value = true },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .testTag("media_panel_delete")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Delete Recording",
+                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.9f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
 
                 IconButton(
@@ -180,7 +187,7 @@ fun PlayRecordPanel(
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowUp,
                         contentDescription = "Hide Media Panel",
-                        tint = onContainer.copy(alpha = 0.85f),
+                        tint = contentColor.copy(alpha = 0.85f),
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -204,9 +211,9 @@ fun PlayRecordPanel(
                     .height(28.dp)
                     .testTag("media_panel_slider"),
                 colors = SliderDefaults.colors(
-                    thumbColor = Variables.SchemesPrimary,
-                    activeTrackColor = Variables.SchemesPrimary,
-                    inactiveTrackColor = onContainer.copy(alpha = 0.22f)
+                    thumbColor = accentColor,
+                    activeTrackColor = accentColor,
+                    inactiveTrackColor = contentColor.copy(alpha = 0.24f)
                 )
             )
 
@@ -222,7 +229,7 @@ fun PlayRecordPanel(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .background(onContainer.copy(alpha = 0.12f))
+                        .background(contentColor.copy(alpha = 0.14f))
                         .clickable(onClick = onCycleSpeed)
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                         .testTag("media_panel_speed"),
@@ -232,7 +239,7 @@ fun PlayRecordPanel(
                         text = speedLabel,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = onContainer
+                        color = contentColor
                     )
                 }
 
@@ -250,7 +257,7 @@ fun PlayRecordPanel(
                         Icon(
                             imageVector = Icons.Default.Replay5,
                             contentDescription = "Rewind 5 seconds",
-                            tint = onContainer,
+                            tint = contentColor,
                             modifier = Modifier.size(21.dp)
                         )
                     }
@@ -261,14 +268,14 @@ fun PlayRecordPanel(
                             .size(40.dp)
                             .testTag("media_panel_play_pause"),
                         colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = Variables.SchemesPrimary,
-                            contentColor = Variables.SchemesOnPrimary
+                            containerColor = accentColor,
+                            contentColor = onAccentColor
                         )
                     ) {
                         Icon(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (isPlaying) "Pause Recording" else "Play Recording",
-                            tint = Variables.SchemesOnPrimary,
+                            tint = onAccentColor,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -283,7 +290,7 @@ fun PlayRecordPanel(
                         Icon(
                             imageVector = Icons.Default.Forward5,
                             contentDescription = "Forward 5 seconds",
-                            tint = onContainer,
+                            tint = contentColor,
                             modifier = Modifier.size(21.dp)
                         )
                     }
@@ -300,9 +307,9 @@ fun PlayRecordPanel(
                         imageVector = Icons.Default.Stop,
                         contentDescription = "Stop Playback",
                         tint = if (canStop) {
-                            onContainer
+                            contentColor
                         } else {
-                            onContainer.copy(alpha = 0.32f)
+                            contentColor.copy(alpha = 0.34f)
                         },
                         modifier = Modifier.size(21.dp)
                     )
@@ -311,17 +318,19 @@ fun PlayRecordPanel(
         }
     }
 
-    VoiceRecordAlertDialog(
-        openDialog = openDeleteDialog,
-        onDismissRequest = { openDeleteDialog.value = false },
-        confirmRequest = {
-            openDeleteDialog.value = false
-            onRemove()
-        },
-        dismissRequest = {
-            openDeleteDialog.value = false
-        }
-    )
+    if (showDeleteButton) {
+        VoiceRecordAlertDialog(
+            openDialog = openDeleteDialog,
+            onDismissRequest = { openDeleteDialog.value = false },
+            confirmRequest = {
+                openDeleteDialog.value = false
+                onRemove()
+            },
+            dismissRequest = {
+                openDeleteDialog.value = false
+            }
+        )
+    }
 }
 
 internal fun formatDurationMs(durationMs: Int): String {

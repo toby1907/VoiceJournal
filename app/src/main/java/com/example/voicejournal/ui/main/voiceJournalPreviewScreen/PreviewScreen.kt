@@ -4,8 +4,13 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -19,13 +24,17 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Text
@@ -35,6 +44,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Share
@@ -43,6 +53,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -50,11 +61,12 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,9 +76,10 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,6 +89,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
+import com.example.voicejournal.Data.model.NoteBlockType
+import com.example.voicejournal.Data.model.NotePaperStyle
 import com.example.voicejournal.Data.model.VoiceJournal
 import com.example.voicejournal.Data.model.imageUrisFromBlocks
 import com.example.voicejournal.Data.model.isNoteLocked
@@ -87,26 +102,24 @@ import com.example.voicejournal.Data.model.shareText
 import com.example.voicejournal.Data.model.verifyPin
 import com.example.voicejournal.R
 import com.example.voicejournal.Screen
-import com.example.voicejournal.ui.main.AddVoiceNote.components.NotePinDialog
-import androidx.compose.foundation.layout.heightIn
-import com.example.voicejournal.Data.model.NoteBlockType
-import com.example.voicejournal.Data.model.NotePaperStyle
+import com.example.voicejournal.ui.common.richeditor.RichTextEditor
+import com.example.voicejournal.ui.common.richeditor.RichTextEditorDefaults
+import com.example.voicejournal.ui.common.richeditor.rememberRichTextState
 import com.example.voicejournal.ui.main.AddVoiceNote.components.CanvasDrawingTool
 import com.example.voicejournal.ui.main.AddVoiceNote.components.DrawingCanvasOverlay
 import com.example.voicejournal.ui.main.AddVoiceNote.components.FloatingImageBoxOverlay
 import com.example.voicejournal.ui.main.AddVoiceNote.components.FloatingTextBoxOverlay
+import com.example.voicejournal.ui.main.AddVoiceNote.components.NotePinDialog
 import com.example.voicejournal.ui.main.AddVoiceNote.components.NotePinDialogMode
+import com.example.voicejournal.ui.main.AddVoiceNote.components.PlayRecordPanel
+import com.example.voicejournal.ui.main.AddVoiceNote.components.SetStatusBarContentColor
 import com.example.voicejournal.ui.main.mainScreen.DynamicDateRow
 import com.example.voicejournal.ui.main.snackbar.SnackbarAction
 import com.example.voicejournal.ui.main.snackbar.SnackbarController
 import com.example.voicejournal.ui.main.snackbar.SnackbarEvent
 import com.example.voicejournal.ui.main.voiceJournalPreviewScreen.VoiceJournalPreviewViewModel.FavouriteScreenEvent
-import com.example.voicejournal.ui.main.voiceJournalPreviewScreen.components.PlayRecordPanel
 import com.example.voicejournal.ui.media_player.MediaPlayerViewModel
 import com.example.voicejournal.ui.theme.Variables
-import com.example.voicejournal.ui.common.richeditor.RichTextEditor
-import com.example.voicejournal.ui.common.richeditor.RichTextEditorDefaults
-import com.example.voicejournal.ui.common.richeditor.rememberRichTextState
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
@@ -164,9 +177,13 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
        commands: Channel<MediaPlayerViewModel.Commands>,
 
        ){
+        SetStatusBarContentColor(false)
+
+        val viewModel: MediaPlayerViewModel = hiltViewModel()
         val lifecycleOwner = LocalLifecycleOwner.current
         val currentOnStopPlay by rememberUpdatedState(
             newValue = {
+                viewModel.pause()
                 voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay)
             }
         )
@@ -184,6 +201,7 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
         }
 
         BackHandler(onBack = {
+            viewModel.pause()
             voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay)
             navController.navigate(Screen.VoicesScreen.route)
         })
@@ -196,12 +214,7 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
         val fileNameState = voiceJournalPreviewViewModel.noteFileName.value
         val timerValue by voiceJournalPreviewViewModel.timer2.collectAsState()
         val playingState by voiceJournalPreviewViewModel.playingState.collectAsState()
-      //  val commands: Channel<MediaPlayerViewModel.Commands> = Channel()
         val commandsScope = rememberCoroutineScope()
-      //  val commandsFlow: Flow<MediaPlayerViewModel.Commands> = commands.receiveAsFlow()
-
-        val viewModel: MediaPlayerViewModel = hiltViewModel()
-
 
         val audioState by viewModel.state.collectAsStateWithLifecycle()
 
@@ -213,6 +226,7 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
         )
         val scope = rememberCoroutineScope()
         val unlockedNoteIds = remember { mutableStateListOf<Int>() }
+        var isMediaPanelExpanded by remember { mutableStateOf(false) }
         val activePageIndex = pagerState.currentPage.coerceIn(0, (voiceNotesList.size - 1).coerceAtLeast(0))
 
         val selectedAudioPath = if (
@@ -224,8 +238,11 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
         }
 
         LaunchedEffect(activePageIndex, selectedAudioPath) {
+            isMediaPanelExpanded = false
             if (selectedAudioPath.isNotBlank()) {
                 viewModel.initUri(Uri.parse(selectedAudioPath))
+            } else {
+                viewModel.pause()
             }
         }
 
@@ -253,7 +270,7 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
             }.collect()
         }
 
-        val toolbarHeight = 48.dp
+        val toolbarHeight = 52.dp
 
         Box(
             modifier = Modifier
@@ -285,137 +302,252 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
                 }
                 val scrollState = rememberScrollState()
 
+                val hasVoiceRecording = isUnlocked && audioPath.isNotEmpty()
+                val loadedAudioState = audioState as? MediaPlayerViewModel.State.Loaded
+                val isAudioPlaying = loadedAudioState?.playingState is MediaPlayerViewModel.PlayingState.Playing
+                val isAudioPaused = loadedAudioState != null &&
+                    loadedAudioState.playingState is MediaPlayerViewModel.PlayingState.Pause &&
+                    loadedAudioState.mediaPlayerPosition > 0
+                val showVoiceMediaPanel = hasVoiceRecording && isMediaPanelExpanded && index == activePageIndex
+
                 Column(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    TopAppBar(
-                        modifier = Modifier
-                            .height(toolbarHeight),
-                        title = {
-                            if (bodyPreview.isNotBlank()) {
-                                Text(
-                                    text = bodyPreview,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-
-                            }
-                        },
-                        navigationIcon = {
-                            IconButton(onClick = {
-                                voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay)
-                                navController.navigate(Screen.VoicesScreen.route)
-                            }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back",
-                                    tint = Variables.SchemesOnPrimary
-                                )
-                            }
-                        },
-                        actions = {
-                            Row(
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-
-                                if (voiceNotesList.isNotEmpty() && index in voiceNotesList.indices) {
-
-                                    IconButton(onClick = {
-
-                                        scope.launch {
-                                            voiceJournalPreviewViewModel.onEvent(
-                                                FavouriteScreenEvent.DeleteJournal(
-                                                    currentNote
-                                                )
-                                            )
-                                            SnackbarController.sendEvent(
-                                                event = SnackbarEvent(
-                                                    message = "Note deleted",
-                                                    action = SnackbarAction(
-                                                        name = "Undo",
-                                                        action = {
-                                                            voiceJournalPreviewViewModel.onEvent(
-                                                                FavouriteScreenEvent.RestoreJournal
-                                                            )
-                                                        }
-                                                    )
-                                                )
-                                            )
-
-                                        }
-                                    })
-                                    {
-
-                                        Icon(
-                                            painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
-                                            contentDescription = "Delete Journal",
-                                            tint = Variables.SchemesError
+                    // Unified TopBar + Status Bar + expandable Media Panel surface
+                    Surface(
+                        color = Variables.SchemesPrimary,
+                        shape = RoundedCornerShape(
+                            bottomStart = if (showVoiceMediaPanel) 20.dp else 0.dp,
+                            bottomEnd = if (showVoiceMediaPanel) 20.dp else 0.dp
+                        ),
+                        shadowElevation = if (showVoiceMediaPanel) 6.dp else 0.dp
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .statusBarsPadding()
+                        ) {
+                            TopAppBar(
+                                modifier = Modifier
+                                    .height(toolbarHeight),
+                                elevation = 0.dp,
+                                title = {
+                                    if (bodyPreview.isNotBlank()) {
+                                        Text(
+                                            text = bodyPreview,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            color = Variables.SchemesOnPrimary
                                         )
-
                                     }
-
-
-                                    Icon(
-                                        imageVector = if (favoriteState.value == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                        contentDescription = "Favorite",
-                                        modifier = Modifier.toggleable(
-                                            value = favoriteState.value ?: false,
-                                            onValueChange = { input ->
-                                                voiceJournalPreviewViewModel.onChangeFavourite(
-                                                    change = input,
-                                                    currentNote = currentNote
-                                                )
-                                                favoriteState.value = input
-                                            }
-
-                                        ),
-                                        tint = if (favoriteState.value == true) Variables.SchemesError else Variables.SchemesOnPrimary
-                                    )
-
-                                    if (isUnlocked) {
-                                        IconButton(
-                                            onClick = {
-                                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                    type = "text/plain"
-                                                    putExtra(Intent.EXTRA_TEXT, currentNote.shareText(revealLockedContent = true))
+                                },
+                                navigationIcon = {
+                                    IconButton(onClick = {
+                                        viewModel.pause()
+                                        voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay)
+                                        navController.navigate(Screen.VoicesScreen.route)
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = "Back",
+                                            tint = Variables.SchemesOnPrimary
+                                        )
+                                    }
+                                },
+                                actions = {
+                                    Row(
+                                        horizontalArrangement = Arrangement.End,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (hasVoiceRecording) {
+                                            IconButton(
+                                                onClick = {
+                                                    isMediaPanelExpanded = !isMediaPanelExpanded
+                                                },
+                                                modifier = Modifier.testTag("preview_topbar_voice_indicator")
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(34.dp)
+                                                        .background(
+                                                            color = when {
+                                                                isAudioPlaying -> Variables.SchemesPrimaryContainer
+                                                                showVoiceMediaPanel -> Variables.SchemesOnPrimary.copy(alpha = 0.18f)
+                                                                else -> Color.Transparent
+                                                            },
+                                                            shape = CircleShape
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.GraphicEq,
+                                                        contentDescription = if (showVoiceMediaPanel) {
+                                                            "Hide Voice Player"
+                                                        } else {
+                                                            "Show Voice Player"
+                                                        },
+                                                        tint = if (isAudioPlaying) {
+                                                            Variables.SchemesOnPrimaryContainer
+                                                        } else {
+                                                            Variables.SchemesOnPrimary
+                                                        },
+                                                        modifier = Modifier.size(21.dp)
+                                                    )
+                                                    if (isAudioPlaying && !showVoiceMediaPanel) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .align(Alignment.TopEnd)
+                                                                .padding(4.dp)
+                                                                .size(7.dp)
+                                                                .background(Color(0xFF4CAF50), CircleShape)
+                                                        )
+                                                    }
                                                 }
-                                                context.startActivity(
-                                                    Intent.createChooser(shareIntent, "Share note")
-                                                )
                                             }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Share,
-                                                contentDescription = "Share note",
-                                                tint = Variables.SchemesOnPrimary
-                                            )
                                         }
-                                        IconButton(
-                                            onClick = {
-                                                val encodedString =
-                                                    Uri.encode(titleHtml)
-                                                Log.d("previewhtmlString", titleHtml)
-                                                navController.navigate(
-                                                    Screen.AddEditNoteScreen.route +
-                                                            "?noteId=${currentNote.id}&noteColor=${currentNote.color}&note=${encodedString}"
-                                                )
+
+                                        if (voiceNotesList.isNotEmpty() && index in voiceNotesList.indices) {
+
+                                            IconButton(onClick = {
+
+                                                scope.launch {
+                                                    viewModel.pause()
+                                                    voiceJournalPreviewViewModel.onEvent(
+                                                        FavouriteScreenEvent.DeleteJournal(
+                                                            currentNote
+                                                        )
+                                                    )
+                                                    SnackbarController.sendEvent(
+                                                        event = SnackbarEvent(
+                                                            message = "Note deleted",
+                                                            action = SnackbarAction(
+                                                                name = "Undo",
+                                                                action = {
+                                                                    voiceJournalPreviewViewModel.onEvent(
+                                                                        FavouriteScreenEvent.RestoreJournal
+                                                                    )
+                                                                }
+                                                            )
+                                                        )
+                                                    )
+
+                                                }
                                             })
-                                        {
+                                            {
+
+                                                Icon(
+                                                    painter = painterResource(R.drawable.ic_baseline_delete_forever_24),
+                                                    contentDescription = "Delete Journal",
+                                                    tint = Variables.SchemesPrimaryContainer
+                                                )
+
+                                            }
+
+
                                             Icon(
-                                                imageVector = Icons.Default.Edit,
-                                                contentDescription = "Edit",
-                                                tint = Variables.SchemesOnPrimary,
+                                                imageVector = if (favoriteState.value == true) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                                contentDescription = "Favorite",
+                                                modifier = Modifier.toggleable(
+                                                    value = favoriteState.value ?: false,
+                                                    onValueChange = { input ->
+                                                        voiceJournalPreviewViewModel.onChangeFavourite(
+                                                            change = input,
+                                                            currentNote = currentNote
+                                                        )
+                                                        favoriteState.value = input
+                                                    }
+
+                                                ),
+                                                tint = if (favoriteState.value == true) Variables.SchemesPrimaryContainer else Variables.SchemesOnPrimary
                                             )
+
+                                            if (isUnlocked) {
+                                                IconButton(
+                                                    onClick = {
+                                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                            type = "text/plain"
+                                                            putExtra(Intent.EXTRA_TEXT, currentNote.shareText(revealLockedContent = true))
+                                                        }
+                                                        context.startActivity(
+                                                            Intent.createChooser(shareIntent, "Share note")
+                                                        )
+                                                    }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Share,
+                                                        contentDescription = "Share note",
+                                                        tint = Variables.SchemesOnPrimary
+                                                    )
+                                                }
+                                                IconButton(
+                                                    onClick = {
+                                                        viewModel.pause()
+                                                        val encodedString =
+                                                            Uri.encode(titleHtml)
+                                                        Log.d("previewhtmlString", titleHtml)
+                                                        navController.navigate(
+                                                            Screen.AddEditNoteScreen.route +
+                                                                    "?noteId=${currentNote.id}&noteColor=${currentNote.color}&note=${encodedString}"
+                                                        )
+                                                    })
+                                                {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Edit,
+                                                        contentDescription = "Edit",
+                                                        tint = Variables.SchemesOnPrimary,
+                                                    )
+                                                }
+                                            }
+
                                         }
                                     }
+                                },
+                                backgroundColor = Variables.SchemesPrimary,
+                                contentColor = Variables.SchemesOnPrimary
+                            )
 
-                                }
+                            AnimatedVisibility(
+                                visible = showVoiceMediaPanel,
+                                enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                                exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+                            ) {
+                                PlayRecordPanel(
+                                    currentPositionMs = loadedAudioState?.mediaPlayerPosition ?: 0,
+                                    durationMs = loadedAudioState?.mediaPlayerDuration ?: 0,
+                                    isPlaying = isAudioPlaying,
+                                    isPaused = isAudioPaused,
+                                    playbackSpeed = loadedAudioState?.playbackSpeed ?: 1f,
+                                    onPlayPause = {
+                                        commandsScope.launch {
+                                            viewModel.togglePlayPause()
+                                        }
+                                    },
+                                    onStop = {
+                                        commandsScope.launch {
+                                            viewModel.resetToStart()
+                                        }
+                                    },
+                                    onSeekTo = { positionMs ->
+                                        viewModel.onSeek(positionMs.toFloat())
+                                    },
+                                    onSeekBy = { deltaMs ->
+                                        viewModel.seekBy(deltaMs)
+                                    },
+                                    onCycleSpeed = {
+                                        viewModel.cyclePlaybackSpeed()
+                                    },
+                                    onCollapse = {
+                                        isMediaPanelExpanded = false
+                                    },
+                                    showDeleteButton = false,
+                                    containerColor = Variables.SchemesPrimary,
+                                    contentColor = Variables.SchemesOnPrimary,
+                                    accentColor = Variables.SchemesPrimaryContainer,
+                                    onAccentColor = Variables.SchemesOnPrimaryContainer
+                                )
                             }
-                        },
-                        backgroundColor = Variables.SchemesPrimary,
-                        contentColor = Variables.SchemesOnPrimary
-                    )
+                        }
+                    }
 
                     Box(
                         modifier = Modifier
@@ -430,32 +562,6 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
                             Spacer(modifier = Modifier.padding(8.dp))
                             Row {
                                 DynamicDateRow(created = currentNote.created)
-                                if (audioPath.isNotEmpty()) {
-                                    when (audioState) {
-                                        is MediaPlayerViewModel.State.Loaded -> PlayRecordPanel(
-                                            onPlay = {
-                                                commandsScope.launch {
-                                                    viewModel.play()
-                                                }
-                                            },
-                                            onCancelRecord = {
-                                                commandsScope.launch {
-                                                    viewModel.pause()
-                                                }
-                                            },
-                                            onPaused = {
-                                                commandsScope.launch {
-                                                    viewModel.pause()
-                                                }
-                                            },
-                                            state = audioState as MediaPlayerViewModel.State.Loaded
-                                        )
-
-                                        MediaPlayerViewModel.State.FileNotFound -> {}
-                                        MediaPlayerViewModel.State.None -> {}
-                                        MediaPlayerViewModel.State.Preparing -> {}
-                                    }
-                                }
                             }
 
                             if (isUnlocked) {

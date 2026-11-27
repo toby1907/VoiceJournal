@@ -1,17 +1,20 @@
 package com.example.voicejournal.ui.main.AddVoiceNote.components
 
+import android.app.Activity
+import android.graphics.Color as AndroidColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import com.example.voicejournal.ui.theme.Variables
-import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 @Composable
 fun SetStatusBarContentColor(darkIcons: Boolean) {
-    val systemUiController = rememberSystemUiController()
-    SideEffect {
-        systemUiController.setStatusBarColor(
-            color = if(darkIcons) Variables.SchemesPrimaryContainer else Variables.SchemesPrimary,
-            darkIcons = darkIcons
-        )
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            window.statusBarColor = AndroidColor.TRANSPARENT
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkIcons
+        }
     }
 }
