@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ScaffoldState
 import androidx.compose.material.TopAppBar
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
@@ -202,32 +204,120 @@ fun ContentMain(
         if (folderFilterDialogVisible) {
             AlertDialog(
                 onDismissRequest = { folderFilterDialogVisible = false },
-                title = { Text("Filter by folder") },
+                shape = com.example.voicejournal.ui.theme.JournalModalDefaults.DialogShape,
+                containerColor = com.example.voicejournal.ui.theme.JournalModalDefaults.ContainerColor,
+                titleContentColor = com.example.voicejournal.ui.theme.JournalModalDefaults.TitleColor,
+                textContentColor = com.example.voicejournal.ui.theme.JournalModalDefaults.TextColor,
+                icon = {
+                    com.example.voicejournal.ui.theme.JournalDialogIconBadge(
+                        imageVector = androidx.compose.material.icons.Icons.Default.Folder
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Filter by folder",
+                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Variables.SchemesOnPrimaryContainer
+                        )
+                    )
+                },
                 text = {
                     androidx.compose.foundation.layout.Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        TextButton(onClick = {
-                            selectedFolder = null
-                            folderFilterDialogVisible = false
-                        }) {
-                            Text(if (selectedFolder == null) "All folders ✓" else "All folders")
-                        }
-                        folderOptions.forEach { folder ->
-                            TextButton(onClick = {
-                                selectedFolder = folder
+                        val allSelected = selectedFolder == null
+                        Surface(
+                            onClick = {
+                                selectedFolder = null
                                 folderFilterDialogVisible = false
-                            }) {
-                                Text(if (selectedFolder == folder) "$folder ✓" else folder)
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (allSelected) {
+                                com.example.voicejournal.ui.theme.JournalModalDefaults.ActiveCardColor
+                            } else {
+                                com.example.voicejournal.ui.theme.JournalModalDefaults.SoftCardColor
+                            },
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (allSelected) 1.5.dp else 1.dp,
+                                color = if (allSelected) {
+                                    Variables.SchemesPrimary
+                                } else {
+                                    com.example.voicejournal.ui.theme.JournalModalDefaults.SubtleBorderColor
+                                }
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 11.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (allSelected) "All folders ✓" else "All folders",
+                                    fontWeight = if (allSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                    color = if (allSelected) Variables.SchemesOnPrimaryContainer else Variables.SchemesOnSurface
+                                )
                             }
                         }
+
+                        folderOptions.forEach { folder ->
+                            val isSelected = selectedFolder == folder
+                            Surface(
+                                onClick = {
+                                    selectedFolder = folder
+                                    folderFilterDialogVisible = false
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) {
+                                    com.example.voicejournal.ui.theme.JournalModalDefaults.ActiveCardColor
+                                } else {
+                                    com.example.voicejournal.ui.theme.JournalModalDefaults.SoftCardColor
+                                },
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) {
+                                        Variables.SchemesPrimary
+                                    } else {
+                                        com.example.voicejournal.ui.theme.JournalModalDefaults.SubtleBorderColor
+                                    }
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (isSelected) "$folder ✓" else folder,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                        color = if (isSelected) Variables.SchemesOnPrimaryContainer else Variables.SchemesOnSurface
+                                    )
+                                }
+                            }
+                        }
+
                         if (folderOptions.isEmpty()) {
-                            Text("No folders available yet.")
+                            Text(
+                                text = "No folders available yet.",
+                                color = Variables.SchemesOnSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
                         }
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { folderFilterDialogVisible = false }) {
+                    androidx.compose.material3.Button(
+                        onClick = { folderFilterDialogVisible = false },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = com.example.voicejournal.ui.theme.JournalModalDefaults.primaryButtonColors()
+                    ) {
                         Text("Close")
                     }
                 }

@@ -1,7 +1,7 @@
 package com.example.voicejournal.ui.main.AddVoiceNote.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.FormatAlignRight
 import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -22,9 +23,13 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.voicejournal.ui.common.richeditor.RichTextState
+import com.example.voicejournal.ui.theme.JournalModalDefaults
+import com.example.voicejournal.ui.theme.JournalSheetDragHandle
+import com.example.voicejournal.ui.theme.JournalSheetHeader
 import com.example.voicejournal.ui.theme.Variables
 import kotlinx.coroutines.DisposableHandle
 
@@ -53,21 +58,34 @@ fun AlignStyleBottomSheet(
         onDismissRequest = { onDismissRequest() },
         sheetState = sheetState,
         windowInsets = windowInsets,
-        modifier = Modifier.padding(8.dp)
+        shape = JournalModalDefaults.SheetShape,
+        containerColor = JournalModalDefaults.ContainerColor,
+        contentColor = JournalModalDefaults.TextColor,
+        scrimColor = JournalModalDefaults.ScrimColor,
+        dragHandle = { JournalSheetDragHandle() }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)) {
-                Text(
-                    text = "Align",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Variables.SchemesOnSurface
-                )
-            }
+            JournalSheetHeader(
+                title = "Paragraph & Lists",
+                subtitle = "Applies to highlighted or next typed text"
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Align",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Variables.SchemesOnSurfaceVariant
+                ),
+                modifier = Modifier.padding(start = 4.dp)
+            )
 
             ControlWrapper2(
                 selected = isLeftSelected,
@@ -78,7 +96,7 @@ fun AlignStyleBottomSheet(
                 Icon(
                     imageVector = Icons.Default.FormatAlignLeft,
                     contentDescription = "Start Align Control",
-                    tint = if (isLeftSelected) MaterialTheme.colorScheme.onPrimary else Variables.SchemesOnSurface
+                    tint = if (isLeftSelected) Variables.SchemesOnPrimary else Variables.SchemesOnPrimaryContainer
                 )
             }
 
@@ -91,7 +109,7 @@ fun AlignStyleBottomSheet(
                 Icon(
                     imageVector = Icons.Default.FormatAlignCenter,
                     contentDescription = "Center Align Control",
-                    tint = if (isCenterSelected) MaterialTheme.colorScheme.onPrimary else Variables.SchemesOnSurface
+                    tint = if (isCenterSelected) Variables.SchemesOnPrimary else Variables.SchemesOnPrimaryContainer
                 )
             }
 
@@ -104,19 +122,23 @@ fun AlignStyleBottomSheet(
                 Icon(
                     imageVector = Icons.Default.FormatAlignRight,
                     contentDescription = "End Align Control",
-                    tint = if (isRightSelected) MaterialTheme.colorScheme.onPrimary else Variables.SchemesOnSurface
+                    tint = if (isRightSelected) Variables.SchemesOnPrimary else Variables.SchemesOnPrimaryContainer
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = JournalModalDefaults.SubtleDividerColor
+            )
 
-            Row(modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)) {
-                Text(
-                    text = "List Type",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Variables.SchemesOnSurface
-                )
-            }
+            Text(
+                text = "List Type",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Variables.SchemesOnSurfaceVariant
+                ),
+                modifier = Modifier.padding(start = 4.dp)
+            )
 
             ControlWrapper2(
                 selected = isOrderedList,
@@ -127,7 +149,7 @@ fun AlignStyleBottomSheet(
                 Icon(
                     imageVector = Icons.Default.FormatListNumbered,
                     contentDescription = "Numbered List",
-                    tint = if (isOrderedList) MaterialTheme.colorScheme.onPrimary else Variables.SchemesOnSurface
+                    tint = if (isOrderedList) Variables.SchemesOnPrimary else Variables.SchemesOnPrimaryContainer
                 )
             }
 
@@ -140,11 +162,11 @@ fun AlignStyleBottomSheet(
                 Icon(
                     imageVector = Icons.Default.FormatListBulleted,
                     contentDescription = "Bulleted List",
-                    tint = if (isUnorderedList) MaterialTheme.colorScheme.onPrimary else Variables.SchemesOnSurface
+                    tint = if (isUnorderedList) Variables.SchemesOnPrimary else Variables.SchemesOnPrimaryContainer
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }

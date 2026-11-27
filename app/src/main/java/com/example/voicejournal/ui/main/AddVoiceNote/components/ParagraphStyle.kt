@@ -53,6 +53,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.example.voicejournal.ui.common.richeditor.RichTextEditor
 import com.example.voicejournal.ui.common.richeditor.RichTextState
+import com.example.voicejournal.ui.theme.Variables
 import com.example.voicejournal.ui.common.richeditor.rememberRichTextState
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -333,45 +334,58 @@ fun ControlWrapper(
 @Composable
 fun ControlWrapper2(
     selected: Boolean,
-    selectedColor: Color = MaterialTheme.colorScheme.primary,
-    unselectedColor: Color = Color.LightGray,
+    selectedColor: Color = Variables.SchemesPrimary,
+    unselectedColor: Color = Variables.SchemesPrimaryContainer,
     onChangeClick: (Boolean) -> Unit,
     onClick: () -> Unit,
-    text:String,
+    text: String,
     content: @Composable () -> Unit
 ) {
+    val rowBg = if (selected) {
+        Variables.SchemesPrimaryContainer.copy(alpha = 0.72f)
+    } else {
+        Variables.SchemesPrimaryContainer.copy(alpha = 0.24f)
+    }
+    val rowBorder = if (selected) {
+        Variables.SchemesPrimary
+    } else {
+        Variables.SchemesPrimary.copy(alpha = 0.16f)
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start,
         modifier = Modifier
-            .padding(8.dp)
             .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(rowBg)
+            .border(
+                width = if (selected) 1.5.dp else 1.dp,
+                color = rowBorder,
+                shape = RoundedCornerShape(14.dp)
+            )
             .clickable {
                 onChangeClick(!selected)
                 onClick()
             }
-
+            .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(size = 6.dp))
-
-                .background(
-                    if (selected) selectedColor
-                    else unselectedColor
-                )
-                .border(
-                    width = 1.dp,
-                    color = Color.LightGray,
-                    shape = RoundedCornerShape(size = 6.dp)
-                )
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (selected) selectedColor else unselectedColor)
                 .padding(all = 8.dp),
             contentAlignment = Alignment.Center
         ) {
             content()
         }
-        Spacer(modifier = Modifier.padding(16.dp))
-        Text(text = text)
+        Spacer(modifier = Modifier.padding(horizontal = 8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                color = if (selected) Variables.SchemesOnPrimaryContainer else Variables.SchemesOnSurface
+            )
+        )
     }
 }
 enum class Alignment {

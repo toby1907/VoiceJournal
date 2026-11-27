@@ -384,35 +384,7 @@ fun AddVoiceNoteScreen(
 
     calendar.time = Date()
 
-    val date = remember {
-
-        mutableStateOf("$day/$month/$year")
-
-    }
-
-
-
-
-
-    val datePickerDialog = android.app.DatePickerDialog(
-
-        context, { _: DatePicker, yearr: Int, monthh: Int, dayOfMonth: Int ->
-
-            val selectedDateTime = Calendar.getInstance().apply {
-
-                set(yearr, monthh, dayOfMonth)
-
-            }.timeInMillis
-
-            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredDate(selectedDateTime))
-
-
-
-
-
-        }, year, month, day
-
-    )
+    var datePickerVisible by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -995,7 +967,7 @@ fun AddVoiceNoteScreen(
 
                             datePickerDialog = {
 
-                                datePickerDialog.show()
+                                datePickerVisible = true
 
                             },
 
@@ -1564,6 +1536,64 @@ fun AddVoiceNoteScreen(
         }
 
         // Sheet content
+
+        if (datePickerVisible) {
+            val datePickerState = androidx.compose.material3.rememberDatePickerState(
+                initialSelectedDateMillis = addVoiceNoteViewModel.created.value.created
+            )
+            androidx.compose.material3.DatePickerDialog(
+                onDismissRequest = { datePickerVisible = false },
+                shape = com.example.voicejournal.ui.theme.JournalModalDefaults.DialogShape,
+                colors = androidx.compose.material3.DatePickerDefaults.colors(
+                    containerColor = com.example.voicejournal.ui.theme.JournalModalDefaults.ContainerColor
+                ),
+                confirmButton = {
+                    androidx.compose.material3.Button(
+                        onClick = {
+                            datePickerState.selectedDateMillis?.let { selectedMillis ->
+                                addVoiceNoteViewModel.onEvent(AddEditNoteEvent.EnteredDate(selectedMillis))
+                            }
+                            datePickerVisible = false
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = com.example.voicejournal.ui.theme.JournalModalDefaults.primaryButtonColors()
+                    ) {
+                        Text("Select")
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = { datePickerVisible = false }
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            color = Variables.SchemesOnSurfaceVariant
+                        )
+                    }
+                }
+            ) {
+                androidx.compose.material3.DatePicker(
+                    state = datePickerState,
+                    colors = androidx.compose.material3.DatePickerDefaults.colors(
+                        containerColor = com.example.voicejournal.ui.theme.JournalModalDefaults.ContainerColor,
+                        titleContentColor = Variables.SchemesOnPrimaryContainer,
+                        headlineContentColor = Variables.SchemesOnPrimaryContainer,
+                        weekdayContentColor = Variables.SchemesOnSurfaceVariant,
+                        subheadContentColor = Variables.SchemesOnSurfaceVariant,
+                        yearContentColor = Variables.SchemesOnSurface,
+                        currentYearContentColor = Variables.SchemesPrimary,
+                        selectedYearContentColor = Variables.SchemesOnPrimary,
+                        selectedYearContainerColor = Variables.SchemesPrimary,
+                        dayContentColor = Variables.SchemesOnSurface,
+                        selectedDayContentColor = Variables.SchemesOnPrimary,
+                        selectedDayContainerColor = Variables.SchemesPrimary,
+                        todayContentColor = Variables.SchemesPrimary,
+                        todayDateBorderColor = Variables.SchemesPrimary,
+                        navigationContentColor = Variables.SchemesOnPrimaryContainer
+                    )
+                )
+            }
+        }
 
         if (folderDialogVisible) {
 

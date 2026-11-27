@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -38,6 +37,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.voicejournal.ui.theme.JournalModalDefaults
+import com.example.voicejournal.ui.theme.JournalSheetDragHandle
+import com.example.voicejournal.ui.theme.JournalSheetHeader
 import com.example.voicejournal.ui.theme.Variables
 
 data class TextColorOption(
@@ -71,7 +73,11 @@ fun TextColorBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        containerColor = Variables.SchemesSurface
+        shape = JournalModalDefaults.SheetShape,
+        containerColor = JournalModalDefaults.ContainerColor,
+        contentColor = JournalModalDefaults.TextColor,
+        scrimColor = JournalModalDefaults.ScrimColor,
+        dragHandle = { JournalSheetDragHandle() }
     ) {
         TextColorPaletteContent(
             selectedColor = selectedColor,
@@ -93,90 +99,74 @@ fun TextColorPaletteContent(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Text Color",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                )
-                Text(
-                    text = "Applies to highlighted or next typed words",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                )
-            }
-
-            Surface(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .clickable { onColorSelected(null) },
-                shape = RoundedCornerShape(20.dp),
-                color = if (isDefaultSelected) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                },
-                border = BorderStroke(
-                    width = if (isDefaultSelected) 1.5.dp else 1.dp,
+        JournalSheetHeader(
+            title = "Text Color",
+            subtitle = "Applies to highlighted or next typed words",
+            trailing = {
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable { onColorSelected(null) },
+                    shape = RoundedCornerShape(20.dp),
                     color = if (isDefaultSelected) {
-                        MaterialTheme.colorScheme.primary
+                        Variables.SchemesPrimaryContainer
                     } else {
-                        MaterialTheme.colorScheme.outlineVariant
-                    }
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (isDefaultSelected) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "Default color selected",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                    Text(
-                        text = "Default",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isDefaultSelected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            }
-                        )
+                        JournalModalDefaults.SoftCardColor
+                    },
+                    border = BorderStroke(
+                        width = if (isDefaultSelected) 1.5.dp else 1.dp,
+                        color = if (isDefaultSelected) {
+                            Variables.SchemesPrimary
+                        } else {
+                            JournalModalDefaults.SubtleBorderColor
+                        }
                     )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (isDefaultSelected) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Default color selected",
+                                tint = Variables.SchemesPrimary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                        Text(
+                            text = "Default",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isDefaultSelected) {
+                                    Variables.SchemesOnPrimaryContainer
+                                } else {
+                                    Variables.SchemesOnSurface
+                                }
+                            )
+                        )
+                    }
                 }
             }
-        }
+        )
 
-        // Live color preview chip
+        // Live color preview chip styled like warm notebook paper
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            shape = JournalModalDefaults.CardShape,
+            color = JournalModalDefaults.SoftCardColor,
+            border = BorderStroke(1.dp, JournalModalDefaults.SubtleBorderColor)
         ) {
             Text(
                 text = "Sample notebook text preview",
                 color = if (isDefaultSelected) Variables.SchemesOnSurface else selectedColor,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
             )
         }
 
@@ -203,7 +193,7 @@ fun TextColorPaletteContent(
                                 .border(
                                     width = if (isSelected) 3.dp else 1.dp,
                                     color = if (isSelected) {
-                                        MaterialTheme.colorScheme.primary
+                                        Variables.SchemesPrimary
                                     } else {
                                         Color(0x33000000)
                                     },
@@ -227,6 +217,6 @@ fun TextColorPaletteContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
     }
 }

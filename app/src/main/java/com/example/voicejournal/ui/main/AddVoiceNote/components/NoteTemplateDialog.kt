@@ -21,13 +21,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +40,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.voicejournal.Data.model.NotePaperStyle
+import com.example.voicejournal.ui.theme.JournalDialogIconBadge
+import com.example.voicejournal.ui.theme.JournalModalDefaults
+import com.example.voicejournal.ui.theme.Variables
 
 data class NoteTemplatePreset(
     val name: String,
@@ -87,9 +91,9 @@ fun PaperStylePickerRow(
         NotePaperStyle.values().forEach { style ->
             val isSelected = style == selectedPaperStyle
             val borderColor = if (isSelected) {
-                MaterialTheme.colorScheme.primary
+                Variables.SchemesPrimary
             } else {
-                MaterialTheme.colorScheme.outlineVariant
+                JournalModalDefaults.SubtleBorderColor
             }
             Surface(
                 modifier = Modifier
@@ -98,9 +102,9 @@ fun PaperStylePickerRow(
                     .clickable { onSelectPaperStyle(style) },
                 shape = RoundedCornerShape(14.dp),
                 color = if (isSelected) {
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    JournalModalDefaults.ActiveCardColor
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    JournalModalDefaults.SoftCardColor
                 },
                 border = BorderStroke(if (isSelected) 2.dp else 1.dp, borderColor)
             ) {
@@ -155,13 +159,13 @@ fun PaperStylePickerRow(
                                     .padding(5.dp)
                                     .size(20.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
+                                    .background(Variables.SchemesPrimary),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = "${style.displayName} selected",
-                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    tint = Variables.SchemesOnPrimary,
                                     modifier = Modifier.size(13.dp)
                                 )
                             }
@@ -171,7 +175,8 @@ fun PaperStylePickerRow(
                     Text(
                         text = style.displayName,
                         style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) Variables.SchemesOnPrimaryContainer else Variables.SchemesOnSurface
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -180,7 +185,7 @@ fun PaperStylePickerRow(
                         text = style.description,
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Variables.SchemesOnSurfaceVariant
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -200,7 +205,22 @@ fun NoteTemplateDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Note Template & Paper") },
+        shape = JournalModalDefaults.DialogShape,
+        containerColor = JournalModalDefaults.ContainerColor,
+        titleContentColor = JournalModalDefaults.TitleColor,
+        textContentColor = JournalModalDefaults.TextColor,
+        icon = {
+            JournalDialogIconBadge(imageVector = Icons.Default.Description)
+        },
+        title = {
+            Text(
+                text = "Note Template & Paper",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Variables.SchemesOnPrimaryContainer
+                )
+            )
+        },
         text = {
             Column(
                 modifier = Modifier
@@ -212,7 +232,7 @@ fun NoteTemplateDialog(
                     text = "Paper Style",
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Variables.SchemesOnSurfaceVariant
                     )
                 )
 
@@ -221,13 +241,16 @@ fun NoteTemplateDialog(
                     onSelectPaperStyle = onSelectPaperStyle
                 )
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    color = JournalModalDefaults.SubtleDividerColor
+                )
 
                 Text(
                     text = "Journal Templates",
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Variables.SchemesOnSurfaceVariant
                     )
                 )
 
@@ -235,29 +258,41 @@ fun NoteTemplateDialog(
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable { onApply(template) },
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        shape = RoundedCornerShape(12.dp),
+                        color = JournalModalDefaults.SoftCardColor,
+                        border = BorderStroke(1.dp, JournalModalDefaults.SubtleBorderColor)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 11.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = template.name,
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Variables.SchemesOnSurface
                                 )
                             )
                             template.folder?.let { folder ->
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = folder,
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Variables.SchemesPrimaryContainer)
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = folder,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Medium,
+                                            color = Variables.SchemesOnPrimaryContainer
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
                     }
@@ -265,7 +300,11 @@ fun NoteTemplateDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
+            Button(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp),
+                colors = JournalModalDefaults.primaryButtonColors()
+            ) {
                 Text("Done")
             }
         }
