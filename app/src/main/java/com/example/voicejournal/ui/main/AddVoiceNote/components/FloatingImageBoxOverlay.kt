@@ -77,10 +77,8 @@ fun FloatingImageBoxOverlay(
 ) {
     if (drawingEnabled) return
 
-    val imageBlocks = remember(blocks) {
-        blocks.filter {
-            it.type == NoteBlockType.IMAGE.name && !it.mediaUri.isNullOrBlank()
-        }
+    val imageBlocks = blocks.filter {
+        it.type == NoteBlockType.IMAGE.name && !it.mediaUri.isNullOrBlank()
     }
     if (imageBlocks.isEmpty()) return
 
@@ -103,26 +101,34 @@ fun FloatingImageBoxOverlay(
     ) {
         val containerWidthDp = maxWidth.value.takeIf { it > 0f } ?: 360f
         val containerHeightPx = constraints.maxHeight.takeIf { it > 0 } ?: (effectivePageStridePx * pageCount.coerceAtLeast(1))
+        val totalCanvasHeightPx = maxOf(
+            containerHeightPx.toFloat(),
+            pageCount.coerceAtLeast(1) * effectivePageStridePx.toFloat()
+        )
 
         imageBlocks.forEach { block ->
             key(block.id) {
-                val blockPage = (block.canvasPageIndex ?: 0).coerceAtLeast(0)
-                val initialX = (block.canvasX ?: DEFAULT_IMAGE_X_DP).coerceAtLeast(0f)
-                val initialY = (block.canvasY ?: DEFAULT_IMAGE_Y_DP).coerceAtLeast(0f)
+                val blockPage = (block.canvasPageIndex ?: 0).coerceIn(0, (pageCount - 1).coerceAtLeast(0))
                 val initialW = (block.canvasWidth ?: DEFAULT_IMAGE_WIDTH_DP).coerceIn(MIN_IMAGE_WIDTH_DP, MAX_IMAGE_WIDTH_DP)
                 val initialH = (block.canvasHeight ?: DEFAULT_IMAGE_HEIGHT_DP).coerceIn(MIN_IMAGE_HEIGHT_DP, MAX_IMAGE_HEIGHT_DP)
+                val maxInitialX = (containerWidthDp - initialW).coerceAtLeast(0f)
+                val initialX = (block.canvasX ?: DEFAULT_IMAGE_X_DP).coerceIn(0f, maxInitialX)
+                val initialY = (block.canvasY ?: DEFAULT_IMAGE_Y_DP).coerceAtLeast(0f)
+                val maxInitialAbsYPx = (totalCanvasHeightPx - initialH * densityScale).coerceAtLeast(0f)
+                val initialAbsYPx = (blockPage * effectivePageStridePx + initialY * densityScale)
+                    .coerceIn(0f, maxInitialAbsYPx)
 
                 var currentX by remember { mutableFloatStateOf(initialX) }
-                var currentAbsYPx by remember { mutableFloatStateOf(blockPage * effectivePageStridePx + initialY * densityScale) }
+                var currentAbsYPx by remember { mutableFloatStateOf(initialAbsYPx) }
                 var currentW by remember { mutableFloatStateOf(initialW) }
                 var currentH by remember { mutableFloatStateOf(initialH) }
                 var isDragging by remember { mutableStateOf(false) }
                 var isResizing by remember { mutableStateOf(false) }
 
-                LaunchedEffect(block.canvasPageIndex, block.canvasX, block.canvasY, block.canvasWidth, block.canvasHeight, effectivePageStridePx) {
+                LaunchedEffect(block.canvasPageIndex, block.canvasX, block.canvasY, block.canvasWidth, block.canvasHeight, effectivePageStridePx, totalCanvasHeightPx) {
                     if (!isDragging && !isResizing) {
                         currentX = initialX
-                        currentAbsYPx = blockPage * effectivePageStridePx + initialY * densityScale
+                        currentAbsYPx = initialAbsYPx
                         currentW = initialW
                         currentH = initialH
                     }

@@ -1378,4 +1378,66 @@ class NotebookVisualAndFlowTest {
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_remove_img-preview")).assertDoesNotExist()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_resize_img-preview")).assertDoesNotExist()
     }
+
+    @Test
+    fun floatingImageBox_snapshotStateListAsyncHydration_rendersImmediatelyAndClampsLegacyY() {
+        val stateList = androidx.compose.runtime.mutableStateListOf<NoteBlock>()
+
+        composeRule.setContent {
+            MaterialTheme {
+                val state = rememberRichTextState()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    RichTextEditor(
+                        modifier = Modifier.fillMaxSize(),
+                        state = state
+                    )
+                    com.example.voicejournal.ui.main.AddVoiceNote.components.FloatingImageBoxOverlay(
+                        blocks = stateList,
+                        drawingEnabled = false,
+                        modifier = Modifier.matchParentSize(),
+                        pageCount = 1
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        // Initially empty before Room emits existing note
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_box_hydrated-1")).assertDoesNotExist()
+
+        // Mutate the SAME SnapshotStateList reference in-place (mirrors AddVoiceNoteViewModel.setNoteBlocks)
+        composeRule.runOnIdle {
+            stateList.clear()
+            stateList.addAll(
+                listOf(
+                    NoteBlock(
+                        id = "hydrated-1",
+                        order = 0,
+                        type = NoteBlockType.IMAGE.name,
+                        mediaUri = "content://media/external/images/media/101",
+                        canvasPageIndex = 0,
+                        canvasX = 44f,
+                        canvasY = 80f,
+                        canvasWidth = 220f,
+                        canvasHeight = 180f
+                    ),
+                    NoteBlock(
+                        id = "legacy-far-y",
+                        order = 1,
+                        type = NoteBlockType.IMAGE.name,
+                        mediaUri = "content://media/external/images/media/102",
+                        canvasPageIndex = 0,
+                        canvasX = 24f,
+                        canvasY = 2400f,
+                        canvasWidth = 220f,
+                        canvasHeight = 180f
+                    )
+                )
+            )
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_box_hydrated-1")).assertIsDisplayed()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_box_legacy-far-y")).assertIsDisplayed()
+    }
 }

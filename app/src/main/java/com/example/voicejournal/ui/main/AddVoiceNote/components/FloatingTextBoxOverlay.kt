@@ -62,12 +62,10 @@ fun FloatingTextBoxOverlay(
     val density = LocalDensity.current
     val densityScale = density.density
 
-    val textBoxBlocks = remember(blocks, currentPageIndex) {
-        blocks.filter {
-            it.type == NoteBlockType.FLOATING_TEXT.name &&
-                    (it.canvasPageIndex ?: 0) == currentPageIndex &&
-                    it.canvasX != null
-        }
+    val textBoxBlocks = blocks.filter {
+        it.type == NoteBlockType.FLOATING_TEXT.name &&
+                (it.canvasPageIndex ?: 0) == currentPageIndex &&
+                it.canvasX != null
     }
 
     Box(modifier = Modifier.fillMaxSize()) {

@@ -173,7 +173,7 @@ object NoteBlockFactory {
 
         imageUris.orEmpty()
             .filter { it.isNotBlank() }
-            .forEach { uri ->
+            .forEachIndexed { imgIndex, uri ->
                 blocks.add(
                     NoteBlock(
                         id = UUID.randomUUID().toString(),
@@ -181,9 +181,9 @@ object NoteBlockFactory {
                         type = NoteBlockType.IMAGE.name,
                         mediaUri = uri,
                         canvasPageIndex = 0,
-                        canvasX = 24f,
-                        canvasY = 420f,
-                        canvasWidth = 280f,
+                        canvasX = 44f + (imgIndex % 3) * 20f,
+                        canvasY = 120f + (imgIndex % 4) * 32f,
+                        canvasWidth = 220f,
                         canvasHeight = 180f
                     )
                 )
@@ -357,7 +357,7 @@ object NoteBlockOps {
 
         val imageBlocks = latestImageUris
             .filter { it.isNotBlank() }
-            .map { uri ->
+            .mapIndexed { imgIndex, uri ->
                 val queue = existingByUri[uri]
                 if (queue != null && queue.isNotEmpty()) {
                     queue.removeAt(0).copy(mediaUri = uri)
@@ -366,7 +366,12 @@ object NoteBlockOps {
                         id = UUID.randomUUID().toString(),
                         order = 0,
                         type = NoteBlockType.IMAGE.name,
-                        mediaUri = uri
+                        mediaUri = uri,
+                        canvasPageIndex = 0,
+                        canvasX = 44f + (imgIndex % 3) * 20f,
+                        canvasY = 80f + (imgIndex % 4) * 32f,
+                        canvasWidth = 220f,
+                        canvasHeight = 180f
                     )
                 }
             }

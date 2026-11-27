@@ -1362,9 +1362,11 @@ fun AddVoiceNoteScreen(
 
                         // Floating Image Boxes Overlay (draggable, resizable, removable)
 
+                        val blocksSnapshot = noteBlocks.toList()
+
                         FloatingImageBoxOverlay(
 
-                            blocks = noteBlocks,
+                            blocks = blocksSnapshot,
 
                             drawingEnabled = drawingEnabled,
 
@@ -1404,7 +1406,7 @@ fun AddVoiceNoteScreen(
 
                         FloatingTextBoxOverlay(
 
-                            blocks = noteBlocks,
+                            blocks = blocksSnapshot,
 
                             currentPageIndex = state.currentPageIndex(),
 
