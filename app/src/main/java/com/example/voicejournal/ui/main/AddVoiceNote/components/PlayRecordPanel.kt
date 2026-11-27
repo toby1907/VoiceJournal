@@ -1,6 +1,5 @@
 package com.example.voicejournal.ui.main.AddVoiceNote.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,13 +23,13 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay5
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,7 +41,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -92,36 +90,39 @@ fun PlayRecordPanel(
     }
     val speedLabel = formatSpeedLabel(playbackSpeed)
     val canStop = isPlaying || isPaused || safePosition > 0
+    val onContainer = Variables.SchemesOnPrimaryContainer
 
-    Surface(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .testTag("voice_media_panel"),
-        shape = RoundedCornerShape(18.dp),
-        color = Variables.SchemesSurface,
-        shadowElevation = 8.dp,
-        tonalElevation = 3.dp,
-        border = BorderStroke(1.dp, Variables.SchemesPrimary.copy(alpha = 0.22f))
+            .background(Variables.SchemesPrimaryContainer)
+            .testTag("voice_media_panel")
     ) {
+        // Subtle hairline divider separating TopAppBar header from extended media controls
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            thickness = 0.75.dp,
+            color = onContainer.copy(alpha = 0.14f)
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 10.dp)
         ) {
-            // Top Header Row: Waveform badge + Status/Time + Delete + Collapse
+            // Compact Status & Time Row + Delete + Collapse
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(28.dp)
                         .background(
                             color = if (isPlaying) {
                                 Variables.SchemesPrimary
                             } else {
-                                Variables.SchemesPrimaryContainer
+                                onContainer.copy(alpha = 0.12f)
                             },
                             shape = CircleShape
                         ),
@@ -133,9 +134,9 @@ fun PlayRecordPanel(
                         tint = if (isPlaying) {
                             Variables.SchemesOnPrimary
                         } else {
-                            Variables.SchemesOnPrimaryContainer
+                            onContainer
                         },
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
 
@@ -144,14 +145,14 @@ fun PlayRecordPanel(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = statusText,
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = Variables.SchemesOnSurface
+                        color = onContainer
                     )
                     Text(
                         text = "${formatDurationMs(displayedPositionMs)} / ${formatDurationMs(safeDuration)}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Variables.SchemesOnSurface.copy(alpha = 0.72f),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = onContainer.copy(alpha = 0.75f),
                         modifier = Modifier.testTag("media_panel_time")
                     )
                 }
@@ -159,13 +160,13 @@ fun PlayRecordPanel(
                 IconButton(
                     onClick = { openDeleteDialog.value = true },
                     modifier = Modifier
-                        .size(34.dp)
+                        .size(32.dp)
                         .testTag("media_panel_delete")
                 ) {
                     Icon(
                         imageVector = Icons.Default.DeleteOutline,
                         contentDescription = "Delete Recording",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.9f),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -173,19 +174,19 @@ fun PlayRecordPanel(
                 IconButton(
                     onClick = onCollapse,
                     modifier = Modifier
-                        .size(34.dp)
+                        .size(32.dp)
                         .testTag("media_panel_collapse")
                 ) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowUp,
                         contentDescription = "Hide Media Panel",
-                        tint = Variables.SchemesOnSurface.copy(alpha = 0.78f),
+                        tint = onContainer.copy(alpha = 0.85f),
                         modifier = Modifier.size(22.dp)
                     )
                 }
             }
 
-            // Seek Slider
+            // Sleek Seek Slider integrated into TopBar surface
             Slider(
                 value = sliderPositionMs.coerceIn(0f, safeDuration.coerceAtLeast(1).toFloat()),
                 onValueChange = { newPos ->
@@ -200,28 +201,30 @@ fun PlayRecordPanel(
                 enabled = safeDuration > 0,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(32.dp)
+                    .height(28.dp)
                     .testTag("media_panel_slider"),
                 colors = SliderDefaults.colors(
                     thumbColor = Variables.SchemesPrimary,
                     activeTrackColor = Variables.SchemesPrimary,
-                    inactiveTrackColor = Variables.SchemesPrimaryContainer
+                    inactiveTrackColor = onContainer.copy(alpha = 0.22f)
                 )
             )
 
             // Transport Controls Row: Speed, Rewind 5s, Play/Pause, Forward 5s, Stop
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Playback Speed Pill
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Variables.SchemesPrimaryContainer.copy(alpha = 0.7f))
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(onContainer.copy(alpha = 0.12f))
                         .clickable(onClick = onCycleSpeed)
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
                         .testTag("media_panel_speed"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -229,33 +232,33 @@ fun PlayRecordPanel(
                         text = speedLabel,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Variables.SchemesOnPrimaryContainer
+                        color = onContainer
                     )
                 }
 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
                         onClick = { onSeekBy(-5000) },
                         enabled = safeDuration > 0,
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(36.dp)
                             .testTag("media_panel_rewind")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Replay5,
                             contentDescription = "Rewind 5 seconds",
-                            tint = Variables.SchemesOnSurface,
-                            modifier = Modifier.size(22.dp)
+                            tint = onContainer,
+                            modifier = Modifier.size(21.dp)
                         )
                     }
 
                     IconButton(
                         onClick = onPlayPause,
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(40.dp)
                             .testTag("media_panel_play_pause"),
                         colors = IconButtonDefaults.iconButtonColors(
                             containerColor = Variables.SchemesPrimary,
@@ -266,7 +269,7 @@ fun PlayRecordPanel(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (isPlaying) "Pause Recording" else "Play Recording",
                             tint = Variables.SchemesOnPrimary,
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 
@@ -274,14 +277,14 @@ fun PlayRecordPanel(
                         onClick = { onSeekBy(5000) },
                         enabled = safeDuration > 0,
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(36.dp)
                             .testTag("media_panel_forward")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Forward5,
                             contentDescription = "Forward 5 seconds",
-                            tint = Variables.SchemesOnSurface,
-                            modifier = Modifier.size(22.dp)
+                            tint = onContainer,
+                            modifier = Modifier.size(21.dp)
                         )
                     }
                 }
@@ -290,18 +293,18 @@ fun PlayRecordPanel(
                     onClick = onStop,
                     enabled = canStop,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .testTag("media_panel_stop")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Stop,
                         contentDescription = "Stop Playback",
                         tint = if (canStop) {
-                            Variables.SchemesOnSurface
+                            onContainer
                         } else {
-                            Variables.SchemesOnSurface.copy(alpha = 0.32f)
+                            onContainer.copy(alpha = 0.32f)
                         },
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(21.dp)
                     )
                 }
             }

@@ -898,109 +898,156 @@ fun AddVoiceNoteScreen(
 
             topBar = {
 
+                val showVoiceMediaPanel = hasVoiceRecording && isMediaPanelExpanded
 
+                Surface(
+                    color = Variables.SchemesPrimaryContainer,
+                    shape = RoundedCornerShape(
+                        bottomStart = if (showVoiceMediaPanel) 20.dp else 0.dp,
+                        bottomEnd = if (showVoiceMediaPanel) 20.dp else 0.dp
+                    ),
+                    shadowElevation = if (showVoiceMediaPanel) 6.dp else 0.dp
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        EditScreenTopAppBar(
 
-                EditScreenTopAppBar(
+                            navController = navController,
 
-                    navController = navController,
+                            addVoiceNoteViewModel = addVoiceNoteViewModel,
 
-                    addVoiceNoteViewModel = addVoiceNoteViewModel,
+                            note = note,
 
-                    note = note,
+                            canApplyTemplate = !requiresUnlockForEditing || isUnlockedForEditing,
 
-                    canApplyTemplate = !requiresUnlockForEditing || isUnlockedForEditing,
+                            onTemplateClick = {
 
-                    onTemplateClick = {
+                                if (requiresUnlockForEditing && !isUnlockedForEditing) {
 
-                        if (requiresUnlockForEditing && !isUnlockedForEditing) {
+                                    unlockForEditDialogVisible = true
 
-                            unlockForEditDialogVisible = true
+                                } else {
 
-                        } else {
+                                    templateDialogVisible = true
 
-                            templateDialogVisible = true
+                                }
 
+                            },
+
+                            hasFolder = folderName.isNotBlank(),
+
+                            onFolderClick = { folderDialogVisible = true },
+
+                            isLocked = isNoteLocked,
+
+                            onLockClick = {
+
+                                if (isNoteLocked && !isUnlockedForEditing) {
+
+                                    unlockForEditDialogVisible = true
+
+                                } else {
+
+                                    lockDialogMode = if (isNoteLocked) {
+
+                                        NotePinDialogMode.CHANGE
+
+                                    } else {
+
+                                        NotePinDialogMode.CREATE
+
+                                    }
+
+                                }
+
+                            },
+
+                            hasVoiceRecording = hasVoiceRecording,
+
+                            isMediaPanelVisible = isMediaPanelExpanded,
+
+                            isVoicePlaying = voicePlaybackState.isPlaying,
+
+                            onVoiceIndicatorClick = {
+
+                                isMediaPanelExpanded = !isMediaPanelExpanded
+
+                            },
+
+                            scope = scope,
+
+                            snackbarHostState = snackbarHostState,
+
+                            nav = {
+
+                                if (addVoiceNoteViewModel.noteContent.value.text?.isNotEmpty() == true) {
+
+                                    //    navController.navigate(Screen.VoicesScreen.route)
+
+                                    addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
+
+                                } else {
+
+                                    addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Error("Kindly Enter a title be for you save"))
+
+                                }
+
+                            },
+
+                            datePickerDialog = {
+
+                                datePickerDialog.show()
+
+                            },
+
+                            contentSaved = {
+
+                                contentSaved.value = true
+                                addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
+                                addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote(state.toHtml()))
+
+                            },
+
+                            state = state
+
+                        )
+
+                        AnimatedVisibility(
+                            visible = showVoiceMediaPanel,
+                            enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                            exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+                        ) {
+                            PlayRecordPanel(
+                                currentPositionMs = voicePlaybackState.currentPositionMs,
+                                durationMs = voicePlaybackState.durationMs,
+                                isPlaying = voicePlaybackState.isPlaying,
+                                isPaused = voicePlaybackState.isPaused,
+                                playbackSpeed = voicePlaybackState.playbackSpeed,
+                                onPlayPause = {
+                                    addVoiceNoteViewModel.togglePlayPauseRecording()
+                                },
+                                onStop = {
+                                    addVoiceNoteViewModel.stopRecordingPlayback()
+                                },
+                                onSeekTo = { positionMs ->
+                                    addVoiceNoteViewModel.seekRecordingTo(positionMs)
+                                },
+                                onSeekBy = { deltaMs ->
+                                    addVoiceNoteViewModel.seekRecordingBy(deltaMs)
+                                },
+                                onCycleSpeed = {
+                                    addVoiceNoteViewModel.cyclePlaybackSpeed()
+                                },
+                                onRemove = {
+                                    isMediaPanelExpanded = false
+                                    addVoiceNoteViewModel.removeVoiceRecording()
+                                },
+                                onCollapse = {
+                                    isMediaPanelExpanded = false
+                                }
+                            )
                         }
-
-                    },
-
-                    hasFolder = folderName.isNotBlank(),
-
-                    onFolderClick = { folderDialogVisible = true },
-
-                    isLocked = isNoteLocked,
-
-                    onLockClick = {
-
-                        if (isNoteLocked && !isUnlockedForEditing) {
-
-                            unlockForEditDialogVisible = true
-
-                        } else {
-
-                            lockDialogMode = if (isNoteLocked) {
-
-                                NotePinDialogMode.CHANGE
-
-                            } else {
-
-                                NotePinDialogMode.CREATE
-
-                            }
-
-                        }
-
-                    },
-
-                    hasVoiceRecording = hasVoiceRecording,
-
-                    isMediaPanelVisible = isMediaPanelExpanded,
-
-                    isVoicePlaying = voicePlaybackState.isPlaying,
-
-                    onVoiceIndicatorClick = {
-
-                        isMediaPanelExpanded = !isMediaPanelExpanded
-
-                    },
-
-                    scope = scope,
-
-                    snackbarHostState = snackbarHostState,
-
-                    nav = {
-
-                        if (addVoiceNoteViewModel.noteContent.value.text?.isNotEmpty() == true) {
-
-                            //    navController.navigate(Screen.VoicesScreen.route)
-
-                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
-
-                        } else {
-
-                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Error("Kindly Enter a title be for you save"))
-
-                        }
-
-                    },
-
-                    datePickerDialog = {
-
-                        datePickerDialog.show()
-
-                    },
-
-                    contentSaved = {
-
-                        contentSaved.value = true
-                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
-                        addVoiceNoteViewModel.onEvent(AddEditNoteEvent.SaveNote(state.toHtml()))
-
-                    },
-
-                    state = state
-
-                )
+                    }
+                }
 
             },
 
@@ -1469,47 +1516,6 @@ fun AddVoiceNoteScreen(
                         )
 
 
-
-                        // Floating Voice Media Panel on top of the note canvas
-
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = hasVoiceRecording && isMediaPanelExpanded,
-                            enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                            exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .zIndex(10f)
-                        ) {
-                            PlayRecordPanel(
-                                currentPositionMs = voicePlaybackState.currentPositionMs,
-                                durationMs = voicePlaybackState.durationMs,
-                                isPlaying = voicePlaybackState.isPlaying,
-                                isPaused = voicePlaybackState.isPaused,
-                                playbackSpeed = voicePlaybackState.playbackSpeed,
-                                onPlayPause = {
-                                    addVoiceNoteViewModel.togglePlayPauseRecording()
-                                },
-                                onStop = {
-                                    addVoiceNoteViewModel.stopRecordingPlayback()
-                                },
-                                onSeekTo = { positionMs ->
-                                    addVoiceNoteViewModel.seekRecordingTo(positionMs)
-                                },
-                                onSeekBy = { deltaMs ->
-                                    addVoiceNoteViewModel.seekRecordingBy(deltaMs)
-                                },
-                                onCycleSpeed = {
-                                    addVoiceNoteViewModel.cyclePlaybackSpeed()
-                                },
-                                onRemove = {
-                                    isMediaPanelExpanded = false
-                                    addVoiceNoteViewModel.removeVoiceRecording()
-                                },
-                                onCollapse = {
-                                    isMediaPanelExpanded = false
-                                }
-                            )
-                        }
 
                         // Page indicator badge (e.g. "1 / 2")
 
