@@ -203,7 +203,9 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
         BackHandler(onBack = {
             viewModel.pause()
             voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay)
-            navController.navigate(Screen.VoicesScreen.route)
+            if (!navController.popBackStack()) {
+                navController.navigate(Screen.VoicesScreen.route)
+            }
         })
 
 
@@ -345,7 +347,9 @@ val state by voiceJournalPreviewViewModel.state.collectAsState()
                                     IconButton(onClick = {
                                         viewModel.pause()
                                         voiceJournalPreviewViewModel.onEvent(FavouriteScreenEvent.StopPlay)
-                                        navController.navigate(Screen.VoicesScreen.route)
+                                        if (!navController.popBackStack()) {
+                                            navController.navigate(Screen.VoicesScreen.route)
+                                        }
                                     }) {
                                         Icon(
                                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,

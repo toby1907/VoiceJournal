@@ -17,6 +17,7 @@ import com.example.voicejournal.ui.main.AddVoiceNote.AddVoiceNoteScreen
 import com.example.voicejournal.ui.main.MainScreen
 import com.example.voicejournal.ui.main.SplashScreen
 import com.example.voicejournal.ui.main.calendar.JournalPreviewScreen
+import com.example.voicejournal.ui.main.calendar.parseCalendarItemIds
 import com.example.voicejournal.ui.main.camera.CameraScreen
 import com.example.voicejournal.ui.main.gallery.GalleryScreen
 import com.example.voicejournal.ui.main.mainScreen.VoiceNoteViewModel
@@ -55,7 +56,7 @@ fun MyAppNavHost(
         }
         composable(
             route = Screen.AddEditNoteScreen.route +
-                    "?noteId={noteId}&noteColor={noteColor}&note={note}",
+                    "?noteId={noteId}&noteColor={noteColor}&note={note}&initialDateMillis={initialDateMillis}",
             arguments = listOf(
                 navArgument(
                     name = "noteId"
@@ -74,6 +75,12 @@ fun MyAppNavHost(
                 ) {
                     type = NavType.StringType
                     defaultValue = ""
+                },
+                navArgument(
+                    name = "initialDateMillis"
+                ) {
+                    type = NavType.LongType
+                    defaultValue = -1L
                 },
             )
         ) { entry ->
@@ -173,13 +180,12 @@ fun MyAppNavHost(
                 }
             )
         ) {backStackEntry ->
-            val itemIds = backStackEntry.arguments?.getString("itemIds")?.split(",")
-                ?.map { it.trim().toInt() }
+            val itemIds = parseCalendarItemIds(backStackEntry.arguments?.getString("itemIds"))
 
             JournalPreviewScreen(
                 journalIds = itemIds,
                 navController = navController,
-                )
+            )
         }
 
     }

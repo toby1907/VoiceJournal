@@ -194,6 +194,11 @@ class AddVoiceNoteViewModel @Inject constructor(
 
 
     init {
+        val initialDateMillis = savedStateHandle.get<Long>("initialDateMillis") ?: -1L
+        val incomingNoteId = savedStateHandle.get<Int>("noteId") ?: -1
+        if (incomingNoteId == -1 && initialDateMillis > 0L) {
+            _created.value = _created.value.copy(created = initialDateMillis)
+        }
         savedStateHandle.get<Int>("noteId")?.let { noteId ->
             if (noteId != -1) {
                 waitingForNoteHydration = true
