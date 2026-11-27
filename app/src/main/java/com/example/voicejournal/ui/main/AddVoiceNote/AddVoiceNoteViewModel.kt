@@ -109,8 +109,18 @@ class AddVoiceNoteViewModel @Inject constructor(
     private val _tags = mutableStateOf(emptyList<Tag>())
 
 
+    data class VoicePlaybackState(
+        val isPlaying: Boolean = false,
+        val isPaused: Boolean = false,
+        val currentPositionMs: Int = 0,
+        val durationMs: Int = 0,
+        val playbackSpeed: Float = 1f
+    )
+
     private val _recordState = MutableStateFlow<Boolean>(false)
     private val _playingState = MutableStateFlow<Boolean>(false)
+    private val _voicePlaybackState = MutableStateFlow(VoicePlaybackState())
+    val voicePlaybackState: StateFlow<VoicePlaybackState> = _voicePlaybackState.asStateFlow()
 
     // Timer for the Recorder Panel
     private val _timer = MutableStateFlow(0L)
@@ -123,6 +133,8 @@ class AddVoiceNoteViewModel @Inject constructor(
     val timer2 = _timer2.asStateFlow()
 
     private var timerJob2: Job? = null
+    private var playbackProgressJob: Job? = null
+    private var durationLoadJob: Job? = null
 
     val voiceJournalId: State<Int> = _voiceJournalId
     val noteTitle: State<NoteTextFieldState> = _noteTitle
@@ -224,6 +236,9 @@ class AddVoiceNoteViewModel @Inject constructor(
                             _noteFileName.value = _noteFileName.value.copy(
                                 text = tempFileName
                             )
+                            if (tempFileName.isNotBlank()) {
+                                refreshAudioDuration()
+                            }
 
                             syncTempImageUrisFromBlocks()
                             if (hydratedImageUris.isNotEmpty()) {
@@ -335,9 +350,19 @@ class AddVoiceNoteViewModel @Inject constructor(
             }
 
             is AddEditNoteEvent.StopRecording -> {
+                val recordedFallbackMs = (_timer.value * 1000L).toInt().coerceAtLeast(0)
                 viewModelScope.launch {
                     stopRecording()
                     changeRecordState(false)
+                    if (noteFileName.value.text.isNotBlank()) {
+                        _voicePlaybackState.value = _voicePlaybackState.value.copy(
+                            isPlaying = false,
+                            isPaused = false,
+                            currentPositionMs = 0,
+                            durationMs = maxOf(_voicePlaybackState.value.durationMs, recordedFallbackMs)
+                        )
+                        refreshAudioDuration()
+                    }
                     _eventFlow.emit(UiEvent.StopRecord)
 
                 }
@@ -345,7 +370,7 @@ class AddVoiceNoteViewModel @Inject constructor(
 
             is AddEditNoteEvent.StopPlay -> {
                 viewModelScope.launch {
-                    stopPlaying()
+                    stopRecordingPlayback()
                     _eventFlow.emit(UiEvent.StopPlay)
                 }
             }
@@ -637,7 +662,173 @@ class AddVoiceNoteViewModel @Inject constructor(
         super.onCleared()
         timerJob?.cancel()
         timerJob2?.cancel()
+        playbackProgressJob?.cancel()
+        durationLoadJob?.cancel()
         stopAudioBlockPlayback()
+    }
+
+    fun refreshAudioDuration() {
+        val filePath = noteFileName.value.text.trim()
+        if (filePath.isBlank()) {
+            _voicePlaybackState.value = VoicePlaybackState()
+            return
+        }
+        durationLoadJob?.cancel()
+        durationLoadJob = viewModelScope.launch {
+            val loadedMs = audioDuration()
+            if (loadedMs > 0) {
+                _voicePlaybackState.value = _voicePlaybackState.value.copy(durationMs = loadedMs)
+            }
+        }
+    }
+
+    fun togglePlayPauseRecording() {
+        val filePath = noteFileName.value.text.trim()
+        if (filePath.isBlank()) return
+
+        val current = _voicePlaybackState.value
+        when {
+            current.isPlaying -> {
+                try {
+                    audioPlayer.pause()
+                } catch (_: IllegalStateException) {
+                    // Ignore if player wasn't running
+                }
+                playbackProgressJob?.cancel()
+                val posMs = audioPlayer.getCurrentPosition().coerceAtLeast(current.currentPositionMs)
+                _voicePlaybackState.value = current.copy(
+                    isPlaying = false,
+                    isPaused = true,
+                    currentPositionMs = posMs
+                )
+                _playingState.value = false
+            }
+
+            current.isPaused -> {
+                try {
+                    audioPlayer.setPlaybackSpeed(current.playbackSpeed)
+                    audioPlayer.resume()
+                    _voicePlaybackState.value = current.copy(
+                        isPlaying = true,
+                        isPaused = false
+                    )
+                    _playingState.value = true
+                    startPlaybackProgressTicker()
+                } catch (e: Exception) {
+                    Log.e(LOG_TAG, "resume() failed", e)
+                    stopRecordingPlayback()
+                }
+            }
+
+            else -> {
+                viewModelScope.launch {
+                    try {
+                        _currentBlockPreviewAudioUri.value = null
+                        audioPlayer.setPlaybackSpeed(current.playbackSpeed)
+                        audioPlayer.setOnCompletionListener {
+                            viewModelScope.launch {
+                                playbackProgressJob?.cancel()
+                                _voicePlaybackState.value = _voicePlaybackState.value.copy(
+                                    isPlaying = false,
+                                    isPaused = false,
+                                    currentPositionMs = 0
+                                )
+                                _playingState.value = false
+                                _timer2.value = 0
+                                _eventFlow.emit(UiEvent.StopPlay)
+                            }
+                        }
+                        audioPlayer.start(filePath)
+                        val playerDuration = audioPlayer.getDuration()
+                        val resolvedDuration = when {
+                            playerDuration > 0 -> playerDuration
+                            current.durationMs > 0 -> current.durationMs
+                            else -> audioDuration()
+                        }
+                        val resumePos = current.currentPositionMs.coerceIn(0, resolvedDuration.coerceAtLeast(0))
+                        if (resumePos > 0) {
+                            audioPlayer.seekTo(resumePos)
+                        }
+                        _voicePlaybackState.value = current.copy(
+                            isPlaying = true,
+                            isPaused = false,
+                            currentPositionMs = resumePos,
+                            durationMs = resolvedDuration
+                        )
+                        _playingState.value = true
+                        startPlaybackProgressTicker()
+                    } catch (e: Exception) {
+                        Log.e(LOG_TAG, "start() failed", e)
+                        stopRecordingPlayback()
+                        _eventFlow.emit(UiEvent.ShowSnackbar("Unable to play voice recording"))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun startPlaybackProgressTicker() {
+        playbackProgressJob?.cancel()
+        playbackProgressJob = viewModelScope.launch {
+            while (_voicePlaybackState.value.isPlaying) {
+                val posMs = audioPlayer.getCurrentPosition().coerceAtLeast(0)
+                val playerDur = audioPlayer.getDuration()
+                val cur = _voicePlaybackState.value
+                val duration = if (playerDur > 0) playerDur else cur.durationMs
+                val clampedPos = if (duration > 0) posMs.coerceIn(0, duration) else posMs
+                _voicePlaybackState.value = cur.copy(
+                    currentPositionMs = clampedPos,
+                    durationMs = duration
+                )
+                _timer2.value = (clampedPos / 1000L)
+                delay(120)
+            }
+        }
+    }
+
+    fun stopRecordingPlayback() {
+        playbackProgressJob?.cancel()
+        timerJob2?.cancel()
+        stopPlaying()
+        _playingState.value = false
+        _timer2.value = 0
+        _voicePlaybackState.value = _voicePlaybackState.value.copy(
+            isPlaying = false,
+            isPaused = false,
+            currentPositionMs = 0
+        )
+    }
+
+    fun seekRecordingTo(positionMs: Int) {
+        val current = _voicePlaybackState.value
+        val maxPos = current.durationMs.coerceAtLeast(0)
+        val clamped = if (maxPos > 0) positionMs.coerceIn(0, maxPos) else positionMs.coerceAtLeast(0)
+        _voicePlaybackState.value = current.copy(currentPositionMs = clamped)
+        _timer2.value = clamped / 1000L
+        if (current.isPlaying || current.isPaused) {
+            audioPlayer.seekTo(clamped)
+        }
+    }
+
+    fun seekRecordingBy(deltaMs: Int) {
+        seekRecordingTo(_voicePlaybackState.value.currentPositionMs + deltaMs)
+    }
+
+    fun cyclePlaybackSpeed() {
+        val speeds = listOf(1f, 1.25f, 1.5f, 2f)
+        val current = _voicePlaybackState.value
+        val currentIndex = speeds.indexOfFirst { kotlin.math.abs(it - current.playbackSpeed) < 0.05f }
+        val nextSpeed = speeds[(currentIndex + 1) % speeds.size]
+        _voicePlaybackState.value = current.copy(playbackSpeed = nextSpeed)
+        audioPlayer.setPlaybackSpeed(nextSpeed)
+    }
+
+    fun removeVoiceRecording() {
+        stopRecordingPlayback()
+        durationLoadJob?.cancel()
+        _doneButtonState.value = false
+        onCancelRecord()
+        _voicePlaybackState.value = VoicePlaybackState()
     }
 
     // Play panel Timer
@@ -684,8 +875,11 @@ class AddVoiceNoteViewModel @Inject constructor(
         return _noteBlocks.any {
             it.type == NoteBlockType.DRAWING.name ||
                 it.type == NoteBlockType.IMAGE.name ||
-                it.type == NoteBlockType.FLOATING_TEXT.name
-        } || tempImageUris.value.imageFileUris.orEmpty().any { it.isNotBlank() }
+                it.type == NoteBlockType.FLOATING_TEXT.name ||
+                it.type == NoteBlockType.AUDIO.name
+        } ||
+            tempImageUris.value.imageFileUris.orEmpty().any { it.isNotBlank() } ||
+            noteFileName.value.text.isNotBlank()
     }
 
     fun attachImageUris(uris: List<String>, pageIndex: Int = currentActivePageIndex) {

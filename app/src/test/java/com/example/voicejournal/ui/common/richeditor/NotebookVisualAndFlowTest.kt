@@ -23,6 +23,9 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
@@ -1439,5 +1442,139 @@ class NotebookVisualAndFlowTest {
 
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_box_hydrated-1")).assertIsDisplayed()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("floating_image_box_legacy-far-y")).assertIsDisplayed()
+    }
+
+    @Test
+    fun topBarVoiceIndicator_togglesFloatingMediaPanelOnTopOfNote_andControlsRespond() {
+        var hasVoiceRecording by mutableStateOf(false)
+        var isPanelVisible by mutableStateOf(false)
+        var isPlaying by mutableStateOf(false)
+        var isPaused by mutableStateOf(false)
+        var positionMs by mutableStateOf(15_000)
+        var speed by mutableStateOf(1f)
+        var removed by mutableStateOf(false)
+
+        composeRule.setContent {
+            MaterialTheme {
+                val state = rememberRichTextState()
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Simulated TopBar with voice indicator action matching EditScreenTopAppBar
+                    androidx.compose.material3.Surface {
+                        androidx.compose.foundation.layout.Row(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (hasVoiceRecording) {
+                                androidx.compose.material3.IconButton(
+                                    onClick = { isPanelVisible = !isPanelVisible },
+                                    modifier = Modifier.testTag("topbar_voice_indicator")
+                                ) {
+                                    androidx.compose.material3.Icon(
+                                        imageVector = Icons.Default.GraphicEq,
+                                        contentDescription = if (isPanelVisible) "Hide Voice Player" else "Show Voice Player"
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        RichTextEditor(
+                            modifier = Modifier.fillMaxSize(),
+                            state = state
+                        )
+
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = hasVoiceRecording && isPanelVisible,
+                            modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter)
+                        ) {
+                            com.example.voicejournal.ui.main.AddVoiceNote.components.PlayRecordPanel(
+                                currentPositionMs = positionMs,
+                                durationMs = 65_000,
+                                isPlaying = isPlaying,
+                                isPaused = isPaused,
+                                playbackSpeed = speed,
+                                onPlayPause = {
+                                    if (isPlaying) {
+                                        isPlaying = false
+                                        isPaused = true
+                                    } else {
+                                        isPlaying = true
+                                        isPaused = false
+                                    }
+                                },
+                                onStop = {
+                                    isPlaying = false
+                                    isPaused = false
+                                    positionMs = 0
+                                },
+                                onSeekTo = { positionMs = it },
+                                onSeekBy = { positionMs = (positionMs + it).coerceIn(0, 65_000) },
+                                onCycleSpeed = {
+                                    speed = if (speed == 1f) 1.5f else 1f
+                                },
+                                onRemove = {
+                                    removed = true
+                                    hasVoiceRecording = false
+                                    isPanelVisible = false
+                                },
+                                onCollapse = {
+                                    isPanelVisible = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        // 1. Before recording exists: neither indicator nor panel is visible
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("topbar_voice_indicator")).assertDoesNotExist()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("voice_media_panel")).assertDoesNotExist()
+
+        // 2. Recording available -> TopBar indicator appears, panel stays hidden until clicked
+        composeRule.runOnIdle { hasVoiceRecording = true }
+        composeRule.waitForIdle()
+        val indicator = composeRule.onNode(androidx.compose.ui.test.hasTestTag("topbar_voice_indicator"))
+        indicator.assertIsDisplayed()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("voice_media_panel")).assertDoesNotExist()
+
+        // 3. Click TopBar indicator -> floating media panel reveals on top of note
+        indicator.performClick()
+        composeRule.waitForIdle()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("voice_media_panel")).assertIsDisplayed()
+        composeRule.onNodeWithText("00:15 / 01:05").assertIsDisplayed()
+
+        // 4. Play, Forward 5s, Rewind 5s, Speed, Pause, Stop all work
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("media_panel_play_pause")).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Playing Voice Note").assertIsDisplayed()
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("media_panel_forward")).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("00:20 / 01:05").assertIsDisplayed()
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("media_panel_rewind")).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("00:15 / 01:05").assertIsDisplayed()
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("media_panel_speed")).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("1.5x").assertIsDisplayed()
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("media_panel_play_pause")).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Paused").assertIsDisplayed()
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("media_panel_stop")).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("00:00 / 01:05").assertIsDisplayed()
+
+        // 5. Collapse button hides the panel while TopBar indicator stays available
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("media_panel_collapse")).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("voice_media_panel")).assertDoesNotExist()
+        indicator.assertIsDisplayed()
+        assertTrue(!removed)
     }
 }

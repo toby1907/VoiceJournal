@@ -54,14 +54,52 @@ class NoteSavePersistenceTest {
         override fun prepare() = Unit
     }
 
-    private class FakeAudioPlayer : AudioPlayer {
-        override fun start(file: String) = Unit
-        override fun stop() = Unit
-        override fun pause() = Unit
-        override fun release() = Unit
-        override fun isPlaying(): Boolean = false
-        override fun setOnCompletionListener(listener: MediaPlayer.OnCompletionListener) = Unit
-        override fun getDuration(): Int = 0
+    private class FakeAudioPlayer(
+        var fakeDurationMs: Int = 65_000
+    ) : AudioPlayer {
+        var playing: Boolean = false
+        var positionMs: Int = 0
+        var speed: Float = 1f
+        var startCount: Int = 0
+        var pauseCount: Int = 0
+        var resumeCount: Int = 0
+        var stopCount: Int = 0
+        var lastSeekMs: Int? = null
+        var completionListener: MediaPlayer.OnCompletionListener? = null
+
+        override fun start(file: String) {
+            startCount++
+            playing = true
+        }
+        override fun stop() {
+            stopCount++
+            playing = false
+            positionMs = 0
+        }
+        override fun pause() {
+            pauseCount++
+            playing = false
+        }
+        override fun resume() {
+            resumeCount++
+            playing = true
+        }
+        override fun seekTo(positionMs: Int) {
+            this.positionMs = positionMs
+            lastSeekMs = positionMs
+        }
+        override fun getCurrentPosition(): Int = positionMs
+        override fun setPlaybackSpeed(speed: Float) {
+            this.speed = speed
+        }
+        override fun release() {
+            playing = false
+        }
+        override fun isPlaying(): Boolean = playing
+        override fun setOnCompletionListener(listener: MediaPlayer.OnCompletionListener) {
+            completionListener = listener
+        }
+        override fun getDuration(): Int = fakeDurationMs
         override fun prepare() = Unit
     }
 
@@ -382,5 +420,71 @@ class NoteSavePersistenceTest {
         assertEquals(165f, keptExisting.canvasHeight)
         assertTrue(newlyAdded.canvasWidth != null && newlyAdded.canvasWidth!! > 0f)
         assertEquals(2, returningVm.tempImageUris.value.imageFileUris?.size)
+    }
+
+    @Test
+    fun voicePlaybackControls_playPauseResumeSeekSpeedStopAndRemove_workEndToEnd() = runBlocking {
+        val fakePlayer = FakeAudioPlayer(fakeDurationMs = 65_000)
+        val viewModel = AddVoiceNoteViewModel(
+            savedStateHandle = SavedStateHandle(),
+            voiceJournalRepository = repository,
+            settingsRepository = settingsRepository,
+            context = context,
+            audioRecorder = FakeAudioRecorder(),
+            audioPlayer = fakePlayer
+        )
+
+        // Start and finish recording
+        viewModel.onEvent(AddEditNoteEvent.Recording(""))
+        waitUntil { viewModel.noteFileName.value.text.isNotBlank() }
+        assertTrue("Voice-only note should be persistable", viewModel.hasPersistableAttachments())
+
+        viewModel.onEvent(AddEditNoteEvent.StopRecording)
+        waitUntil { !viewModel.recordState.value }
+
+        // Play
+        viewModel.togglePlayPauseRecording()
+        waitUntil { viewModel.voicePlaybackState.value.isPlaying }
+        assertEquals(1, fakePlayer.startCount)
+        assertEquals(65_000, viewModel.voicePlaybackState.value.durationMs)
+
+        // Forward 5s
+        viewModel.seekRecordingBy(5000)
+        assertEquals(5000, fakePlayer.lastSeekMs)
+        assertEquals(5000, viewModel.voicePlaybackState.value.currentPositionMs)
+
+        // Pause
+        viewModel.togglePlayPauseRecording()
+        assertEquals(1, fakePlayer.pauseCount)
+        assertEquals(false, viewModel.voicePlaybackState.value.isPlaying)
+        assertEquals(true, viewModel.voicePlaybackState.value.isPaused)
+
+        // Resume from paused position (does not restart from 0)
+        viewModel.togglePlayPauseRecording()
+        assertEquals(1, fakePlayer.resumeCount)
+        assertEquals(1, fakePlayer.startCount)
+        assertEquals(true, viewModel.voicePlaybackState.value.isPlaying)
+
+        // Cycle playback speed: 1x -> 1.25x -> 1.5x -> 2x -> 1x
+        viewModel.cyclePlaybackSpeed()
+        assertEquals(1.25f, viewModel.voicePlaybackState.value.playbackSpeed)
+        assertEquals(1.25f, fakePlayer.speed)
+        viewModel.cyclePlaybackSpeed()
+        assertEquals(1.5f, viewModel.voicePlaybackState.value.playbackSpeed)
+        viewModel.cyclePlaybackSpeed()
+        assertEquals(2f, viewModel.voicePlaybackState.value.playbackSpeed)
+        viewModel.cyclePlaybackSpeed()
+        assertEquals(1f, viewModel.voicePlaybackState.value.playbackSpeed)
+
+        // Stop resets back to 00:00
+        viewModel.stopRecordingPlayback()
+        assertEquals(false, viewModel.voicePlaybackState.value.isPlaying)
+        assertEquals(false, viewModel.voicePlaybackState.value.isPaused)
+        assertEquals(0, viewModel.voicePlaybackState.value.currentPositionMs)
+
+        // Remove recording clears file path and state
+        viewModel.removeVoiceRecording()
+        assertEquals("", viewModel.noteFileName.value.text)
+        assertEquals(0, viewModel.voicePlaybackState.value.durationMs)
     }
 }

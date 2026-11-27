@@ -21,6 +21,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 
 import androidx.compose.animation.Animatable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.zIndex
 
 import androidx.compose.foundation.background
 
@@ -512,6 +518,12 @@ fun AddVoiceNoteScreen(
 
     val fileNameState = addVoiceNoteViewModel.noteFileName.value
 
+    val voicePlaybackState by addVoiceNoteViewModel.voicePlaybackState.collectAsState()
+
+    val hasVoiceRecording = fileNameState.text.isNotBlank() && !myState
+
+    var isMediaPanelExpanded by rememberSaveable { mutableStateOf(false) }
+
     val noteBlocks = addVoiceNoteViewModel.noteBlocks
 
     val folderName = addVoiceNoteViewModel.folderName.value
@@ -940,6 +952,18 @@ fun AddVoiceNoteScreen(
 
                     },
 
+                    hasVoiceRecording = hasVoiceRecording,
+
+                    isMediaPanelVisible = isMediaPanelExpanded,
+
+                    isVoicePlaying = voicePlaybackState.isPlaying,
+
+                    onVoiceIndicatorClick = {
+
+                        isMediaPanelExpanded = !isMediaPanelExpanded
+
+                    },
+
                     scope = scope,
 
                     snackbarHostState = snackbarHostState,
@@ -1011,6 +1035,8 @@ fun AddVoiceNoteScreen(
 
                             addVoiceNoteViewModel.onCancelRecord()
 
+                            isMediaPanelExpanded = false
+
                         },
 
                         onDoneClick = {
@@ -1024,6 +1050,8 @@ fun AddVoiceNoteScreen(
                             addVoiceNoteViewModel.changeRecordState(false)
 
                             doneButton.value = true
+
+                            isMediaPanelExpanded = true
 
                         },
 
@@ -1442,6 +1470,47 @@ fun AddVoiceNoteScreen(
 
 
 
+                        // Floating Voice Media Panel on top of the note canvas
+
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = hasVoiceRecording && isMediaPanelExpanded,
+                            enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                            exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .zIndex(10f)
+                        ) {
+                            PlayRecordPanel(
+                                currentPositionMs = voicePlaybackState.currentPositionMs,
+                                durationMs = voicePlaybackState.durationMs,
+                                isPlaying = voicePlaybackState.isPlaying,
+                                isPaused = voicePlaybackState.isPaused,
+                                playbackSpeed = voicePlaybackState.playbackSpeed,
+                                onPlayPause = {
+                                    addVoiceNoteViewModel.togglePlayPauseRecording()
+                                },
+                                onStop = {
+                                    addVoiceNoteViewModel.stopRecordingPlayback()
+                                },
+                                onSeekTo = { positionMs ->
+                                    addVoiceNoteViewModel.seekRecordingTo(positionMs)
+                                },
+                                onSeekBy = { deltaMs ->
+                                    addVoiceNoteViewModel.seekRecordingBy(deltaMs)
+                                },
+                                onCycleSpeed = {
+                                    addVoiceNoteViewModel.cyclePlaybackSpeed()
+                                },
+                                onRemove = {
+                                    isMediaPanelExpanded = false
+                                    addVoiceNoteViewModel.removeVoiceRecording()
+                                },
+                                onCollapse = {
+                                    isMediaPanelExpanded = false
+                                }
+                            )
+                        }
+
                         // Page indicator badge (e.g. "1 / 2")
 
                         if (state.pageCount() > 1) {
@@ -1484,73 +1553,7 @@ fun AddVoiceNoteScreen(
 
                 }
 
-
-
-                Spacer(modifier = Modifier.size(8.dp))
-
-                val timerValue by addVoiceNoteViewModel.timer2.collectAsState()
-
-                val playingState by addVoiceNoteViewModel.playingState.collectAsState()
-
-                val timerValue2 = addVoiceNoteViewModel.getDuration()
-
-                if (
-
-                    doneButtonState.value || playNoteState || (fileNameState.text.isNotEmpty() && !myState)
-
-                ) {
-
-                    PlayRecordPanel(
-
-                        timerValue = timerValue,
-
-                        timerValue2 = timerValue2,
-
-                        onPlay = {
-
-                            addVoiceNoteViewModel.startTimer2()
-
-                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.Play(filename = fileNameState.text))
-
-                        },
-
-                        onCancelRecord = {
-
-                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
-
-                            addVoiceNoteViewModel.stopTimer2()
-
-                            Log.d("PlayCancel", "Clicked")
-
-                        },
-
-                        onRemove = {
-
-
-
-                            addVoiceNoteViewModel.doneButtonState(false)
-
-                            addVoiceNoteViewModel.onCancelRecord()
-
-                            addVoiceNoteViewModel.onEvent(AddEditNoteEvent.StopPlay)
-
-                        },
-
-                        playingState = playingState
-
-                    )
-
-                }
-
-
-
-
-
             }
-
-
-
-
 
         }
 

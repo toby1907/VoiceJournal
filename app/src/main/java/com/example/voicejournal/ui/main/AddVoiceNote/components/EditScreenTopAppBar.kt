@@ -2,6 +2,8 @@ package com.example.voicejournal.ui.main.AddVoiceNote.components
 
 
 
+import androidx.compose.foundation.background
+
 import androidx.compose.foundation.layout.Arrangement
 
 import androidx.compose.foundation.layout.Row
@@ -16,9 +18,13 @@ import androidx.compose.foundation.layout.padding
 
 import androidx.compose.foundation.layout.size
 
+import androidx.compose.foundation.shape.CircleShape
+
 import androidx.compose.foundation.text.BasicTextField
 
 import androidx.compose.ui.focus.onFocusChanged
+
+import androidx.compose.ui.graphics.Color
 
 import androidx.compose.ui.graphics.SolidColor
 
@@ -29,6 +35,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 
 import androidx.compose.material.icons.filled.Close
+
+import androidx.compose.material.icons.filled.GraphicEq
 
 import androidx.compose.material.icons.filled.Lock
 
@@ -113,6 +121,14 @@ fun EditScreenTopAppBar(
     isLocked: Boolean = false,
 
     onLockClick: () -> Unit = {},
+
+    hasVoiceRecording: Boolean = false,
+
+    isMediaPanelVisible: Boolean = false,
+
+    isVoicePlaying: Boolean = false,
+
+    onVoiceIndicatorClick: () -> Unit = {},
 
     scope: CoroutineScope,
 
@@ -298,7 +314,7 @@ fun EditScreenTopAppBar(
 
         navigationIcon = {
 
-            if (state.annotatedString.text.isNotBlank() || addVoiceNoteViewModel.noteBlocks.any { it.type == com.example.voicejournal.Data.model.NoteBlockType.DRAWING.name }) {
+            if (state.annotatedString.text.isNotBlank() || addVoiceNoteViewModel.hasPersistableAttachments()) {
 
                 IconButton(onClick = {
 
@@ -345,6 +361,53 @@ fun EditScreenTopAppBar(
         },
 
         actions = {
+
+            if (hasVoiceRecording) {
+
+                IconButton(
+                    onClick = onVoiceIndicatorClick,
+                    modifier = Modifier.testTag("topbar_voice_indicator")
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(
+                                color = when {
+                                    isVoicePlaying -> Variables.SchemesPrimary
+                                    isMediaPanelVisible -> Variables.SchemesPrimary.copy(alpha = 0.18f)
+                                    else -> Color.Transparent
+                                },
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.GraphicEq,
+                            contentDescription = if (isMediaPanelVisible) {
+                                "Hide Voice Player"
+                            } else {
+                                "Show Voice Player"
+                            },
+                            tint = if (isVoicePlaying) {
+                                Variables.SchemesOnPrimary
+                            } else {
+                                Variables.SchemesOnPrimaryContainer
+                            },
+                            modifier = Modifier.size(22.dp)
+                        )
+                        if (isVoicePlaying && !isMediaPanelVisible) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                                    .size(7.dp)
+                                    .background(Color(0xFF4CAF50), CircleShape)
+                            )
+                        }
+                    }
+                }
+
+            }
 
             if (isLocked) {
 
